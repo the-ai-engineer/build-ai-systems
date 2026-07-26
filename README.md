@@ -68,10 +68,14 @@ uv sync --extra app
 uv run --extra app uvicorn support_agent_app.api:app --reload --port 8080
 ```
 
+The app also includes the first Slack integration milestone.
+See the [minimal Slack bot setup](support_agent_app/README.md#minimal-slack-bot) to connect Slack to the FastAPI `/slack/events` webhook.
+
 Build the Cloud Run container:
 
 ```bash
 docker build -t ai-architect-support-agent .
+docker build -f Dockerfile.slack -t ai-architect-slack-bot .
 ```
 
 Run tests:
