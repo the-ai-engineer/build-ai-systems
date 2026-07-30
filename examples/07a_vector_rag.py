@@ -1,8 +1,8 @@
 """
 Vector RAG
 
-Use Postgres and pgvector to store support policy embeddings and retrieve the
-most similar documents for a customer question.
+Use Postgres and pgvector to store HR policy embeddings and retrieve the
+most similar documents for an employee question.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 
-POLICY_DIR = Path(__file__).resolve().parents[1] / "docs" / "policies"
+POLICY_DIR = Path(__file__).with_name("policies")
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 1536
 
@@ -85,7 +85,11 @@ def main() -> None:
     load_dotenv(Path(__file__).with_name(".env"))
 
     parser = argparse.ArgumentParser(description="Lesson 07A: vector RAG with Postgres.")
-    parser.add_argument("question", nargs="?", default="How long does shipping take to Canada?")
+    parser.add_argument(
+        "question",
+        nargs="?",
+        default="Can I work remotely three days per week?",
+    )
     parser.add_argument("--limit", type=int, default=3)
     args = parser.parse_args()
 

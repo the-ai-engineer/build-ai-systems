@@ -2,8 +2,8 @@
 Hybrid RAG
 
 Use Postgres full-text search and pgvector together.
-Keyword search is good for exact terms like "refund".
-Vector search is good for semantic matches like "my package is late".
+Keyword search is good for exact terms like "annual leave".
+Vector search is good for semantic matches like "unused holiday next year".
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 
-POLICY_DIR = Path(__file__).resolve().parents[1] / "docs" / "policies"
+POLICY_DIR = Path(__file__).with_name("policies")
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 1536
 
@@ -108,7 +108,11 @@ def main() -> None:
     load_dotenv(Path(__file__).with_name(".env"))
 
     parser = argparse.ArgumentParser(description="Lesson 07B: hybrid RAG with Postgres.")
-    parser.add_argument("question", nargs="?", default="My package tracking has not updated.")
+    parser.add_argument(
+        "question",
+        nargs="?",
+        default="Can I carry unused holiday into next year?",
+    )
     parser.add_argument("--limit", type=int, default=3)
     args = parser.parse_args()
 
@@ -221,12 +225,9 @@ def extract_title(markdown: str, fallback: str) -> str:
 
 def extract_keywords(document_id: str) -> list[str]:
     keyword_map = {
-        "account-policy": ["account", "login", "password", "access"],
-        "opening-hours": ["hours", "support", "weekend", "holiday"],
-        "privacy-policy": ["privacy", "data", "delete", "card"],
-        "refund-policy": ["refund", "return", "exchange", "opened"],
-        "shipping-policy": ["shipping", "delivery", "tracking", "package"],
-        "warranty-policy": ["warranty", "fault", "repair", "replacement"],
+        "annual-leave-policy": ["annual leave", "holiday", "carry", "days"],
+        "expenses-policy": ["expenses", "receipt", "claim", "approval"],
+        "remote-working-policy": ["remote", "home", "office", "manager"],
     }
     return keyword_map.get(document_id, document_id.split("-"))
 
