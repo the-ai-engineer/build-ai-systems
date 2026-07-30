@@ -1,113 +1,105 @@
-# AI Architect v2
+# Build AI Systems
 
-Public code companion for the AI Architect course.
+Public project repository for the Build AI Systems course.
 
-The course teaches how to build production-style AI systems by building one running project: an AI customer support agent.
+The course builds and deploys a professional HR policy assistant that employees use through Slack.
+The assistant answers from trusted company policies, refuses off-topic requests, and sends uncertain or sensitive questions to a person.
 
-The final demo is simple and concrete:
+## Start here
 
-```text
-Send an email to a support inbox
--> create a support ticket
--> look up the right support document
--> generate an answer with OpenAI
--> reply by email or escalate to a human
--> inspect logs, traces, evals, and deployment state
-```
+Read the [customer brief](brief.md).
 
-The course starts with small Python examples.
-Then it moves into Pydantic AI, RAG, Gmail, Google Cloud, evals, tracing, and deployment.
+The repository intentionally does not contain `ARCHITECTURE.md` yet.
+The first course design exercise creates it from the customer brief.
 
-## Start Here
+The starting repository contains small Python examples for the core AI concepts.
+It does not contain a finished application, deployment, database schema, or Slack integration.
+Students design and build those parts during the course.
 
-Read the finished application spec:
+## Course build
 
-- [docs/course-outline.md](docs/course-outline.md)
-- [docs/ai-system-architecture-patterns/design.md](docs/ai-system-architecture-patterns/design.md)
-- [docs/final-agent-spec.md](docs/final-agent-spec.md)
-- [docs/course-code-map.md](docs/course-code-map.md)
-- [docs/resources/deploy-with-codex-prompt.md](docs/resources/deploy-with-codex-prompt.md)
+The project advances through four phases.
 
-Run the first examples:
+### 1. Design the system
+
+Students turn the customer brief into `ARCHITECTURE.md`.
+They make the important product and engineering decisions, define boundaries, identify failure cases, and decide how the system will be tested.
+
+The reviewed architecture is then broken into small tasks and tickets with acceptance criteria.
+
+### 2. Understand the AI boundaries
+
+The Python examples introduce the mechanisms used by the finished system:
+
+1. Basic model calls.
+2. Structured scope decisions.
+3. Calls, workflows, and agents.
+4. A hand-built agent loop.
+5. A framework agent with Pydantic AI.
+6. Grounding answers in trusted documents.
+7. Optional vector and hybrid retrieval.
+
+Coding agents can write much of the implementation.
+Students still need to understand what data reaches the model, what contract comes back, who authorises tool calls, and how to prove the result is correct.
+
+### 3. Build the product
+
+Students use coding agents to implement the reviewed tickets.
+They set up the Slack application and build:
+
+- Signed Slack events and fast acknowledgement.
+- Durable asynchronous processing.
+- Trusted policy retrieval.
+- Safe thread replies.
+- Fixed off-topic refusals.
+- Human referral for unsupported or sensitive requests.
+- Retries and duplicate-event handling.
+
+Students run the complete system locally before deploying it.
+Local testing proves the Slack event, background worker, retrieval, and reply path as one system.
+
+### 4. Deploy and prove it
+
+Students deploy the working system to Google Cloud.
+They then add production evidence:
+
+- Behavioural evals.
+- Integration and failure tests.
+- Logs, traces, latency, and cost evidence.
+- A live end-to-end demonstration.
+
+## Run the examples
+
+Install the Python dependencies:
 
 ```bash
 uv sync
 cp examples/.env.sample examples/.env
+```
+
+Run an example:
+
+```bash
 uv run python examples/01_basic_model_call.py
-uv run python examples/02_structured_outputs.py
-uv run python examples/03_deterministic_workflow.py
-uv run python examples/04_agent_by_hand.py
-uv run python examples/05_first_framework_agent.py
-uv run python examples/06a_file_rag.py
-uv run python examples/06b_sql_rag.py
 ```
 
-Load the sample support policies:
+The model examples require the matching provider API key.
+The Postgres retrieval examples also require a local Postgres database with `pgvector`.
 
-```bash
-cp support_agent_app/.env.sample support_agent_app/.env
-uv run python -m support_agent_app.ingest_policies --dry-run
-createdb ai_architect || true
-psql -d ai_architect -f sql/001_support_document_registry.sql
-uv run python -m support_agent_app.ingest_policies
-```
-
-Run the Postgres retrieval examples:
-
-These require Postgres with pgvector and an OpenAI API key.
-
-```bash
-uv run python examples/07a_vector_rag.py
-uv run python examples/07b_hybrid_rag.py
-```
-
-Run the deployable app locally:
-
-```bash
-uv sync --extra app
-uv run --extra app uvicorn support_agent_app.api:app --reload --port 8080
-```
-
-Build the Cloud Run container:
-
-```bash
-docker build -t ai-architect-support-agent .
-```
-
-Run tests:
+## Verify the starting repository
 
 ```bash
 uv run python -m unittest discover -s tests
+uv run python -m compileall -q examples tests
 ```
 
-## Teaching Stack
+## Repository structure
 
-- Python for the examples.
-- `uv` for package management and running commands.
-- The ideas translate to other languages.
-- OpenAI `gpt-5.6` as the default model provider.
-- Pydantic AI for the agent framework once students understand the agent loop.
-- OpenAI by default, with Anthropic shown as a direct provider switch.
-- Gmail and Pub/Sub for asynchronous email ingestion.
-- Cloud Run for deployment.
-- Cloud SQL Postgres for state and support documents.
-- pgvector for the vector search and hybrid search lessons.
-- Cloud Logging, Cloud Trace, and Cloud Monitoring for observability.
+```text
+brief.md       Customer problem and product requirements
+examples/      Small standalone AI engineering examples
+  policies/    Sample data used only by the retrieval examples
+tests/         Checks for the teaching examples and clean starting state
+```
 
-## Repo Structure
-
-- `examples/`: small runnable standalone lesson examples.
-- [`support_agent_app/`](support_agent_app/README.md): integrated application for the later lessons.
-- `support_agent_app/api.py`: FastAPI HTTP surface for Cloud Run.
-- `support_agent_app/services/`: document registry, Gmail labels, and policy ingestion.
-- `support_agent_app/agents/`: Pydantic AI agent definitions.
-- `support_agent_app/integrations/`: external system boundaries.
-- `docs/policies/`: editable support policy documents.
-- `docs/resources/`: reusable course prompts and support material.
-- `sql/`: Postgres schema.
-
-## Repo Status
-
-This repo is being built lesson by lesson.
-Lessons 01 to 07 are runnable now.
-Lessons 08 to 12 describe the target production shape and will fill in Gmail, Pub/Sub, guardrails, evals, observability, and deployment code as the course moves forward.
+`ARCHITECTURE.md`, application code, production policy sources, database migrations, deployment files, and operational checks are outputs of the course.

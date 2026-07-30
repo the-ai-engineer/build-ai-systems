@@ -12,7 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 
-POLICY_DIR = Path(__file__).resolve().parents[1] / "docs" / "policies"
+POLICY_DIR = Path(__file__).with_name("policies")
 
 
 UPSERT_DOCUMENT_SQL = """
@@ -118,12 +118,9 @@ def extract_summary(markdown: str) -> str:
 
 def extract_keywords(document_id: str) -> list[str]:
     keyword_map = {
-        "account-policy": ["account", "login", "password", "access"],
-        "opening-hours": ["hours", "support", "weekend", "holiday"],
-        "privacy-policy": ["privacy", "data", "delete", "card"],
-        "refund-policy": ["refund", "return", "exchange", "opened"],
-        "shipping-policy": ["shipping", "delivery", "tracking", "package"],
-        "warranty-policy": ["warranty", "fault", "repair", "replacement"],
+        "annual-leave-policy": ["annual leave", "holiday", "carry", "days"],
+        "expenses-policy": ["expenses", "receipt", "claim", "approval"],
+        "remote-working-policy": ["remote", "home", "office", "manager"],
     }
     return keyword_map.get(document_id, document_id.split("-"))
 

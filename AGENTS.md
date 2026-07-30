@@ -1,64 +1,71 @@
 # AGENTS.md
 
-This repo contains teaching code for the AI Engineer course AI Architect v2.
+This repository is the public project for the Build AI Systems course.
 
 The code is designed for lessons, recordings, and student exercises.
 Prefer clarity over cleverness.
 Examples should be easy to read on screen and easy to run locally.
 
-Keep the code practical, small, and aligned with the private course material in `/Users/owainlewis/Code/github/ai-engineer/ai-architect-course`.
+## Course direction
 
-## Course Direction
+The course builds a professional HR policy assistant in Python.
 
-The finished application is an AI customer support system.
+An employee asks a question in a dedicated Slack channel.
+The system accepts the event quickly, processes it asynchronously, retrieves approved company policies, and replies in the Slack thread.
+It refuses off-topic requests and sends uncertain, unsupported, or sensitive requests to a person.
 
-A customer sends an email to a support inbox.
-The system turns it into a ticket, looks up a known support document from Postgres, drafts an answer with OpenAI, and escalates to a human when it cannot answer safely.
+The customer problem and product requirements live in `brief.md`.
+Students create `ARCHITECTURE.md` during the first design lesson.
+Once reviewed, `ARCHITECTURE.md` becomes the technical source of truth.
 
-Use OpenAI as the default teaching model.
-Use Google Cloud as the default deployment target.
-Use Pydantic AI after the hand-built agent lesson.
-Show that the framework can switch between direct OpenAI and Anthropic providers.
+Do not add application structure or infrastructure before the architecture defines it.
 
-## Code Style
+## Teaching direction
 
 - Use Python.
+- Use OpenAI as the default teaching model.
+- Introduce Pydantic AI after the hand-built agent lesson.
+- Show provider boundaries without pretending provider capabilities are identical.
+- Keep structured outputs, tool calls, and agent loops tied to real product decisions.
+- Keep advanced vector and hybrid retrieval optional.
+- Use Google Cloud as the deployment target.
+- Keep the complete system runnable locally before cloud deployment.
+
+Coding agents may write much of the implementation.
+Students must still understand the contracts, authority boundaries, failure behaviour, and evidence required to approve that work.
+
+## Code style
+
 - Keep lesson examples runnable from the command line.
 - Prefer simple interfaces over framework magic.
 - Do not introduce cloud dependencies into early lessons.
 - Do not use em dashes in prose.
-- Keep markdown sentences on separate physical lines when files get long.
+- Keep Markdown sentences on separate physical lines when files get long.
+- Deliver complete changes without placeholders or fake TODOs.
 
-## Structure
+## Repository structure
 
-- `examples/01_basic_model_call.py` to `examples/04_agent_by_hand.py` are small teaching samples.
-- `examples/05_first_framework_agent.py` introduces the Pydantic AI support agent.
-- `examples/06a_file_rag.py`, `06b_sql_rag.py`, `07a_vector_rag.py`, and `07b_hybrid_rag.py` are separate retrieval examples.
-- `examples/` contains standalone teaching code for the early lessons.
-- `support_agent_app/` contains the deployable application.
-- `sql/` contains the production-shaped Postgres schema.
-- `docs/policies/` contains editable sample support policies.
-- `docs/final-agent-spec.md` is the source of truth for the finished app.
-- `docs/course-code-map.md` maps lessons to code.
+- `brief.md` defines the customer problem and first-release scope.
+- `examples/` contains standalone teaching examples for the AI foundations.
+- `examples/policies/` contains sample data for the retrieval examples only.
+- `tests/` verifies the examples and starting repository.
+- `ARCHITECTURE.md` is intentionally absent until the first design lesson.
+
+The examples must not import the future deployable application.
+They should stay small even as the main project grows.
 
 ## Verification
 
-Run this before reporting code changes:
+Run this before reporting repository changes:
 
 ```bash
 uv run python -m unittest discover -s tests
-uv run python examples/01_basic_model_call.py
-uv run python examples/02_structured_outputs.py
-uv run python examples/03_deterministic_workflow.py
-uv run python examples/04_agent_by_hand.py
-uv run python examples/05_first_framework_agent.py
-uv run python examples/06a_file_rag.py
-uv run python examples/06b_sql_rag.py
-uv run python -m support_agent_app.ingest_policies --dry-run
-uv run python -m support_agent_app.main
+uv run python -m compileall -q examples tests
 ```
 
-Run these when `DATABASE_URL` points at a Postgres database with pgvector:
+Run a changed model example with the required provider credentials.
+
+Run the Postgres examples when `DATABASE_URL` points at a Postgres database with `pgvector`:
 
 ```bash
 DATABASE_URL="postgresql://..." uv run python examples/07a_vector_rag.py

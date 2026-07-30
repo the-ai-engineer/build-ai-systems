@@ -13,7 +13,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 
-POLICY_DIR = Path(__file__).resolve().parents[1] / "docs" / "policies"
+POLICY_DIR = Path(__file__).with_name("policies")
 
 
 class SupportDocument(BaseModel):
@@ -24,7 +24,11 @@ class SupportDocument(BaseModel):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Lesson 06A: simple file RAG.")
-    parser.add_argument("question", nargs="?", default="Can I return an opened item?")
+    parser.add_argument(
+        "question",
+        nargs="?",
+        default="How many days of annual leave can I carry into next year?",
+    )
     args = parser.parse_args()
 
     document = find_policy_document(args.question)
