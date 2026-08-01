@@ -5,6 +5,27 @@ Public project repository for the Build AI Systems course.
 The course builds and deploys a professional HR policy assistant that employees use through Slack.
 The assistant answers from trusted company policies, refuses off-topic requests, and sends uncertain or sensitive questions to a person.
 
+## A realistic freelance AI project
+
+This course simulates the kind of AI system an independent engineer or small consultancy could build for a business in 2026.
+The goal is not to create a generic SaaS product or another chatbot demonstration.
+
+Students receive a customer problem and take it through a complete professional delivery process:
+
+1. Understand the business problem and agree how success will be measured.
+2. Turn the customer brief into a technical architecture.
+3. Make explicit product, security, authority, and reliability decisions.
+4. Break the design into tasks with acceptance criteria.
+5. Use coding agents to implement and review the system.
+6. Integrate it with the customer's existing tools.
+7. Test normal behaviour, safety boundaries, and failure cases.
+8. Deploy it and demonstrate the business outcome.
+
+The finished system is built for one company's workflow and requirements.
+Another customer might use different policy sources, escalation systems, security controls, or communication tools.
+This variation is normal in professional AI consulting work.
+The reusable skill is knowing how to design, build, evaluate, and operate the complete system.
+
 ## Start here
 
 Read the [customer brief](brief.md).
@@ -67,6 +88,35 @@ They then add production evidence:
 - Integration and failure tests.
 - Logs, traces, latency, and cost evidence.
 - A live end-to-end demonstration.
+
+## What the customer is buying
+
+The customer is not buying a language model, a RAG pipeline, or a Slack bot.
+The customer is buying:
+
+- Fewer repetitive questions reaching HR.
+- Faster answers for employees.
+- Consistent answers from approved policies.
+- Safe escalation when human judgement is required.
+- Evidence that the system is reliable and behaving correctly.
+- A system that works with the tools the company already uses.
+
+Models, queues, retrieval methods, and cloud services support those outcomes.
+They are not the outcome themselves.
+
+## Definition of done
+
+The project is complete when:
+
+- A real Slack event is accepted quickly.
+- The request is stored durably and processed asynchronously.
+- The system answers, refuses, or refers the question correctly.
+- Every policy answer is supported by approved evidence.
+- Sensitive and unsupported questions are sent to the agreed human route.
+- Retries do not produce duplicate replies.
+- Failures can be inspected and recovered.
+- The complete system runs locally and in its deployed environment.
+- Evaluation results show that it meets the agreed customer requirements.
 
 ## Run the examples
 
