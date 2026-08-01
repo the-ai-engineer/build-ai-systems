@@ -16,9 +16,26 @@ It refuses off-topic requests and sends uncertain, unsupported, or sensitive req
 
 The customer problem and product requirements live in `brief.md`.
 Students create `ARCHITECTURE.md` during the first design lesson.
+The instructor creates the same artifact when building the completed reference project.
 Once reviewed, `ARCHITECTURE.md` becomes the technical source of truth.
 
 Do not add application structure or infrastructure before the architecture defines it.
+
+## Branch strategy
+
+This repository has two long-lived course branches:
+
+- `main` is the clean student starting point.
+  Students can use it to design and build the complete system themselves.
+- `reference/complete-project` is the instructor's completed reference implementation.
+  The instructor can build ahead on this branch, demonstrate the finished system, or provide it as a solution students can follow.
+
+Check the current branch before changing application structure or infrastructure.
+Starting materials and shared course documentation belong on `main`.
+Completed architecture, application code, deployment configuration, and production evidence belong on `reference/complete-project`.
+
+Changes needed by both branches should land on `main` first and then be merged into `reference/complete-project`.
+Do not merge the completed reference implementation back into `main` wholesale.
 
 ## Teaching direction
 
@@ -49,7 +66,7 @@ Students must still understand the contracts, authority boundaries, failure beha
 - `examples/` contains standalone teaching examples for the AI foundations.
 - `examples/policies/` contains sample data for the retrieval examples only.
 - `tests/` verifies the examples and starting repository.
-- `ARCHITECTURE.md` is intentionally absent until the first design lesson.
+- On `main`, `ARCHITECTURE.md` is intentionally absent until the first design lesson.
 
 The examples must not import the future deployable application.
 They should stay small even as the main project grows.
