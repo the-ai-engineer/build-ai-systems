@@ -7,7 +7,7 @@ The assistant answers from trusted company policies, refuses off-topic requests,
 
 ## A realistic freelance AI project
 
-This course simulates the kind of AI system an independent engineer or small consultancy could build for a business in 2026.
+This course simulates the kind of AI system an independent engineer or small consultancy could build for a business.
 The goal is not to create a generic SaaS product or another chatbot demonstration.
 
 Students receive a customer problem and take it through a complete professional delivery process:
