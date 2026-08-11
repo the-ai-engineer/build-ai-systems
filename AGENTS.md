@@ -23,7 +23,8 @@ Do not add application structure or infrastructure before the architecture defin
 ## Teaching direction
 
 - Use Python.
-- Use OpenAI as the default teaching model.
+- Use OpenAI in the small AI foundation examples.
+- Use Gemini on Vertex AI in the finished Google Cloud application.
 - Introduce Pydantic AI after the hand-built agent lesson.
 - Show provider boundaries without pretending provider capabilities are identical.
 - Keep structured outputs, tool calls, and agent loops tied to real product decisions.

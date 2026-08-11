@@ -569,7 +569,7 @@
               <li class="flex gap-4"><span class="number-marker bg-cream text-ink">1</span><span>Check Slack's signature and timestamp.</span></li>
               <li class="flex gap-4"><span class="number-marker bg-cream text-ink">2</span><span>Validate the event shape and channel.</span></li>
               <li class="flex gap-4"><span class="number-marker bg-cream text-ink">3</span><span>Store the event, request, and queue intent in one transaction.</span></li>
-              <li class="flex gap-4"><span class="number-marker bg-cream text-ink">4</span><span>Return HTTP 200 after the database commit.</span></li>
+              <li class="flex gap-4"><span class="number-marker bg-cream text-ink">4</span><span>Try for one second to create a named Cloud Task, then return HTTP 200. The saved outbox repairs a failed task creation.</span></li>
             </ol>
           </article>
 
@@ -579,7 +579,7 @@
               <span class="rounded-full bg-teal/10 px-3 py-1 text-xs">Slack is free</span>
             </div>
             <ol class="mt-7 space-y-5">
-              <li class="flex gap-4"><span class="number-marker">1</span><span>A dispatcher turns the stored intent into a Cloud Task.</span></li>
+              <li class="flex gap-4"><span class="number-marker">1</span><span>Cloud Tasks starts the worker. A scheduled dispatcher repairs only missed task creation.</span></li>
               <li class="flex gap-4"><span class="number-marker">2</span><span>One worker gets a time-limited claim on the request. This claim is called a lease.</span></li>
               <li class="flex gap-4"><span class="number-marker">3</span><span>The worker chooses a route, loads policies, and checks the evidence.</span></li>
               <li class="flex gap-4"><span class="number-marker">4</span><span>A separate delivery lease controls the Slack reply.</span></li>
@@ -596,7 +596,7 @@
             <p class="eyebrow text-rust">4 · System context</p>
             <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">System architecture</h2>
             <p class="mt-6 text-lg leading-relaxed text-ink/70">
-              The public service accepts Slack events. It cannot create tasks, call the model, or post answers. A private service reads the outbox, which is a database list of work to send. The private worker runs the remaining steps.
+              The public service accepts Slack events. It saves each request and tries to create a named Cloud Task at once. It cannot call the model or post answers. A scheduled dispatcher reads the outbox and repairs only missed task creation. The private worker runs the remaining steps.
             </p>
             <div class="mt-7 space-y-3 text-sm">
               <p><span class="mr-2 inline-block h-3 w-3 rounded-full bg-rust"></span>Public internet boundary</p>
@@ -613,14 +613,14 @@
               <p class="text-center text-2xl text-teal">↓</p>
               <div class="grid grid-cols-2 gap-3">
                 <div class="rounded-2xl border-2 border-moss bg-moss/5 p-4 text-center"><strong>Postgres</strong><p class="mt-1 text-xs text-ink/60">requests + outbox</p></div>
-                <div class="rounded-2xl border-2 border-teal bg-teal/5 p-4 text-center"><strong>Cloud Tasks</strong><p class="mt-1 text-xs text-ink/60">dispatcher creates task</p></div>
+                <div class="rounded-2xl border-2 border-teal bg-teal/5 p-4 text-center"><strong>Cloud Tasks</strong><p class="mt-1 text-xs text-ink/60">immediate task + queued work</p></div>
               </div>
-              <div class="rounded-2xl border border-ink/20 p-4 text-center"><strong>Cloud Scheduler</strong><p class="mt-1 text-xs text-ink/60">calls dispatch, sweep, and retention routes</p></div>
+              <div class="rounded-2xl border border-ink/20 p-4 text-center"><strong>Cloud Scheduler</strong><p class="mt-1 text-xs text-ink/60">repairs pending work + maintenance</p></div>
               <p class="text-center text-2xl text-teal">↓</p>
               <div class="rounded-2xl border-2 border-teal bg-teal/5 p-4 text-center"><strong>Private worker</strong><p class="mt-1 text-sm text-ink/60">decide · retrieve · reply</p></div>
               <p class="text-center text-2xl text-moss">↓</p>
               <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-2xl border border-ink/20 p-4 text-center"><strong>OpenAI</strong><p class="mt-1 text-xs text-ink/60">fixed reply fields</p></div>
+                <div class="rounded-2xl border border-ink/20 p-4 text-center"><strong>Vertex AI Gemini</strong><p class="mt-1 text-xs text-ink/60">fixed reply fields</p></div>
                 <div class="rounded-2xl border border-ink/20 p-4 text-center"><strong>Slack</strong><p class="mt-1 text-xs text-ink/60">thread reply</p></div>
               </div>
             </div>
@@ -655,7 +655,7 @@
 
               <rect x="535" y="235" width="200" height="86" rx="20" fill="#e7f1ef" stroke="#26766d" stroke-width="2"></rect>
               <text x="635" y="268" text-anchor="middle" class="label">Cloud Tasks</text>
-              <text x="635" y="295" text-anchor="middle" class="small">dispatcher creates jobs</text>
+              <text x="635" y="295" text-anchor="middle" class="small">queued worker requests</text>
 
               <rect x="275" y="350" width="190" height="120" rx="20" fill="#e7f1ef" stroke="#26766d" stroke-width="2"></rect>
               <text x="370" y="386" text-anchor="middle" class="label">Private worker</text>
@@ -663,11 +663,12 @@
               <text x="370" y="441" text-anchor="middle" class="note">decide · retrieve · reply</text>
 
               <rect x="60" y="365" width="145" height="88" rx="18" fill="#f1eadc" stroke="#6f7b54" stroke-width="2"></rect>
-              <text x="132" y="399" text-anchor="middle" class="label">OpenAI</text>
+              <text x="132" y="399" text-anchor="middle" class="label">Vertex AI Gemini</text>
               <text x="132" y="427" text-anchor="middle" class="small">fixed reply fields</text>
 
               <path d="M205 198 L267 174" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
               <path d="M465 145 L526 139" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M465 190 C505 205 510 250 526 266" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
               <path d="M635 187 L635 226" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
               <path d="M574 321 L450 357" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
               <path d="M535 170 C495 235 500 340 455 384" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
@@ -678,8 +679,17 @@
           </div>
         </div>
         <div class="mt-8 grid gap-5 md:grid-cols-2">
-          <article class="rounded-2xl border border-teal/20 bg-teal/5 p-6"><h3 class="font-semibold">Scheduled private work</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Scheduler signs each request with a Google identity. That identity can call only the private worker. It calls <code>/internal/dispatch</code> each minute, <code>/internal/sweep</code> every five minutes, and <code>/internal/retention</code> each day.</p></article>
+          <article class="rounded-2xl border border-teal/20 bg-teal/5 p-6"><h3 class="font-semibold">Repair and maintenance</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Scheduler signs each request with a Google identity. It calls <code>/internal/dispatch</code> each minute to repair pending outbox rows, <code>/internal/sweep</code> every five minutes, and <code>/internal/retention</code> each day. Normal requests do not wait for the dispatcher.</p></article>
           <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Local commands</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Developers can run the same jobs once with <code>python -m build_ai_systems.ops dispatch --once</code>, <code>sweep --once</code>, or <code>retention --once</code>. The HTTP routes and commands call the same application functions.</p></article>
+        </div>
+        <div class="mt-6 rounded-3xl border border-moss/25 bg-moss/5 p-7 md:p-9">
+          <p class="eyebrow text-moss">What happens when 1,000 questions arrive</p>
+          <div class="mt-5 grid gap-5 md:grid-cols-3">
+            <p class="text-sm leading-relaxed text-ink/70"><strong>1. Store the work.</strong><br>Cloud Tasks keeps every accepted request until the worker has space.</p>
+            <p class="text-sm leading-relaxed text-ink/70"><strong>2. Limit the flow.</strong><br>Start with 10 dispatches each second and 20 tasks running at once. Tune these limits after a load test.</p>
+            <p class="text-sm leading-relaxed text-ink/70"><strong>3. Scale the workers.</strong><br>Cloud Run adds instances up to its set limit. Extra tasks wait instead of overloading Vertex AI or Postgres.</p>
+          </div>
+          <p class="mt-5 text-sm leading-relaxed text-ink/60">If one task takes 10 seconds, 20 worker slots finish about two tasks each second. A burst of 1,000 tasks then takes about eight minutes. This is an example, not a service promise.</p>
         </div>
       </div>
     </section>
@@ -827,10 +837,11 @@
 
         <div class="mt-10 grid gap-5 md:grid-cols-2">
           <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Fixed workflow</h3><p class="mt-3 leading-relaxed text-ink/65">Application code controls the order of the steps. The model cannot add steps or choose other tools.</p></article>
-          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Cloud Tasks</h3><p class="mt-3 leading-relaxed text-ink/65">One outbox row creates one worker request. We reject Pub/Sub for version one because one event does not need many consumers.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Cloud Tasks and Cloud Run</h3><p class="mt-3 leading-relaxed text-ink/65">One outbox row creates one HTTP request to the private Cloud Run worker. The public service normally creates it at once. The dispatcher repairs failures. We reject Cloud Run Jobs because each Slack question is short, separate work. Jobs remain useful for long policy imports and evaluation runs.</p></article>
           <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Postgres stores system state</h3><p class="mt-3 leading-relaxed text-ink/65">Cloud Tasks wakes the worker. Postgres stores queued work, leases, request state, attempts, evidence, and delivery state.</p></article>
           <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Two Cloud Run services</h3><p class="mt-3 leading-relaxed text-ink/65">The public service accepts Slack events. The private worker can call the model, use the database, and reply in Slack. Google Cloud identity and access management, or IAM, keeps the worker private.</p></article>
-          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">OpenAI Responses API</h3><p class="mt-3 leading-relaxed text-ink/65">The application calls the model directly and requires replies with fixed data fields. Agent frameworks remain course examples. The application does not need them.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Gemini on Vertex AI</h3><p class="mt-3 leading-relaxed text-ink/65">This companion application uses a generally available Gemini Flash model through Vertex AI. The exact model ID is deployment config and is stored with every result. Cloud Run uses its Google identity instead of an API key. The application requires replies with fixed data fields. Earlier provider lessons can still compare OpenAI and other models.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Small, controlled burst</h3><p class="mt-3 leading-relaxed text-ink/65">Start with 10 task dispatches each second, 20 tasks at once, Cloud Run concurrency 4, and 5 worker instances. These teaching defaults protect Vertex AI and Postgres. Load tests decide whether to raise them.</p></article>
           <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Private policy import</h3><p class="mt-3 leading-relaxed text-ink/65">A command validates approved Markdown from a private customer source and publishes it in one transaction. Real policies never enter this public repository.</p></article>
         </div>
       </div>
@@ -852,7 +863,7 @@
             <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">outbound_deliveries</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">One row per request with <code>pending</code>, <code>sending</code>, <code>sent</code>, or <code>uncertain</code>, plus a delivery lease, Slack metadata ID, and Slack message time. Only <code>pending</code> can start a send. An expired <code>sending</code> lease becomes <code>uncertain</code>.</p></article>
             <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">policy_documents</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Stable policy ID, version, content, content hash, approver, approval time, and active state. A database rule permits one approved active version per policy.</p></article>
             <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">answer_evidence</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Request ID, policy ID, policy version, and the exact supporting quote returned by the model.</p></article>
-            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">processing_attempts</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Attempt number, start and end time, outcome, safe error code, and retry choice. Secrets and raw model prompts stay out of logs.</p></article>
+            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">processing_attempts</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Step name, attempt number for that step, start and end time, outcome, safe error code, provider status, and retry choice. Worker, route-model, and answer-model attempts use separate counters. Secrets and raw model prompts stay out of logs.</p></article>
           </div>
         </div>
         <div class="mt-6 rounded-3xl border border-moss/25 bg-moss/5 p-7 text-sm leading-relaxed text-ink/70">
@@ -866,7 +877,7 @@
         <div class="max-w-4xl">
           <p class="eyebrow text-rust">10 · Failure and recovery</p>
           <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Retries and duplicate prevention</h2>
-          <p class="mt-6 text-lg leading-relaxed text-ink/70">Slack and Cloud Tasks both retry. Every step must therefore be safe to run again.</p>
+          <p class="mt-6 text-lg leading-relaxed text-ink/70">Slack, Cloud Tasks, and Vertex AI can fail. Each retry has one owner and one limit. Every repeated step must be safe to run again.</p>
         </div>
 
         <div class="paper-card mt-10 rounded-3xl p-5 md:p-8">
@@ -876,7 +887,7 @@
             <div class="rounded-xl border border-ink/30 p-3 text-center font-semibold">queued</div>
             <p class="text-center text-xl">↓</p>
             <div class="rounded-xl border-2 border-teal bg-teal/5 p-3 text-center font-semibold">processing</div>
-            <p class="text-center text-sm text-rust">retry at most 5 times</p>
+            <p class="text-center text-sm text-rust">worker retries at most 5 times</p>
             <div class="grid grid-cols-2 gap-3">
               <div class="rounded-xl border border-moss bg-moss/5 p-3 text-center text-sm font-semibold">answered</div>
               <div class="rounded-xl border border-rust bg-rust/5 p-3 text-center text-sm font-semibold">refused</div>
@@ -886,7 +897,7 @@
           </div>
           <svg class="diagram hidden h-auto w-full md:block" viewBox="0 0 1040 270" role="img" aria-labelledby="state-title state-desc">
             <title id="state-title">Support request state flow</title>
-            <desc id="state-desc">A request moves from accepted to queued and processing, then reaches answered, refused, referred, or needs review. Failed work retries processing up to five times.</desc>
+            <desc id="state-desc">A request moves from accepted to queued and processing, then reaches answered, refused, referred, or needs review. An expired worker lease can retry processing up to five times.</desc>
             <defs><marker id="arrow-state" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#65716d"></path></marker></defs>
             <g>
               <rect x="20" y="75" width="135" height="66" rx="17" fill="#fbf7ef" stroke="#1f2927"></rect><text x="87" y="113" text-anchor="middle" class="label">accepted</text>
@@ -903,21 +914,22 @@
               <path d="M530 132 L600 205" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-state)"></path>
               <path d="M755 130 L830 130" stroke="#a64e32" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#arrow-state)"></path>
               <path d="M465 141 C465 220 330 235 330 150" fill="none" stroke="#a64e32" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#arrow-state)"></path>
-              <text x="413" y="235" text-anchor="middle" class="note">retry, at most 5 attempts</text>
+              <text x="413" y="235" text-anchor="middle" class="note">worker retry, at most 5 attempts</text>
             </g>
           </svg>
         </div>
 
         <div class="mt-6 grid gap-5 md:grid-cols-3">
           <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Duplicate event</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The unique Slack event ID returns the saved result. It does not create new work.</p></article>
-          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Task creation fails</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The outbox row stays pending. A private dispatcher runs each minute. Its task name combines request ID and dispatch number. <code>ALREADY_EXISTS</code> counts as success only for that same outbox row.</p></article>
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Task creation fails</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The public service tries to create the named task for one second. A failure leaves the outbox row pending. A private dispatcher repairs it within one minute. The task name combines request ID and dispatch number. <code>ALREADY_EXISTS</code> counts as success only for that same outbox row.</p></article>
           <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Reply result is unclear</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">A timeout, unclear response, process crash, or expired <code>sending</code> lease becomes <code>uncertain</code>. It never returns to <code>pending</code>. Check the Slack thread. If the message cannot be found, a person must review the request.</p></article>
         </div>
         <div class="mt-6 grid gap-5 md:grid-cols-2">
           <article class="rounded-2xl border border-teal/20 bg-teal/5 p-6"><h3 class="font-semibold">Worker lease</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">One database update gives a worker a 120-second lease. The worker renews the lease between steps and must finish within 90 seconds. A second worker does nothing while the lease is active.</p></article>
           <article class="rounded-2xl border border-rust/20 bg-rust/5 p-6"><h3 class="font-semibold">Stale work</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The system queues the request again when its worker lease expires before attempt five. At attempt five it moves the request to <code>needs_review</code>. A request that waits for 20 minutes also moves to review.</p></article>
-          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Retry limit</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The application counts each attempt and stops at five. Cloud Tasks only sends retry requests to the worker. An extra task returns HTTP 204 and does no work.</p></article>
-          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Model failures</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">A route timeout or invalid route becomes a fixed referral. A temporary answer failure uses the application attempt budget. When that budget ends, the result becomes the fixed referral. Only infrastructure or referral-delivery failure reaches review.</p></article>
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Worker retry limit</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Worker leases and Cloud Tasks transport retries are separate from model retries. The application stops after five expired worker leases. An extra task returns HTTP 204 and does no work.</p></article>
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Temporary Gemini failure</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The application owns model retries, so the SDK must not add more. Retry HTTP 429, 500, 502, 503, 504, a connection failure, or a timeout at most two times. Wait at least one second, then double the delay and add random jitter. The initial call plus two retries gives three attempts for one model step.</p></article>
+          <article class="rounded-2xl border border-rust/20 bg-rust/5 p-6"><h3 class="font-semibold">Permanent Gemini failure</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Do not retry HTTP 400, 403, or 404. Record a safe error code, alert the operator, and use the fixed referral. After temporary retries are used, also use the fixed referral. Return success to Cloud Tasks only after the referral is <code>sent</code> or its delivery is <code>uncertain</code>. A clear Slack or infrastructure failure remains retryable or moves to <code>needs_review</code> under the delivery rules.</p></article>
         </div>
         <div class="mt-6 rounded-3xl bg-ink p-7 text-cream">
           <p class="eyebrow text-sand">Operator recovery</p>
@@ -937,11 +949,13 @@
           <div class="grid gap-4 md:grid-cols-2">
             <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Verify Slack requests</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Check Slack's request signature against the original request body. Reject requests more than five minutes old.</p></article>
             <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Accept only supported messages</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Require the configured workspace and channel, a human user, and a new top-level text message. Ignore bots, edits, deletes, files, and thread replies.</p></article>
-            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Limit access</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The public service can store requests and outbox rows. Only private services can create tasks, call the model, or post to Slack.</p></article>
-            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Protect API keys</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Store tokens and API keys in Secret Manager. Never write them to Postgres, logs, or model prompts.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Limit access</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The public service can store requests, write outbox rows, and create named tasks in one queue. It gets only the task enqueuer role and permission to use the task caller identity. It cannot call Vertex AI or post to Slack. The private worker can call Vertex AI and Slack.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Check private callers</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Run IAM protects the whole private service, not each route. The task route checks for the Cloud Tasks service account. Repair, sweep, and retention routes check for the Cloud Scheduler service account. A valid identity on the wrong route is rejected.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Protect credentials</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Run uses its service identity for Vertex AI. Store the Slack signing secret and bot token in Secret Manager. Never write credentials to Postgres, logs, or model prompts.</p></article>
             <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Delete message text after 30 days</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">A daily private job removes question text, answer text, and evidence quotes after 30 days. It keeps IDs, states, timings, policy versions, usage, and cost.</p></article>
-            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Data stored by Slack and OpenAI</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Logs do not contain message text. Slack and OpenAI keep data under their own rules. The customer must approve those rules before production use.</p></article>
-            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Limit model calls</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Each request can make at most two model calls. Each call stops after 30 seconds. Answers can contain at most 1,200 characters.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Data stored by Slack and Vertex AI</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Logs do not contain message text. Slack and Vertex AI handle data under their own rules. The customer must approve those rules, the model location, and the Google Cloud project before production use.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Limit model work</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Each request can make at most two logical model calls: route and answer. Each attempt stops after 10 seconds. Each logical call allows one initial attempt and two retries. Answers can contain at most 1,200 characters.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Limit queued work</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Tasks starts at 10 dispatches each second and 20 tasks at once. Cloud Run starts at concurrency 4 and 5 worker instances. Warn when the oldest task waits for more than 10 minutes or the queue makes no progress for two minutes.</p></article>
             <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Record usage and cost</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Record the model name, token count, response time, and estimated cost for each completed request.</p></article>
           </div>
         </div>
@@ -957,14 +971,14 @@
         </div>
 
         <div class="mt-10 space-y-3">
-          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 1</p><div><h3 class="font-semibold">Application setup</h3><p class="mt-2 text-sm text-ink/65">Python package, settings, Postgres tables, local commands, and health checks.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> create and test a clean local database.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 1</p><div><h3 class="font-semibold">Application setup</h3><p class="mt-2 text-sm text-ink/65">Python package, settings, Postgres tables, Vertex AI model config, local Google credentials, local commands, and health checks.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> create a clean local database and make one structured Gemini call.</p></article>
           <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 2</p><div><h3 class="font-semibold">Public Slack service</h3><p class="mt-2 text-sm text-ink/65">Slack URL check, request signature check, supported message filter, and one database save.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> store each valid human message once. Reject or ignore every unsupported message.</p></article>
-          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 3</p><div><h3 class="font-semibold">Background work</h3><p class="mt-2 text-sm text-ink/65">Outbox service, Cloud Tasks connection, leases, retries, stale-work checks, and manual requeue.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> a task failure or second worker still produces one completed request.</p></article>
-          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 4</p><div><h3 class="font-semibold">Scope and referral</h3><p class="mt-2 text-sm text-ink/65">Fixed route fields, refusal text, referral text, and failure handling.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> off-topic and unsafe questions never reach answer generation.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 3</p><div><h3 class="font-semibold">Background work</h3><p class="mt-2 text-sm text-ink/65">Immediate Cloud Task creation, outbox repair, queue limits, leases, retries, stale-work checks, and manual requeue.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> normal work starts without waiting for the scheduler. A failed task creation is repaired within one minute.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 4</p><div><h3 class="font-semibold">Scope and referral</h3><p class="mt-2 text-sm text-ink/65">Gemini structured route fields, refusal text, referral text, temporary error retries, and permanent error handling.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> off-topic and unsafe questions never reach answer generation. Model errors follow the stated retry rule.</p></article>
           <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 5</p><div><h3 class="font-semibold">Trusted policy answers</h3><p class="mt-2 text-sm text-ink/65">Policy import, maximum token count, fixed claim fields, conflict checks, and evidence checks.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> every factual claim links to approved evidence and passes the test cases.</p></article>
           <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 6</p><div><h3 class="font-semibold">Slack delivery</h3><p class="mt-2 text-sm text-ink/65">Delivery record, delivery lease, message ID, thread check, and Slack rate limits.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> an unclear delivery never causes a second automatic reply.</p></article>
           <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 7</p><div><h3 class="font-semibold">Tests and operations</h3><p class="mt-2 text-sm text-ink/65">Fixed test cases, logs, model usage, cost, text deletion, and a command-line recovery tool.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> explain one complete request and test a recovery command for every failure state.</p></article>
-          <article class="grid gap-4 rounded-2xl border border-teal/25 bg-teal/5 p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-teal">Phase 8</p><div><h3 class="font-semibold">Google Cloud deployment</h3><p class="mt-2 text-sm text-ink/65">Cloud Run, Cloud Tasks, Cloud Scheduler, Cloud SQL, Secret Manager, access rules, live Slack, and failure tests.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> test access failure, task creation failure, scheduled jobs, two workers, unclear delivery, and recovery.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-teal/25 bg-teal/5 p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-teal">Phase 8</p><div><h3 class="font-semibold">Google Cloud deployment</h3><p class="mt-2 text-sm text-ink/65">Cloud Run, Cloud Tasks, Cloud Scheduler, Cloud SQL, Vertex AI, Secret Manager, access rules, live Slack, and failure tests.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> test task creation failure, Gemini 429 and 5XX errors, queue limits, two workers, unclear delivery, and recovery.</p></article>
         </div>
       </div>
     </section>
@@ -984,11 +998,13 @@
               <li><strong>INV-6:</strong> An invalid route, route timeout, invalid evidence data, or evidence conflict becomes a human referral.</li>
               <li><strong>INV-7:</strong> Every factual claim has an active policy ID, version, and matching evidence quote.</li>
               <li><strong>INV-8:</strong> An unclear send or expired <code>sending</code> lease becomes <code>uncertain</code> and is never retried automatically.</li>
-              <li><strong>INV-9:</strong> The private worker accepts only IAM-authenticated Cloud Tasks and Cloud Scheduler calls.</li>
+              <li><strong>INV-9:</strong> Each private route accepts only its expected Cloud Tasks or Cloud Scheduler service account.</li>
               <li><strong>INV-10:</strong> Secrets never appear in stored request data, model prompts, or logs.</li>
               <li><strong>INV-11:</strong> One database update grants the request lease. Another database update grants the delivery lease.</li>
               <li><strong>INV-12:</strong> Only one approved policy version can be active for a stable policy ID.</li>
               <li><strong>INV-13:</strong> The retention job removes stored message text and evidence quotes after the approved period.</li>
+              <li><strong>INV-14:</strong> A model step makes at most three attempts and retries only temporary provider or network errors.</li>
+              <li><strong>INV-15:</strong> Cloud Tasks limits how quickly work reaches Vertex AI and Postgres.</li>
             </ol>
           </div>
 
@@ -1007,11 +1023,13 @@
               <li><strong>AC-9:</strong> If a worker lease expires before attempt five, the system queues the request again. At attempt five, it sends the request for review.</li>
               <li><strong>AC-10:</strong> Before text deletion, a completed request shows its state, attempts, evidence, response time, usage, cost, and Slack reply ID. After deletion, only approved system data remains.</li>
               <li><strong>AC-11:</strong> The full system works locally with a manual worker and on Google Cloud with Cloud Tasks.</li>
-              <li><strong>AC-12:</strong> A committed request reaches the worker after the first Cloud Tasks creation fails.</li>
+              <li><strong>AC-12:</strong> A committed request reaches the worker within one minute after the immediate Cloud Task creation fails.</li>
               <li><strong>AC-13:</strong> An unclear Slack API result becomes <code>uncertain</code> and cannot send again without operator review.</li>
               <li><strong>AC-14:</strong> The daily retention job removes expired text, preserves allowed metrics, and reports a failed cleanup.</li>
-              <li><strong>AC-15:</strong> If the answer model fails five times, the system sends the fixed referral. If that message fails, the request moves to review.</li>
-              <li><strong>AC-16:</strong> Cloud Scheduler invokes dispatch, sweep, and retention through authenticated private routes.</li>
+              <li><strong>AC-15:</strong> A model step retries a temporary failure at most twice. A permanent failure or three failed attempts produce the fixed referral and an operator alert. Cloud Tasks receives success only after referral delivery is <code>sent</code> or <code>uncertain</code>.</li>
+              <li><strong>AC-16:</strong> Cloud Scheduler invokes repair, sweep, and retention through authenticated private routes. Normal work does not wait for the repair job.</li>
+              <li><strong>AC-17:</strong> A fake-model load test accepts 1,000 requests, never runs more than 20 worker tasks at once, loses no request, and drains the queue.</li>
+              <li><strong>AC-18:</strong> Cloud Tasks cannot call maintenance routes, Cloud Scheduler cannot call the task route, and an unknown service account cannot call any private route.</li>
             </ol>
           </div>
         </div>
@@ -1030,7 +1048,7 @@
           <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-teal">Default: #people-help</p><h3 class="mt-4 text-xl font-semibold">Human referral route</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must approve the exact channel, email address, and fixed referral text before launch.</p></article>
           <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-teal">Default: 30 days</p><h3 class="mt-4 text-xl font-semibold">How long message text is kept</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must approve how long the system keeps question text, model output, and evidence.</p></article>
           <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-teal">Default: message.channels</p><h3 class="mt-4 text-xl font-semibold">Slack messages the app receives</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Accept new top-level messages in one public channel. Do not accept direct messages, mentions, edits, files, or thread replies in version one.</p></article>
-          <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-rust">Blocks production</p><h3 class="mt-4 text-xl font-semibold">OpenAI data rules</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must approve sending question text to OpenAI. The customer must also approve OpenAI's data storage period, data region, and contract.</p></article>
+          <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-rust">Blocks production</p><h3 class="mt-4 text-xl font-semibold">Vertex AI data rules</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must approve sending question text to Vertex AI. The customer must also approve the Google Cloud project, model location, data rules, and contract.</p></article>
           <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-teal">Default: private import</p><h3 class="mt-4 text-xl font-semibold">Policy owner and source</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must name who approves a policy and where production files live. The public repository contains sample policies only.</p></article>
         </div>
 
@@ -1071,6 +1089,11 @@
               <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/run/docs/authenticating/service-to-service">Cloud Run service authentication</a></li>
               <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/tasks/docs/reference/rest/v2/projects.locations.queues.tasks/create">Cloud Tasks and named-task deduplication</a></li>
               <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/tasks/docs/common-pitfalls">Cloud Tasks duplicate execution</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/run/docs/triggering/using-tasks">Cloud Tasks with a Cloud Run service</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/tasks/docs/configuring-queues">Cloud Tasks queue limits and retries</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/run/docs/create-jobs">Cloud Run Jobs</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/vertex-ai/generative-ai/docs/start/quickstart">Gemini API in Vertex AI</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/api-errors">Vertex AI model errors and retries</a></li>
             </ul>
           </div>
         </div>

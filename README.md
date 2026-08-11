@@ -64,6 +64,10 @@ The Python examples introduce the mechanisms used by the finished system:
 6. Grounding answers in trusted documents.
 7. Optional vector and hybrid retrieval.
 
+The small foundation examples use OpenAI by default and compare other providers where useful.
+The finished application uses Gemini on Vertex AI because it deploys to Google Cloud.
+This keeps the early lessons simple while teaching Google IAM and one production model path in the final build.
+
 Coding agents can write much of the implementation.
 Students still need to understand what data reaches the model, what contract comes back, who authorises tool calls, and how to prove the result is correct.
 
