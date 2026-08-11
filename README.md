@@ -30,6 +30,10 @@ The reusable skill is knowing how to design, build, evaluate, and operate the co
 
 Read the [customer brief](brief.md).
 
+The proposed instructor design lives in
+[`docs/system-design/index.html`](docs/system-design/index.html) on the reference
+branch. Review it before turning the build phases into implementation tickets.
+
 The repository intentionally does not contain `ARCHITECTURE.md` yet.
 The first course design exercise creates it from the customer brief.
 

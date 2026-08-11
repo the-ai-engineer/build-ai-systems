@@ -97,7 +97,7 @@ def main() -> None:
     if not database_url:
         print("Set DATABASE_URL to run this example against Postgres with pgvector.")
         print(
-            "Example: DATABASE_URL='postgresql://localhost/ai_architect' "
+            "Example: DATABASE_URL='postgresql://localhost/build_ai_systems' "
             "uv run python examples/07a_vector_rag.py"
         )
         return

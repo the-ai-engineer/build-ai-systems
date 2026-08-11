@@ -34,7 +34,7 @@ def normalize_model_name(model_name: str) -> str:
 
 
 # Change this setting, not the agent loop, to use another supported provider.
-MODEL_NAME = normalize_model_name(os.getenv("AI_ARCHITECT_MODEL", OPENAI_MODEL))
+MODEL_NAME = normalize_model_name(os.getenv("BUILD_AI_SYSTEMS_MODEL", OPENAI_MODEL))
 
 
 class SupportDocument(BaseModel):
@@ -120,7 +120,7 @@ def required_api_key(model_name: str) -> str:
 
 def main() -> None:
     print(f"Pydantic AI model: {MODEL_NAME}")
-    print(f"Try Claude with: AI_ARCHITECT_MODEL={CLAUDE_MODEL}")
+    print(f"Try Claude with: BUILD_AI_SYSTEMS_MODEL={CLAUDE_MODEL}")
 
     api_key_name = required_api_key(MODEL_NAME)
     if not os.getenv(api_key_name):
