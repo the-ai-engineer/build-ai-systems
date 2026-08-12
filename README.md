@@ -30,6 +30,10 @@ The reusable skill is knowing how to design, build, evaluate, and operate the co
 
 Read the [customer brief](brief.md).
 
+The proposed instructor design lives in
+[`docs/system-design/index.html`](docs/system-design/index.html) on the reference
+branch. Review it before turning the build phases into implementation tickets.
+
 The repository intentionally does not contain `ARCHITECTURE.md` yet.
 The first course design exercise creates it from the customer brief.
 
@@ -59,6 +63,10 @@ The Python examples introduce the mechanisms used by the finished system:
 5. A framework agent with Pydantic AI.
 6. Grounding answers in trusted documents.
 7. Optional vector and hybrid retrieval.
+
+The small foundation examples use OpenAI by default and compare other providers where useful.
+The finished application uses Gemini on Vertex AI because it deploys to Google Cloud.
+This keeps the early lessons simple while teaching Google IAM and one production model path in the final build.
 
 Coding agents can write much of the implementation.
 Students still need to understand what data reaches the model, what contract comes back, who authorises tool calls, and how to prove the result is correct.

@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build AI Systems | HR Policy Assistant Design</title>
+  <meta name="description" content="Proposed product and technical design for the Build AI Systems HR policy assistant.">
+  <meta name="document-kind" content="Technical design">
+  <meta name="source-path" content="brief.md">
+  <meta name="source-revision" content="d19d4905479b">
+  <style id="tailwind-utilities">
+    *,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: }*,:after,:before{box-sizing:border-box;border:0 solid #e5e7eb}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;tab-size:4;font-family:ui-sans-serif,system-ui,sans-serif;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-size:1em}blockquote,h1,h2,h3,p{margin:0}ol,ul{list-style:none;margin:0;padding:0}summary{display:list-item}svg{display:block;vertical-align:middle}.mx-auto{margin-left:auto;margin-right:auto}.mb-5{margin-bottom:1.25rem}.mr-2{margin-right:.5rem}.mt-1{margin-top:.25rem}.mt-10{margin-top:2.5rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}.mt-5{margin-top:1.25rem}.mt-6{margin-top:1.5rem}.mt-7{margin-top:1.75rem}.mt-8{margin-top:2rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.grid{display:grid}.hidden{display:none}.h-3{height:.75rem}.h-auto{height:auto}.w-3{width:.75rem}.w-full{width:100%}.max-w-2xl{max-width:42rem}.max-w-3xl{max-width:48rem}.max-w-4xl{max-width:56rem}.max-w-7xl{max-width:80rem}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.flex-wrap{flex-wrap:wrap}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-10{gap:2.5rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}.gap-5{gap:1.25rem}.gap-8{gap:2rem}.space-y-2>:not([hidden])~:not([hidden]){margin-top:.5rem}.space-y-3>:not([hidden])~:not([hidden]){margin-top:.75rem}.space-y-4>:not([hidden])~:not([hidden]){margin-top:1rem}.space-y-5>:not([hidden])~:not([hidden]){margin-top:1.25rem}.self-center{align-self:center}.rounded-2xl{border-radius:1rem}.rounded-3xl{border-radius:1.5rem}.rounded-full{border-radius:9999px}.rounded-xl{border-radius:.75rem}.border{border-width:1px}.border-2{border-width:2px}.border-t{border-top-width:1px}.border-ink{border-color:#202a31}.border-ink\/10{border-color:rgba(32,42,49,.1)}.border-ink\/15{border-color:rgba(32,42,49,.15)}.border-ink\/20{border-color:rgba(32,42,49,.2)}.border-ink\/30{border-color:rgba(32,42,49,.3)}.border-moss{border-color:#687984}.border-moss\/25{border-color:rgba(104,121,132,.25)}.border-rust{border-color:#536f82}.border-rust\/20{border-color:rgba(83,111,130,.2)}.border-rust\/25{border-color:rgba(83,111,130,.25)}.border-teal{border-color:#3f6575}.border-teal\/20{border-color:rgba(63,101,117,.2)}.border-teal\/25{border-color:rgba(63,101,117,.25)}.bg-cream{background-color:#fbfcfd}.bg-cream\/10{background-color:rgba(251,252,253,.1)}.bg-ink{background-color:#202a31}.bg-moss{background-color:#687984}.bg-moss\/5{background-color:rgba(104,121,132,.05)}.bg-rust{background-color:#536f82}.bg-rust\/5{background-color:rgba(83,111,130,.05)}.bg-teal{background-color:#3f6575}.bg-teal\/10{background-color:rgba(63,101,117,.1)}.bg-teal\/5{background-color:rgba(63,101,117,.05)}.p-2{padding:.5rem}.p-3{padding:.75rem}.p-4{padding:1rem}.p-5{padding:1.25rem}.p-6{padding:1.5rem}.p-7{padding:1.75rem}.px-3{padding-left:.75rem;padding-right:.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.py-16{padding-top:4rem;padding-bottom:4rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.pt-5{padding-top:1.25rem}.text-center{text-align:center}.font-body{font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}.font-display{font-family:Iowan Old Style,Baskerville,Times New Roman,serif}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-4xl{font-size:2.25rem;line-height:2.5rem}.text-5xl{font-size:3rem;line-height:1}.text-6xl{font-size:3.75rem;line-height:1}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:.75rem;line-height:1rem}.font-semibold{font-weight:600}.leading-\[0\.92\]{line-height:.92}.leading-relaxed{line-height:1.625}.leading-snug{line-height:1.375}.leading-tight{line-height:1.25}.text-cream{color:#fbfcfd}.text-cream\/75{color:rgba(251,252,253,.75)}.text-ink{color:#202a31}.text-ink\/60{color:rgba(32,42,49,.6)}.text-ink\/65{color:rgba(32,42,49,.65)}.text-ink\/70{color:rgba(32,42,49,.7)}.text-ink\/75{color:rgba(32,42,49,.75)}.text-moss{color:#687984}.text-rust{color:#536f82}.text-sand{color:#dce6ec}.text-teal{color:#3f6575}.underline{text-decoration-line:underline}.decoration-rust\/50{text-decoration-color:rgba(83,111,130,.5)}.underline-offset-4{text-underline-offset:4px}.antialiased{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.hover\:text-rust:hover{color:#536f82}@media (min-width:768px){.md\:mt-0{margin-top:0}.md\:block{display:block}.md\:grid{display:grid}.md\:hidden{display:none}.md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.md\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.md\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}.md\:grid-cols-\[0\.35fr_0\.65fr\]{grid-template-columns:.35fr .65fr}.md\:grid-cols-\[6rem_1fr_1fr\]{grid-template-columns:6rem 1fr 1fr}.md\:gap-6{gap:1.5rem}.md\:p-10{padding:2.5rem}.md\:p-7{padding:1.75rem}.md\:p-8{padding:2rem}.md\:p-9{padding:2.25rem}.md\:pt-2{padding-top:.5rem}.md\:text-2xl{font-size:1.5rem;line-height:2rem}.md\:text-4xl{font-size:2.25rem;line-height:2.5rem}.md\:text-5xl{font-size:3rem;line-height:1}.md\:text-6xl{font-size:3.75rem;line-height:1}.md\:text-7xl{font-size:4.5rem;line-height:1}}@media (min-width:1024px){.lg\:col-span-2{grid-column:span 2/span 2}.lg\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.lg\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.lg\:grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}.lg\:grid-cols-\[0\.72fr_1\.28fr\]{grid-template-columns:.72fr 1.28fr}.lg\:grid-cols-\[0\.75fr_1\.25fr\]{grid-template-columns:.75fr 1.25fr}.lg\:grid-cols-\[0\.78fr_1\.22fr\]{grid-template-columns:.78fr 1.22fr}.lg\:grid-cols-\[0\.8fr_1\.2fr\]{grid-template-columns:.8fr 1.2fr}.lg\:grid-cols-\[1\.15fr_0\.85fr\]{grid-template-columns:1.15fr .85fr}.lg\:px-8{padding-left:2rem;padding-right:2rem}.lg\:text-8xl{font-size:6rem;line-height:1}}
+  </style>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #e8edf0;
+      --sheet: #fbfcfd;
+      --ink: #202a31;
+      --muted: #5c6d78;
+      --line: #c7d2d9;
+      --accent: #536f82;
+      --accent-soft: #dce6ec;
+      --secondary: #3f6575;
+      --secondary-soft: #dbe8eb;
+      --note-soft: #e8eef2;
+      --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --serif: Iowan Old Style, Baskerville, "Times New Roman", serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      background: var(--paper);
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 3%, rgba(83, 111, 130, 0.12), transparent 24rem),
+        radial-gradient(circle at 92% 12%, rgba(63, 101, 117, 0.08), transparent 26rem),
+        var(--paper);
+      font-family: var(--sans);
+      font-size: 17px;
+      line-height: 1.68;
+      text-rendering: optimizeLegibility;
+    }
+
+    a { color: var(--secondary); text-underline-offset: 0.16em; }
+    a:hover { color: var(--accent); }
+    a:focus-visible, [tabindex="-1"]:focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 4px;
+      border-radius: 3px;
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 60;
+      top: 0.75rem;
+      left: 0.75rem;
+      transform: translateY(-180%);
+      padding: 0.65rem 0.9rem;
+      color: white;
+      background: var(--ink);
+      border-radius: 0.35rem;
+    }
+
+    .skip-link:focus { transform: translateY(0); }
+
+    .masthead {
+      border-bottom: 1px solid rgba(63, 78, 88, 0.18);
+      background: rgba(251, 252, 253, 0.76);
+    }
+
+    .masthead-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 1.1rem clamp(1rem, 4vw, 3rem);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      font-weight: 760;
+      letter-spacing: -0.015em;
+    }
+
+    .brand-mark {
+      width: 2.1rem;
+      height: 2.1rem;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--sheet);
+      background: var(--accent);
+      font-family: var(--serif);
+      font-size: 1.15rem;
+    }
+
+    .meta-strip {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .pill {
+      padding: 0.28rem 0.55rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--sheet);
+    }
+
+    .pill strong { color: var(--ink); }
+
+    .shell {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: clamp(1rem, 3vw, 2.6rem);
+      display: grid;
+      grid-template-columns: minmax(220px, 270px) minmax(0, 1fr);
+      gap: clamp(1rem, 3vw, 2.5rem);
+      align-items: start;
+    }
+
+    #TOC {
+      position: sticky;
+      top: 1.5rem;
+      max-height: calc(100vh - 3rem);
+      overflow-y: auto;
+      padding: 1.15rem 0.35rem 1.15rem 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+      scrollbar-width: thin;
+    }
+
+    #TOC::before {
+      content: "On this page";
+      display: block;
+      margin: 0 0 0.85rem 0.75rem;
+      color: var(--ink);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+    }
+
+    #TOC ul { margin: 0; padding: 0; list-style: none; }
+    #TOC li { margin: 0.12rem 0; padding: 0; }
+    #TOC a {
+      display: block;
+      padding: 0.38rem 0.72rem;
+      color: var(--muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      border-radius: 0 0.3rem 0.3rem 0;
+    }
+
+    #TOC a:hover, #TOC a:focus-visible {
+      color: var(--ink);
+      border-left-color: var(--accent);
+      background: rgba(251, 252, 253, 0.82);
+    }
+
+    .mobile-toc { display: none; }
+
+    #main-content {
+      min-width: 0;
+      background: var(--sheet);
+      border: 1px solid rgba(85, 104, 116, 0.22);
+      box-shadow: 0 22px 60px rgba(39, 56, 67, 0.1);
+    }
+
+    #start {
+      border-bottom: 0;
+      background: var(--sheet);
+    }
+
+    #start > div { padding-top: clamp(2.5rem, 7vw, 6rem); padding-bottom: clamp(2.5rem, 7vw, 5rem); }
+
+    #start h1 {
+      max-width: 16ch;
+      font-family: var(--serif);
+      font-size: clamp(3rem, 6vw, 6.3rem);
+      line-height: 0.96;
+      font-weight: 500;
+      letter-spacing: -0.045em;
+      text-wrap: balance;
+    }
+
+    .lesson-section {
+      min-height: auto;
+      scroll-margin-top: 1rem;
+      display: block;
+      border-top: 1px solid var(--line);
+      border-bottom: 0;
+    }
+
+    #main-content > section > div {
+      max-width: none;
+      padding-left: clamp(1.2rem, 6vw, 5.5rem);
+      padding-right: clamp(1.2rem, 6vw, 5.5rem);
+    }
+
+    .lesson-section h2 {
+      max-width: 24ch;
+      font-family: var(--serif);
+      font-size: clamp(2rem, 3.4vw, 3.5rem);
+      line-height: 1.04;
+      font-weight: 500;
+      letter-spacing: -0.028em;
+      text-wrap: balance;
+    }
+
+    .paper-card {
+      background: rgba(251, 252, 253, 0.92);
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+
+    .eyebrow {
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .diagram text {
+      font-family: var(--sans);
+      fill: var(--ink);
+    }
+
+    .diagram .small {
+      font-size: 13px;
+    }
+
+    .diagram .label {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .diagram .note {
+      font-size: 12px;
+      fill: #53615d;
+    }
+
+    .number-marker {
+      display: grid;
+      place-items: center;
+      width: 2rem;
+      height: 2rem;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: var(--accent);
+      color: var(--sheet);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    code {
+      padding: 0.12rem 0.32rem;
+      border-radius: 0.25rem;
+      color: #315565;
+      background: #e2ebf0;
+      font-family: var(--mono);
+      font-size: 0.86em;
+    }
+
+    #product { background: var(--ink); color: #f4f7f9; }
+    #product h2, #product p, #product blockquote, #product strong { color: inherit !important; }
+    #product .eyebrow { color: #bad0da !important; }
+    #product article, #product .paper-card {
+      background: rgba(255, 255, 255, 0.06) !important;
+      border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+
+    #security { background: #edf3f5; }
+    #review { background: var(--note-soft); }
+
+    #architecture > div > .grid:first-child,
+    #safety > div,
+    #data > div > .grid:first-child,
+    #security > div > .grid:first-child,
+    #requirements > div > .grid:first-child {
+      grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    footer {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0.2rem clamp(1rem, 4vw, 3rem) 2.5rem;
+      color: var(--muted);
+      background: transparent !important;
+      font-size: 0.76rem;
+      text-align: right;
+    }
+
+    @media (max-width: 900px) {
+      .masthead-inner { align-items: flex-start; flex-direction: column; }
+      .meta-strip { justify-content: flex-start; }
+      .shell { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+      #TOC { display: none; }
+      .mobile-toc {
+        display: block;
+        margin: 1rem 1rem 0;
+        background: rgba(251, 252, 253, 0.82);
+        border: 1px solid var(--line);
+      }
+      .mobile-toc summary {
+        padding: 0.8rem 1rem;
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .mobile-toc nav { padding: 0 1rem 1rem; font-size: 0.82rem; }
+      .mobile-toc ul { margin: 0; padding-left: 1rem; }
+      .mobile-toc li { margin: 0.25rem 0; }
+      .mobile-toc a { color: var(--muted); text-decoration: none; }
+    }
+
+    @media (max-width: 767px) {
+
+      .lesson-section {
+        min-height: auto;
+        align-items: flex-start;
+        padding-top: 4.5rem;
+        padding-bottom: 4.5rem;
+      }
+
+      .diagram .small {
+        font-size: 15px;
+      }
+
+      .diagram .label {
+        font-size: 17px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      body { font-size: 16px; }
+      .masthead-inner { padding: 0.85rem 1rem; }
+      .meta-strip { gap: 0.4rem; }
+      .pill { max-width: 100%; overflow-wrap: anywhere; }
+      .shell { padding: 0.75rem; }
+      #start h1 { font-size: clamp(2.7rem, 14vw, 4rem); }
+      .lesson-section h2 { font-size: 2.15rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+    @media print {
+      @page { size: auto; margin: 16mm; }
+      html, body { background: white; }
+      body { font-size: 10.5pt; line-height: 1.45; }
+      .masthead, #TOC, .skip-link, .mobile-toc { display: none !important; }
+      .shell { display: block; width: auto; margin: 0; padding: 0; }
+      #main-content { border: 0; box-shadow: none; }
+      .lesson-section {
+        min-height: auto;
+        break-inside: auto;
+      }
+      .lesson-section h2, .lesson-section h3 { break-after: avoid; }
+      p, li { orphans: 3; widows: 3; }
+      article, svg { break-inside: avoid; }
+      footer { padding: 8mm 0 0; }
+    }
+  </style>
+</head>
+<body class="font-body text-ink antialiased">
+  <a class="skip-link" href="#main-content">Skip to document</a>
+  <header class="masthead" aria-label="Document metadata">
+    <div class="masthead-inner">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">B</span>Build AI Systems</div>
+      <div class="meta-strip">
+        <span class="pill"><strong>Kind:</strong> Technical design</span>
+        <span class="pill"><strong>Source:</strong> brief.md</span>
+        <span class="pill"><strong>Revision:</strong> d19d4905479b</span>
+      </div>
+    </div>
+  </header>
+
+  <aside class="mobile-toc" aria-label="Document navigation">
+    <details>
+      <summary>Contents</summary>
+      <nav aria-label="Document sections on small screens">
+        <ul>
+          <li><a href="#start">Overview</a></li>
+          <li><a href="#product">1. Product outcome</a></li>
+          <li><a href="#boundary">2. Product boundary</a></li>
+          <li><a href="#timing">3. Sync and async work</a></li>
+          <li><a href="#architecture">4. System context</a></li>
+          <li><a href="#flow">5. Request flow</a></li>
+          <li><a href="#safety">6. Safety design</a></li>
+          <li><a href="#rag">7. RAG plan</a></li>
+          <li><a href="#decisions">8. Key decisions</a></li>
+          <li><a href="#data">9. Data model</a></li>
+          <li><a href="#recovery">10. Failure behavior</a></li>
+          <li><a href="#security">11. Security and privacy</a></li>
+          <li><a href="#plan">12. Build plan</a></li>
+          <li><a href="#requirements">13. Invariants and done</a></li>
+          <li><a href="#review">14. Review and open questions</a></li>
+        </ul>
+      </nav>
+    </details>
+  </aside>
+
+  <div class="shell">
+    <nav id="TOC" aria-label="Document sections">
+      <ul>
+        <li><a href="#start">Overview</a></li>
+        <li><a href="#product">1. Product outcome</a></li>
+        <li><a href="#boundary">2. Product boundary</a></li>
+        <li><a href="#timing">3. Sync and async work</a></li>
+        <li><a href="#architecture">4. System context</a></li>
+        <li><a href="#flow">5. Request flow</a></li>
+        <li><a href="#safety">6. Safety design</a></li>
+        <li><a href="#rag">7. RAG plan</a></li>
+        <li><a href="#decisions">8. Key decisions</a></li>
+        <li><a href="#data">9. Data model</a></li>
+        <li><a href="#recovery">10. Failure behavior</a></li>
+        <li><a href="#security">11. Security and privacy</a></li>
+        <li><a href="#plan">12. Build plan</a></li>
+        <li><a href="#requirements">13. Invariants and done</a></li>
+        <li><a href="#review">14. Review and open questions</a></li>
+      </ul>
+    </nav>
+
+    <main id="main-content" tabindex="-1">
+    <section id="start" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-4xl">
+          <p class="eyebrow mb-5 text-rust">System design · 11 August 2026</p>
+          <h1 class="font-display text-6xl leading-[0.92] md:text-7xl lg:text-8xl">
+            HR policy assistant for Slack
+          </h1>
+          <p class="mt-7 max-w-2xl text-xl leading-relaxed text-ink/75 md:text-2xl">
+            This document defines a Slack assistant that answers HR policy questions from approved documents. It sends unsafe or unclear questions to a person.
+          </p>
+          <div class="mt-8 flex flex-wrap gap-3 text-sm font-semibold">
+            <span class="rounded-full bg-ink px-4 py-2 text-cream">Python</span>
+            <span class="rounded-full border border-ink/20 bg-cream px-4 py-2">Slack</span>
+            <span class="rounded-full border border-ink/20 bg-cream px-4 py-2">Postgres</span>
+            <span class="rounded-full border border-ink/20 bg-cream px-4 py-2">Google Cloud</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="product" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-3xl">
+          <p class="eyebrow text-rust">1 · Product outcome</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">What the system does</h2>
+        </div>
+
+        <div class="mt-10 grid gap-5 lg:grid-cols-2">
+          <article class="rounded-3xl border border-rust/25 bg-rust/5 p-7 md:p-9">
+            <p class="eyebrow text-rust">Today</p>
+            <div class="mt-6 space-y-5 text-lg">
+              <p>Employees email HR with the same policy questions.</p>
+              <p>HR searches documents and writes each reply by hand.</p>
+              <p>Simple questions wait beside sensitive cases.</p>
+            </div>
+          </article>
+
+          <article class="rounded-3xl border border-teal/25 bg-teal/5 p-7 md:p-9">
+            <p class="eyebrow text-teal">With this system</p>
+            <div class="mt-6 space-y-5 text-lg">
+              <p>An employee asks a general policy question in <strong>#ask-hr</strong>.</p>
+              <p>The assistant replies in the thread from an approved policy.</p>
+              <p>Off-topic, sensitive, and unsupported questions go to HR.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="paper-card mt-6 rounded-3xl p-7 md:p-9">
+          <p class="text-sm font-semibold text-teal">A successful answer</p>
+          <blockquote class="mt-3 max-w-4xl font-display text-3xl leading-snug md:text-4xl">
+            “You can carry up to five unused days into the next holiday year with manager approval.”
+          </blockquote>
+          <p class="mt-4 text-sm text-ink/60">Source: Annual Leave Policy, “Carrying leave forward”</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="boundary" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <p class="eyebrow text-rust">2 · Product boundary</p>
+            <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Scope for version 1</h2>
+            <p class="mt-6 text-lg leading-relaxed text-ink/70">
+              Version one serves one company, one Slack workspace, and one public HR channel. It handles new top-level text messages only.
+            </p>
+          </div>
+
+          <div class="grid gap-5 md:grid-cols-2">
+            <article class="rounded-3xl border border-teal/25 bg-teal/5 p-7">
+              <p class="eyebrow text-teal">It can</p>
+              <ul class="mt-5 space-y-4">
+                <li>Answer general policy questions.</li>
+                <li>Name the policy used.</li>
+                <li>Refuse unrelated questions.</li>
+                <li>Refer unclear or sensitive cases.</li>
+                <li>Keep a record of each result.</li>
+              </ul>
+            </article>
+
+            <article class="rounded-3xl border border-rust/25 bg-rust/5 p-7">
+              <p class="eyebrow text-rust">It cannot</p>
+              <ul class="mt-5 space-y-4">
+                <li>Read employee records.</li>
+                <li>Calculate personal entitlement.</li>
+                <li>Approve leave or expenses.</li>
+                <li>Handle private cases.</li>
+                <li>Answer from general model knowledge.</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="timing" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-3xl">
+          <p class="eyebrow text-rust">3 · Synchronous and asynchronous work</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Request handling and background work</h2>
+          <p class="mt-5 text-lg leading-relaxed text-ink/70">
+            Slack expects an HTTP success response within three seconds. Model calls and document checks can take longer, so they run after the event is stored.
+          </p>
+        </div>
+
+        <div class="mt-10 grid gap-5 lg:grid-cols-2">
+          <article class="rounded-3xl bg-ink p-7 text-cream md:p-9">
+            <div class="flex items-center justify-between gap-4">
+              <p class="eyebrow text-sand">Synchronous · under 3 seconds</p>
+              <span class="rounded-full bg-cream/10 px-3 py-1 text-xs">Slack waits</span>
+            </div>
+            <ol class="mt-7 space-y-5">
+              <li class="flex gap-4"><span class="number-marker bg-cream text-ink">1</span><span>Check Slack's signature and timestamp.</span></li>
+              <li class="flex gap-4"><span class="number-marker bg-cream text-ink">2</span><span>Validate the event shape and channel.</span></li>
+              <li class="flex gap-4"><span class="number-marker bg-cream text-ink">3</span><span>Store the event, request, and queue intent in one transaction.</span></li>
+              <li class="flex gap-4"><span class="number-marker bg-cream text-ink">4</span><span>Try for one second to create a named Cloud Task, then return HTTP 200. The saved outbox repairs a failed task creation.</span></li>
+            </ol>
+          </article>
+
+          <article class="rounded-3xl border border-teal/25 bg-teal/5 p-7 md:p-9">
+            <div class="flex items-center justify-between gap-4">
+              <p class="eyebrow text-teal">Asynchronous · background</p>
+              <span class="rounded-full bg-teal/10 px-3 py-1 text-xs">Slack is free</span>
+            </div>
+            <ol class="mt-7 space-y-5">
+              <li class="flex gap-4"><span class="number-marker">1</span><span>Cloud Tasks starts the worker. A scheduled dispatcher repairs only missed task creation.</span></li>
+              <li class="flex gap-4"><span class="number-marker">2</span><span>One worker gets a time-limited claim on the request. This claim is called a lease.</span></li>
+              <li class="flex gap-4"><span class="number-marker">3</span><span>The worker chooses a route, loads policies, and checks the evidence.</span></li>
+              <li class="flex gap-4"><span class="number-marker">4</span><span>A separate delivery lease controls the Slack reply.</span></li>
+            </ol>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="grid gap-10 lg:grid-cols-[0.72fr_1.28fr]">
+          <div>
+            <p class="eyebrow text-rust">4 · System context</p>
+            <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">System architecture</h2>
+            <p class="mt-6 text-lg leading-relaxed text-ink/70">
+              The public service accepts Slack events. It saves each request and tries to create a named Cloud Task at once. It cannot call the model or post answers. A scheduled dispatcher reads the outbox and repairs only missed task creation. The private worker runs the remaining steps.
+            </p>
+            <div class="mt-7 space-y-3 text-sm">
+              <p><span class="mr-2 inline-block h-3 w-3 rounded-full bg-rust"></span>Public internet boundary</p>
+              <p><span class="mr-2 inline-block h-3 w-3 rounded-full bg-teal"></span>Private application work</p>
+              <p><span class="mr-2 inline-block h-3 w-3 rounded-full bg-moss"></span>Stored source of truth</p>
+            </div>
+          </div>
+
+          <div class="paper-card rounded-3xl p-4 md:p-7">
+            <div class="space-y-3 p-2 md:hidden" role="img" aria-label="Mobile system map">
+              <div class="rounded-2xl border-2 border-rust bg-rust/5 p-4 text-center"><strong>Slack #ask-hr</strong><p class="mt-1 text-sm text-ink/60">sends a signed event</p></div>
+              <p class="text-center text-2xl text-rust">↓</p>
+              <div class="rounded-2xl border-2 border-rust bg-rust/5 p-4 text-center"><strong>Public Slack service</strong><p class="mt-1 text-sm text-ink/60">check · store · acknowledge</p></div>
+              <p class="text-center text-2xl text-teal">↓</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl border-2 border-moss bg-moss/5 p-4 text-center"><strong>Postgres</strong><p class="mt-1 text-xs text-ink/60">requests + outbox</p></div>
+                <div class="rounded-2xl border-2 border-teal bg-teal/5 p-4 text-center"><strong>Cloud Tasks</strong><p class="mt-1 text-xs text-ink/60">immediate task + queued work</p></div>
+              </div>
+              <div class="rounded-2xl border border-ink/20 p-4 text-center"><strong>Cloud Scheduler</strong><p class="mt-1 text-xs text-ink/60">repairs pending work + maintenance</p></div>
+              <p class="text-center text-2xl text-teal">↓</p>
+              <div class="rounded-2xl border-2 border-teal bg-teal/5 p-4 text-center"><strong>Private worker</strong><p class="mt-1 text-sm text-ink/60">decide · retrieve · reply</p></div>
+              <p class="text-center text-2xl text-moss">↓</p>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl border border-ink/20 p-4 text-center"><strong>Vertex AI Gemini</strong><p class="mt-1 text-xs text-ink/60">fixed reply fields</p></div>
+                <div class="rounded-2xl border border-ink/20 p-4 text-center"><strong>Slack</strong><p class="mt-1 text-xs text-ink/60">thread reply</p></div>
+              </div>
+            </div>
+            <svg class="diagram hidden h-auto w-full md:block" viewBox="0 0 820 560" role="img" aria-labelledby="architecture-title architecture-desc">
+              <title id="architecture-title">HR policy assistant system map</title>
+              <desc id="architecture-desc">Slack sends an event to a public Cloud Run service. The service stores the event in Postgres. Cloud Tasks starts a private worker. The worker uses approved policies and the model, then replies to Slack.</desc>
+              <defs>
+                <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L0,6 L9,3 z" fill="#65716d"></path>
+                </marker>
+              </defs>
+
+              <rect x="25" y="30" width="770" height="500" rx="28" fill="#fbf7ef" stroke="#cdbda5"></rect>
+              <text x="55" y="65" class="note">GOOGLE CLOUD</text>
+
+              <rect x="60" y="170" width="145" height="82" rx="18" fill="#f7e7df" stroke="#a64e32" stroke-width="2"></rect>
+              <text x="132" y="201" text-anchor="middle" class="label">Slack</text>
+              <text x="132" y="226" text-anchor="middle" class="small">#ask-hr</text>
+
+              <rect x="60" y="78" width="145" height="62" rx="16" fill="#f1eadc" stroke="#6f7b54" stroke-width="2"></rect>
+              <text x="132" y="103" text-anchor="middle" class="small">Cloud Scheduler</text>
+              <text x="132" y="124" text-anchor="middle" class="note">maintenance jobs</text>
+
+              <rect x="275" y="110" width="190" height="120" rx="20" fill="#f7e7df" stroke="#a64e32" stroke-width="2"></rect>
+              <text x="370" y="146" text-anchor="middle" class="label">Public Slack service</text>
+              <text x="370" y="174" text-anchor="middle" class="small">Cloud Run</text>
+              <text x="370" y="201" text-anchor="middle" class="note">verify · store · acknowledge</text>
+
+              <rect x="535" y="95" width="200" height="92" rx="20" fill="#e4eee9" stroke="#6f7b54" stroke-width="2"></rect>
+              <text x="635" y="130" text-anchor="middle" class="label">Postgres</text>
+              <text x="635" y="157" text-anchor="middle" class="small">requests + policies + outbox</text>
+
+              <rect x="535" y="235" width="200" height="86" rx="20" fill="#e7f1ef" stroke="#26766d" stroke-width="2"></rect>
+              <text x="635" y="268" text-anchor="middle" class="label">Cloud Tasks</text>
+              <text x="635" y="295" text-anchor="middle" class="small">queued worker requests</text>
+
+              <rect x="275" y="350" width="190" height="120" rx="20" fill="#e7f1ef" stroke="#26766d" stroke-width="2"></rect>
+              <text x="370" y="386" text-anchor="middle" class="label">Private worker</text>
+              <text x="370" y="414" text-anchor="middle" class="small">Cloud Run</text>
+              <text x="370" y="441" text-anchor="middle" class="note">decide · retrieve · reply</text>
+
+              <rect x="60" y="365" width="145" height="88" rx="18" fill="#f1eadc" stroke="#6f7b54" stroke-width="2"></rect>
+              <text x="132" y="399" text-anchor="middle" class="label">Vertex AI Gemini</text>
+              <text x="132" y="427" text-anchor="middle" class="small">fixed reply fields</text>
+
+              <path d="M205 198 L267 174" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M465 145 L526 139" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M465 190 C505 205 510 250 526 266" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M635 187 L635 226" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M574 321 L450 357" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M535 170 C495 235 500 340 455 384" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M275 409 L213 409" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M297 350 C245 300 192 276 155 258" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow)"></path>
+              <path d="M132 140 C150 285 230 360 267 393" fill="none" stroke="#65716d" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#arrow)"></path>
+            </svg>
+          </div>
+        </div>
+        <div class="mt-8 grid gap-5 md:grid-cols-2">
+          <article class="rounded-2xl border border-teal/20 bg-teal/5 p-6"><h3 class="font-semibold">Repair and maintenance</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Scheduler signs each request with a Google identity. It calls <code>/internal/dispatch</code> each minute to repair pending outbox rows, <code>/internal/sweep</code> every five minutes, and <code>/internal/retention</code> each day. Normal requests do not wait for the dispatcher.</p></article>
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Local commands</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Developers can run the same jobs once with <code>python -m build_ai_systems.ops dispatch --once</code>, <code>sweep --once</code>, or <code>retention --once</code>. The HTTP routes and commands call the same application functions.</p></article>
+        </div>
+        <div class="mt-6 rounded-3xl border border-moss/25 bg-moss/5 p-7 md:p-9">
+          <p class="eyebrow text-moss">What happens when 1,000 questions arrive</p>
+          <div class="mt-5 grid gap-5 md:grid-cols-3">
+            <p class="text-sm leading-relaxed text-ink/70"><strong>1. Store the work.</strong><br>Cloud Tasks keeps every accepted request until the worker has space.</p>
+            <p class="text-sm leading-relaxed text-ink/70"><strong>2. Limit the flow.</strong><br>Start with 10 dispatches each second and 20 tasks running at once. Tune these limits after a load test.</p>
+            <p class="text-sm leading-relaxed text-ink/70"><strong>3. Scale the workers.</strong><br>Cloud Run adds instances up to its set limit. Extra tasks wait instead of overloading Vertex AI or Postgres.</p>
+          </div>
+          <p class="mt-5 text-sm leading-relaxed text-ink/60">If one task takes 10 seconds, 20 worker slots finish about two tasks each second. A burst of 1,000 tasks then takes about eight minutes. This is an example, not a service promise.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-3xl">
+          <p class="eyebrow text-rust">5 · Request flow</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">How a request is processed</h2>
+        </div>
+
+        <div class="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <article class="paper-card rounded-2xl p-6"><span class="number-marker">1</span><h3 class="mt-5 text-lg font-semibold">Receive</h3><p class="mt-2 text-sm leading-relaxed text-ink/65">Slack sends a top-level channel message.</p></article>
+          <article class="paper-card rounded-2xl p-6"><span class="number-marker">2</span><h3 class="mt-5 text-lg font-semibold">Verify</h3><p class="mt-2 text-sm leading-relaxed text-ink/65">The ingress checks the raw signed request.</p></article>
+          <article class="paper-card rounded-2xl p-6"><span class="number-marker">3</span><h3 class="mt-5 text-lg font-semibold">Store</h3><p class="mt-2 text-sm leading-relaxed text-ink/65">Postgres records the event before work begins.</p></article>
+          <article class="paper-card rounded-2xl p-6"><span class="number-marker">4</span><h3 class="mt-5 text-lg font-semibold">Dispatch</h3><p class="mt-2 text-sm leading-relaxed text-ink/65">A private service creates one named Cloud Task.</p></article>
+          <article class="paper-card rounded-2xl p-6"><span class="number-marker">5</span><h3 class="mt-5 text-lg font-semibold">Route</h3><p class="mt-2 text-sm leading-relaxed text-ink/65">The model returns one fixed result: answer, refuse, or refer.</p></article>
+          <article class="paper-card rounded-2xl p-6"><span class="number-marker">6</span><h3 class="mt-5 text-lg font-semibold">Ground</h3><p class="mt-2 text-sm leading-relaxed text-ink/65">Approved policies become the answer context.</p></article>
+          <article class="paper-card rounded-2xl p-6"><span class="number-marker">7</span><h3 class="mt-5 text-lg font-semibold">Check</h3><p class="mt-2 text-sm leading-relaxed text-ink/65">Code checks policy IDs, versions, quotes, and active state.</p></article>
+          <article class="paper-card rounded-2xl p-6"><span class="number-marker">8</span><h3 class="mt-5 text-lg font-semibold">Deliver</h3><p class="mt-2 text-sm leading-relaxed text-ink/65">A delivery lease controls one reply in the original thread.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="safety" class="lesson-section">
+      <div class="mx-auto grid w-full max-w-7xl gap-10 px-5 py-16 lg:grid-cols-[0.78fr_1.22fr] lg:px-8">
+        <div>
+          <p class="eyebrow text-rust">6 · Safety design</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Request routing and safety rules</h2>
+          <p class="mt-6 text-lg leading-relaxed text-ink/70">
+            The model cannot use any tool it wants. Application code controls each step and stores the fixed refusal and referral messages.
+          </p>
+          <div class="mt-7 rounded-2xl border border-rust/20 bg-rust/5 p-5 text-sm leading-relaxed">
+            The course still teaches agent loops. This application uses a fixed workflow because it has one job and known business rules.
+          </div>
+        </div>
+
+        <div class="paper-card rounded-3xl p-4 md:p-7">
+          <div class="space-y-3 p-2 md:hidden" role="img" aria-label="Mobile safe request routing">
+            <div class="rounded-2xl border-2 border-ink p-4 text-center"><strong>Fixed route result</strong><p class="mt-1 text-sm text-ink/60">answer · refuse · refer</p></div>
+            <p class="text-center text-2xl">↓</p>
+            <div class="rounded-2xl border-2 border-rust bg-rust/5 p-4"><strong>Refuse</strong><p class="mt-1 text-sm text-ink/60">Off-topic. Use fixed application text.</p></div>
+            <div class="rounded-2xl border-2 border-moss bg-moss/5 p-4"><strong>Refer</strong><p class="mt-1 text-sm text-ink/60">Sensitive or unclear. Use fixed application text.</p></div>
+            <div class="rounded-2xl border-2 border-teal bg-teal/5 p-4"><strong>Answer</strong><p class="mt-1 text-sm text-ink/60">Load approved documents, then check the evidence.</p></div>
+          </div>
+          <svg class="diagram hidden h-auto w-full md:block" viewBox="0 0 760 540" role="img" aria-labelledby="guardrail-title guardrail-desc">
+            <title id="guardrail-title">Safe request routing</title>
+            <desc id="guardrail-desc">A fixed route result sends a request to one of three paths: refusal, human referral, or an answer based on approved policies.</desc>
+            <defs>
+              <marker id="arrow-guard" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L9,3 z" fill="#65716d"></path>
+              </marker>
+            </defs>
+
+            <rect x="235" y="25" width="290" height="76" rx="18" fill="#fbf7ef" stroke="#1f2927" stroke-width="2"></rect>
+            <text x="380" y="57" text-anchor="middle" class="label">Fixed route result</text>
+            <text x="380" y="82" text-anchor="middle" class="small">answer · refuse · refer</text>
+
+            <rect x="30" y="205" width="205" height="112" rx="20" fill="#f7e7df" stroke="#a64e32" stroke-width="2"></rect>
+            <text x="132" y="241" text-anchor="middle" class="label">Refuse</text>
+            <text x="132" y="269" text-anchor="middle" class="small">off-topic</text>
+            <text x="132" y="294" text-anchor="middle" class="note">fixed application text</text>
+
+            <rect x="277" y="205" width="205" height="112" rx="20" fill="#f1eadc" stroke="#6f7b54" stroke-width="2"></rect>
+            <text x="379" y="241" text-anchor="middle" class="label">Refer</text>
+            <text x="379" y="269" text-anchor="middle" class="small">sensitive · unclear</text>
+            <text x="379" y="294" text-anchor="middle" class="note">fixed application text</text>
+
+            <rect x="525" y="205" width="205" height="112" rx="20" fill="#e7f1ef" stroke="#26766d" stroke-width="2"></rect>
+            <text x="627" y="241" text-anchor="middle" class="label">Answer</text>
+            <text x="627" y="269" text-anchor="middle" class="small">general HR policy</text>
+            <text x="627" y="294" text-anchor="middle" class="note">load approved documents</text>
+
+            <rect x="525" y="405" width="205" height="92" rx="20" fill="#e4eee9" stroke="#6f7b54" stroke-width="2"></rect>
+            <text x="627" y="440" text-anchor="middle" class="label">Evidence check</text>
+            <text x="627" y="468" text-anchor="middle" class="small">valid policy + exact quote</text>
+
+            <path d="M310 101 C245 140 175 160 145 198" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-guard)"></path>
+            <path d="M380 101 L380 196" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-guard)"></path>
+            <path d="M450 101 C520 140 590 160 617 198" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-guard)"></path>
+            <path d="M627 317 L627 396" fill="none" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-guard)"></path>
+            <path d="M525 454 C460 450 420 390 398 326" fill="none" stroke="#a64e32" stroke-width="2.5" stroke-dasharray="8 7" marker-end="url(#arrow-guard)"></path>
+            <text x="441" y="418" text-anchor="middle" class="note">invalid evidence</text>
+          </svg>
+        </div>
+        <div class="grid gap-5 lg:col-span-2 lg:grid-cols-2">
+          <article class="rounded-3xl border border-ink/15 bg-cream p-6">
+            <p class="eyebrow text-rust">RouteDecision</p>
+            <p class="mt-4 text-sm leading-relaxed text-ink/65"><code>route</code> is <code>answer</code>, <code>refuse</code>, or <code>refer</code>. <code>reason_code</code> is one approved value. Invalid output or a timeout becomes <code>refer</code>.</p>
+          </article>
+          <article class="rounded-3xl border border-ink/15 bg-cream p-6">
+            <p class="eyebrow text-teal">GroundedResult</p>
+            <p class="mt-4 text-sm leading-relaxed text-ink/65"><code>outcome</code> is <code>answer</code> or <code>refer</code>. Each factual claim has one or more policy IDs, versions, and exact quotes. Missing or conflicting evidence becomes <code>refer</code>.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="rag" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-4xl">
+          <p class="eyebrow text-rust">7 · RAG choice</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Load all approved policies for version 1</h2>
+          <p class="mt-6 text-lg leading-relaxed text-ink/70">
+            Retrieval-augmented generation, or RAG, means adding trusted information to the model request. Version one loads every active policy because the approved collection is small.
+          </p>
+        </div>
+
+        <div class="mt-10 grid gap-5 lg:grid-cols-3">
+          <article class="paper-card rounded-3xl p-7">
+            <p class="eyebrow text-teal">Chosen now</p>
+            <h3 class="mt-4 text-2xl font-semibold">Small-set loading</h3>
+            <p class="mt-4 leading-relaxed text-ink/65">Load one approved active version of each policy from Postgres. Recheck those versions before delivery.</p>
+          </article>
+          <article class="paper-card rounded-3xl p-7">
+            <p class="eyebrow text-rust">Guardrail</p>
+            <h3 class="mt-4 text-2xl font-semibold">Maximum policy size</h3>
+            <p class="mt-4 leading-relaxed text-ink/65">Use the model's token counter. Refer the question to HR when the policies use more than 12,000 tokens. Do not drop a policy to make the input fit.</p>
+          </article>
+          <article class="paper-card rounded-3xl p-7">
+            <p class="eyebrow text-moss">Later</p>
+            <h3 class="mt-4 text-2xl font-semibold">Hybrid search</h3>
+            <p class="mt-4 leading-relaxed text-ink/65">Add keyword and vector search only when the policy set becomes too large. Teach that deeper path in The Vault.</p>
+          </article>
+        </div>
+
+        <div class="mt-6 rounded-3xl border border-ink/15 bg-cream p-7 md:p-9">
+          <div class="grid gap-5 text-center md:grid-cols-4">
+            <div><p class="font-semibold">Active policies</p><p class="mt-2 text-sm text-ink/60">approved versions only</p></div>
+            <div class="text-2xl text-rust md:pt-2">→</div>
+            <div><p class="font-semibold">Grounded answer</p><p class="mt-2 text-sm text-ink/60">answer + policy IDs + quotes</p></div>
+            <div><p class="font-semibold text-teal">Code checks proof</p><p class="mt-2 text-sm text-ink/60">then Slack receives it</p></div>
+          </div>
+        </div>
+        <p class="mt-5 text-sm leading-relaxed text-ink/60">An exact quote proves that the source text exists. It does not prove that the claim is correct. A fixed evaluation set must test whether each answer follows from its evidence. Policy conflicts, missing evidence, and policy changes before delivery all produce a referral.</p>
+      </div>
+    </section>
+
+    <section id="decisions" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-3xl">
+          <p class="eyebrow text-rust">8 · Main decisions</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Technical decisions</h2>
+        </div>
+
+        <div class="mt-10 grid gap-5 md:grid-cols-2">
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Fixed workflow</h3><p class="mt-3 leading-relaxed text-ink/65">Application code controls the order of the steps. The model cannot add steps or choose other tools.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Cloud Tasks and Cloud Run</h3><p class="mt-3 leading-relaxed text-ink/65">One outbox row creates one HTTP request to the private Cloud Run worker. The public service normally creates it at once. The dispatcher repairs failures. We reject Cloud Run Jobs because each Slack question is short, separate work. Jobs remain useful for long policy imports and evaluation runs.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Postgres stores system state</h3><p class="mt-3 leading-relaxed text-ink/65">Cloud Tasks wakes the worker. Postgres stores queued work, leases, request state, attempts, evidence, and delivery state.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Two Cloud Run services</h3><p class="mt-3 leading-relaxed text-ink/65">The public service accepts Slack events. The private worker can call the model, use the database, and reply in Slack. Google Cloud identity and access management, or IAM, keeps the worker private.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Gemini on Vertex AI</h3><p class="mt-3 leading-relaxed text-ink/65">This companion application uses a generally available Gemini Flash model through Vertex AI. The exact model ID is deployment config and is stored with every result. Cloud Run uses its Google identity instead of an API key. The application requires replies with fixed data fields. Earlier provider lessons can still compare OpenAI and other models.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Small, controlled burst</h3><p class="mt-3 leading-relaxed text-ink/65">Start with 10 task dispatches each second, 20 tasks at once, Cloud Run concurrency 4, and 5 worker instances. These teaching defaults protect Vertex AI and Postgres. Load tests decide whether to raise them.</p></article>
+          <article class="paper-card rounded-3xl p-7"><h3 class="text-xl font-semibold">Private policy import</h3><p class="mt-3 leading-relaxed text-ink/65">A command validates approved Markdown from a private customer source and publishes it in one transaction. Real policies never enter this public repository.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="data" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="grid gap-10 lg:grid-cols-[0.72fr_1.28fr]">
+          <div>
+            <p class="eyebrow text-rust">9 · Components and data</p>
+            <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Database tables</h2>
+            <p class="mt-6 text-lg leading-relaxed text-ink/70">The database keeps business state. Logs help operators find problems, but logs are not the source of truth.</p>
+          </div>
+
+          <div class="space-y-4">
+            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">slack_events</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Slack event ID, workspace, channel, user, message time, raw body hash, and received time. The event ID is unique.</p></article>
+            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">support_requests</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Request ID, question text, state, route, reason, model, prompt version, usage, latency, lease owner, and lease expiry.</p></article>
+            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">dispatch_outbox</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Request ID, dispatch number, unique task name, state, attempts, next dispatch time, and last safe error code. It is written with the request.</p></article>
+            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">outbound_deliveries</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">One row per request with <code>pending</code>, <code>sending</code>, <code>sent</code>, or <code>uncertain</code>, plus a delivery lease, Slack metadata ID, and Slack message time. Only <code>pending</code> can start a send. An expired <code>sending</code> lease becomes <code>uncertain</code>.</p></article>
+            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">policy_documents</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Stable policy ID, version, content, content hash, approver, approval time, and active state. A database rule permits one approved active version per policy.</p></article>
+            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">answer_evidence</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Request ID, policy ID, policy version, and the exact supporting quote returned by the model.</p></article>
+            <article class="rounded-2xl border border-ink/15 bg-cream p-6 md:grid md:grid-cols-[0.35fr_0.65fr] md:gap-6"><h3 class="font-semibold">processing_attempts</h3><p class="mt-2 text-sm leading-relaxed text-ink/65 md:mt-0">Step name, attempt number for that step, start and end time, outcome, safe error code, provider status, and retry choice. Worker, route-model, and answer-model attempts use separate counters. Secrets and raw model prompts stay out of logs.</p></article>
+          </div>
+        </div>
+        <div class="mt-6 rounded-3xl border border-moss/25 bg-moss/5 p-7 text-sm leading-relaxed text-ink/70">
+          <strong>All policy changes succeed together or none are saved.</strong> The import command checks every file before it changes an active version. A failed import changes nothing. Evidence keeps the exact version used. Example policies can live in this public repository. Real customer policies must come from a private approved source.
+        </div>
+      </div>
+    </section>
+
+    <section id="recovery" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-4xl">
+          <p class="eyebrow text-rust">10 · Failure and recovery</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Retries and duplicate prevention</h2>
+          <p class="mt-6 text-lg leading-relaxed text-ink/70">Slack, Cloud Tasks, and Vertex AI can fail. Each retry has one owner and one limit. Every repeated step must be safe to run again.</p>
+        </div>
+
+        <div class="paper-card mt-10 rounded-3xl p-5 md:p-8">
+          <div class="space-y-3 md:hidden" role="img" aria-label="Mobile request state flow">
+            <div class="rounded-xl border border-ink/30 p-3 text-center font-semibold">accepted</div>
+            <p class="text-center text-xl">↓</p>
+            <div class="rounded-xl border border-ink/30 p-3 text-center font-semibold">queued</div>
+            <p class="text-center text-xl">↓</p>
+            <div class="rounded-xl border-2 border-teal bg-teal/5 p-3 text-center font-semibold">processing</div>
+            <p class="text-center text-sm text-rust">worker retries at most 5 times</p>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="rounded-xl border border-moss bg-moss/5 p-3 text-center text-sm font-semibold">answered</div>
+              <div class="rounded-xl border border-rust bg-rust/5 p-3 text-center text-sm font-semibold">refused</div>
+              <div class="rounded-xl border border-moss bg-moss/5 p-3 text-center text-sm font-semibold">referred</div>
+              <div class="rounded-xl border-2 border-rust bg-rust/5 p-3 text-center text-sm font-semibold">needs review</div>
+            </div>
+          </div>
+          <svg class="diagram hidden h-auto w-full md:block" viewBox="0 0 1040 270" role="img" aria-labelledby="state-title state-desc">
+            <title id="state-title">Support request state flow</title>
+            <desc id="state-desc">A request moves from accepted to queued and processing, then reaches answered, refused, referred, or needs review. An expired worker lease can retry processing up to five times.</desc>
+            <defs><marker id="arrow-state" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#65716d"></path></marker></defs>
+            <g>
+              <rect x="20" y="75" width="135" height="66" rx="17" fill="#fbf7ef" stroke="#1f2927"></rect><text x="87" y="113" text-anchor="middle" class="label">accepted</text>
+              <rect x="205" y="75" width="135" height="66" rx="17" fill="#fbf7ef" stroke="#1f2927"></rect><text x="272" y="113" text-anchor="middle" class="label">queued</text>
+              <rect x="390" y="75" width="150" height="66" rx="17" fill="#e7f1ef" stroke="#26766d"></rect><text x="465" y="113" text-anchor="middle" class="label">processing</text>
+              <rect x="610" y="15" width="145" height="60" rx="17" fill="#e4eee9" stroke="#6f7b54"></rect><text x="682" y="50" text-anchor="middle" class="label">answered</text>
+              <rect x="610" y="100" width="145" height="60" rx="17" fill="#f7e7df" stroke="#a64e32"></rect><text x="682" y="135" text-anchor="middle" class="label">refused</text>
+              <rect x="610" y="185" width="145" height="60" rx="17" fill="#f1eadc" stroke="#6f7b54"></rect><text x="682" y="220" text-anchor="middle" class="label">referred</text>
+              <rect x="840" y="100" width="165" height="60" rx="17" fill="#f7e7df" stroke="#a64e32" stroke-width="2"></rect><text x="922" y="135" text-anchor="middle" class="label">needs review</text>
+              <path d="M155 108 L196 108" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-state)"></path>
+              <path d="M340 108 L381 108" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-state)"></path>
+              <path d="M540 101 L600 55" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-state)"></path>
+              <path d="M540 112 L600 127" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-state)"></path>
+              <path d="M530 132 L600 205" stroke="#65716d" stroke-width="2.5" marker-end="url(#arrow-state)"></path>
+              <path d="M755 130 L830 130" stroke="#a64e32" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#arrow-state)"></path>
+              <path d="M465 141 C465 220 330 235 330 150" fill="none" stroke="#a64e32" stroke-width="2.5" stroke-dasharray="7 6" marker-end="url(#arrow-state)"></path>
+              <text x="413" y="235" text-anchor="middle" class="note">worker retry, at most 5 attempts</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="mt-6 grid gap-5 md:grid-cols-3">
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Duplicate event</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The unique Slack event ID returns the saved result. It does not create new work.</p></article>
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Task creation fails</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The public service tries to create the named task for one second. A failure leaves the outbox row pending. A private dispatcher repairs it within one minute. The task name combines request ID and dispatch number. <code>ALREADY_EXISTS</code> counts as success only for that same outbox row.</p></article>
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Reply result is unclear</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">A timeout, unclear response, process crash, or expired <code>sending</code> lease becomes <code>uncertain</code>. It never returns to <code>pending</code>. Check the Slack thread. If the message cannot be found, a person must review the request.</p></article>
+        </div>
+        <div class="mt-6 grid gap-5 md:grid-cols-2">
+          <article class="rounded-2xl border border-teal/20 bg-teal/5 p-6"><h3 class="font-semibold">Worker lease</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">One database update gives a worker a 120-second lease. The worker renews the lease between steps and must finish within 90 seconds. A second worker does nothing while the lease is active.</p></article>
+          <article class="rounded-2xl border border-rust/20 bg-rust/5 p-6"><h3 class="font-semibold">Stale work</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The system queues the request again when its worker lease expires before attempt five. At attempt five it moves the request to <code>needs_review</code>. A request that waits for 20 minutes also moves to review.</p></article>
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Worker retry limit</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Worker leases and Cloud Tasks transport retries are separate from model retries. The application stops after five expired worker leases. An extra task returns HTTP 204 and does no work.</p></article>
+          <article class="rounded-2xl border border-ink/15 bg-cream p-6"><h3 class="font-semibold">Temporary Gemini failure</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The application owns model retries, so the SDK must not add more. Retry HTTP 429, 500, 502, 503, 504, a connection failure, or a timeout at most two times. Wait at least one second, then double the delay and add random jitter. The initial call plus two retries gives three attempts for one model step.</p></article>
+          <article class="rounded-2xl border border-rust/20 bg-rust/5 p-6"><h3 class="font-semibold">Permanent Gemini failure</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Do not retry HTTP 400, 403, or 404. Record a safe error code, alert the operator, and use the fixed referral. After temporary retries are used, also use the fixed referral. Return success to Cloud Tasks only after the referral is <code>sent</code> or its delivery is <code>uncertain</code>. A clear Slack or infrastructure failure remains retryable or moves to <code>needs_review</code> under the delivery rules.</p></article>
+        </div>
+        <div class="mt-6 rounded-3xl bg-ink p-7 text-cream">
+          <p class="eyebrow text-sand">Operator recovery</p>
+          <p class="mt-4 leading-relaxed text-cream/75">A command-line tool lists stuck requests, uncertain deliveries, failed tasks, and failed text deletion jobs. A person can inspect one request, mark a confirmed Slack message as sent, or queue safe work again. The tool never clears an active lease. It never changes <code>uncertain</code> delivery to <code>pending</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="security" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="grid gap-10 lg:grid-cols-[0.75fr_1.25fr]">
+          <div>
+            <p class="eyebrow text-rust">11 · Security, privacy, and limits</p>
+            <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Security, privacy, and limits</h2>
+            <p class="mt-6 text-lg leading-relaxed text-ink/70">The system sends a fixed referral when it cannot verify the user, request scope, policy evidence, or Slack delivery.</p>
+          </div>
+          <div class="grid gap-4 md:grid-cols-2">
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Verify Slack requests</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Check Slack's request signature against the original request body. Reject requests more than five minutes old.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Accept only supported messages</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Require the configured workspace and channel, a human user, and a new top-level text message. Ignore bots, edits, deletes, files, and thread replies.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Limit access</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The public service can store requests, write outbox rows, and create named tasks in one queue. It gets only the task enqueuer role and permission to use the task caller identity. It cannot call Vertex AI or post to Slack. The private worker can call Vertex AI and Slack.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Check private callers</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Run IAM protects the whole private service, not each route. The task route checks for the Cloud Tasks service account. Repair, sweep, and retention routes check for the Cloud Scheduler service account. A valid identity on the wrong route is rejected.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Protect credentials</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Run uses its service identity for Vertex AI. Store the Slack signing secret and bot token in Secret Manager. Never write credentials to Postgres, logs, or model prompts.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Delete message text after 30 days</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">A daily private job removes question text, answer text, and evidence quotes after 30 days. It keeps IDs, states, timings, policy versions, usage, and cost.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Data stored by Slack and Vertex AI</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Logs do not contain message text. Slack and Vertex AI handle data under their own rules. The customer must approve those rules, the model location, and the Google Cloud project before production use.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Limit model work</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Each request can make at most two logical model calls: route and answer. Each attempt stops after 10 seconds. Each logical call allows one initial attempt and two retries. Answers can contain at most 1,200 characters.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Limit queued work</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Cloud Tasks starts at 10 dispatches each second and 20 tasks at once. Cloud Run starts at concurrency 4 and 5 worker instances. Warn when the oldest task waits for more than 10 minutes or the queue makes no progress for two minutes.</p></article>
+            <article class="paper-card rounded-2xl p-6"><h3 class="font-semibold">Record usage and cost</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Record the model name, token count, response time, and estimated cost for each completed request.</p></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="plan" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-4xl">
+          <p class="eyebrow text-rust">12 · Build plan</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Implementation plan</h2>
+          <p class="mt-6 text-lg leading-relaxed text-ink/70">Each phase ends with a working result and a check. A phase must pass its check before the next phase starts.</p>
+        </div>
+
+        <div class="mt-10 space-y-3">
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 1</p><div><h3 class="font-semibold">Application setup</h3><p class="mt-2 text-sm text-ink/65">Python package, settings, Postgres tables, Vertex AI model config, local Google credentials, local commands, and health checks.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> create a clean local database and make one structured Gemini call.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 2</p><div><h3 class="font-semibold">Public Slack service</h3><p class="mt-2 text-sm text-ink/65">Slack URL check, request signature check, supported message filter, and one database save.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> store each valid human message once. Reject or ignore every unsupported message.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 3</p><div><h3 class="font-semibold">Background work</h3><p class="mt-2 text-sm text-ink/65">Immediate Cloud Task creation, outbox repair, queue limits, leases, retries, stale-work checks, and manual requeue.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> normal work starts without waiting for the scheduler. A failed task creation is repaired within one minute.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 4</p><div><h3 class="font-semibold">Scope and referral</h3><p class="mt-2 text-sm text-ink/65">Gemini structured route fields, refusal text, referral text, temporary error retries, and permanent error handling.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> off-topic and unsafe questions never reach answer generation. Model errors follow the stated retry rule.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 5</p><div><h3 class="font-semibold">Trusted policy answers</h3><p class="mt-2 text-sm text-ink/65">Policy import, maximum token count, fixed claim fields, conflict checks, and evidence checks.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> every factual claim links to approved evidence and passes the test cases.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 6</p><div><h3 class="font-semibold">Slack delivery</h3><p class="mt-2 text-sm text-ink/65">Delivery record, delivery lease, message ID, thread check, and Slack rate limits.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> an unclear delivery never causes a second automatic reply.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-ink/15 bg-cream p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-rust">Phase 7</p><div><h3 class="font-semibold">Tests and operations</h3><p class="mt-2 text-sm text-ink/65">Fixed test cases, logs, model usage, cost, text deletion, and a command-line recovery tool.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> explain one complete request and test a recovery command for every failure state.</p></article>
+          <article class="grid gap-4 rounded-2xl border border-teal/25 bg-teal/5 p-6 md:grid-cols-[6rem_1fr_1fr]"><p class="eyebrow text-teal">Phase 8</p><div><h3 class="font-semibold">Google Cloud deployment</h3><p class="mt-2 text-sm text-ink/65">Cloud Run, Cloud Tasks, Cloud Scheduler, Cloud SQL, Vertex AI, Secret Manager, access rules, live Slack, and failure tests.</p></div><p class="text-sm text-ink/65"><strong>Check:</strong> test task creation failure, Gemini 429 and 5XX errors, queue limits, two workers, unclear delivery, and recovery.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="requirements" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="grid gap-10 lg:grid-cols-2">
+          <div>
+            <p class="eyebrow text-rust">13 · Rules that must stay true</p>
+            <h2 class="mt-4 font-display text-5xl leading-tight md:text-6xl">Invariants</h2>
+            <ol class="mt-8 space-y-4 text-sm leading-relaxed">
+              <li><strong>INV-1:</strong> No Slack event can create work before its signature and timestamp pass.</li>
+              <li><strong>INV-2:</strong> The event, request, and outbox row are saved together before the public service returns success.</li>
+              <li><strong>INV-3:</strong> One Slack event ID maps to one support request.</li>
+              <li><strong>INV-4:</strong> The model cannot call Slack, Postgres, or Cloud Tasks.</li>
+              <li><strong>INV-5:</strong> Off-topic requests do not load policies or generate answers.</li>
+              <li><strong>INV-6:</strong> An invalid route, route timeout, invalid evidence data, or evidence conflict becomes a human referral.</li>
+              <li><strong>INV-7:</strong> Every factual claim has an active policy ID, version, and matching evidence quote.</li>
+              <li><strong>INV-8:</strong> An unclear send or expired <code>sending</code> lease becomes <code>uncertain</code> and is never retried automatically.</li>
+              <li><strong>INV-9:</strong> Each private route accepts only its expected Cloud Tasks or Cloud Scheduler service account.</li>
+              <li><strong>INV-10:</strong> Secrets never appear in stored request data, model prompts, or logs.</li>
+              <li><strong>INV-11:</strong> One database update grants the request lease. Another database update grants the delivery lease.</li>
+              <li><strong>INV-12:</strong> Only one approved policy version can be active for a stable policy ID.</li>
+              <li><strong>INV-13:</strong> The retention job removes stored message text and evidence quotes after the approved period.</li>
+              <li><strong>INV-14:</strong> A model step makes at most three attempts and retries only temporary provider or network errors.</li>
+              <li><strong>INV-15:</strong> Cloud Tasks limits how quickly work reaches Vertex AI and Postgres.</li>
+            </ol>
+          </div>
+
+          <div>
+            <p class="eyebrow text-teal">Definition of done</p>
+            <h2 class="mt-4 font-display text-5xl leading-tight md:text-6xl">Acceptance criteria</h2>
+            <ol class="mt-8 space-y-4 text-sm leading-relaxed">
+              <li><strong>AC-1:</strong> Slack's URL check succeeds against the deployed public service.</li>
+              <li><strong>AC-2:</strong> Invalid, missing, and stale Slack signatures are rejected.</li>
+              <li><strong>AC-3:</strong> The public service stores and accepts a valid event within three seconds.</li>
+              <li><strong>AC-4:</strong> Repeated events and duplicate workers do not create a second request or automatic reply.</li>
+              <li><strong>AC-5:</strong> A supported question receives a short answer whose factual claims map to active versioned evidence.</li>
+              <li><strong>AC-6:</strong> An off-topic question receives the fixed refusal.</li>
+              <li><strong>AC-7:</strong> A sensitive, unclear, or unsupported question receives the fixed referral.</li>
+              <li><strong>AC-8:</strong> A route timeout or invalid route does not load policies or generate an answer.</li>
+              <li><strong>AC-9:</strong> If a worker lease expires before attempt five, the system queues the request again. At attempt five, it sends the request for review.</li>
+              <li><strong>AC-10:</strong> Before text deletion, a completed request shows its state, attempts, evidence, response time, usage, cost, and Slack reply ID. After deletion, only approved system data remains.</li>
+              <li><strong>AC-11:</strong> The full system works locally with a manual worker and on Google Cloud with Cloud Tasks.</li>
+              <li><strong>AC-12:</strong> A committed request reaches the worker within one minute after the immediate Cloud Task creation fails.</li>
+              <li><strong>AC-13:</strong> An unclear Slack API result becomes <code>uncertain</code> and cannot send again without operator review.</li>
+              <li><strong>AC-14:</strong> The daily retention job removes expired text, preserves allowed metrics, and reports a failed cleanup.</li>
+              <li><strong>AC-15:</strong> A model step retries a temporary failure at most twice. A permanent failure or three failed attempts produce the fixed referral and an operator alert. Cloud Tasks receives success only after referral delivery is <code>sent</code> or <code>uncertain</code>.</li>
+              <li><strong>AC-16:</strong> Cloud Scheduler invokes repair, sweep, and retention through authenticated private routes. Normal work does not wait for the repair job.</li>
+              <li><strong>AC-17:</strong> A fake-model load test accepts 1,000 requests, never runs more than 20 worker tasks at once, loses no request, and drains the queue.</li>
+              <li><strong>AC-18:</strong> Cloud Tasks cannot call maintenance routes, Cloud Scheduler cannot call the task route, and an unknown service account cannot call any private route.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="review" class="lesson-section">
+      <div class="mx-auto w-full max-w-7xl px-5 py-16 lg:px-8">
+        <div class="max-w-4xl">
+          <p class="eyebrow text-rust">14 · Open questions</p>
+          <h2 class="mt-4 font-display text-5xl leading-tight md:text-7xl">Open questions before production</h2>
+        </div>
+
+        <div class="mt-10 grid gap-5 md:grid-cols-2">
+          <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-rust">Blocks production</p><h3 class="mt-4 text-xl font-semibold">Unclear Slack delivery</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Add the request ID to the Slack message data. Search the thread for that ID after an unclear result. If the message cannot be found, a person must review the request. The system must not send it again.</p></article>
+          <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-teal">Default: #people-help</p><h3 class="mt-4 text-xl font-semibold">Human referral route</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must approve the exact channel, email address, and fixed referral text before launch.</p></article>
+          <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-teal">Default: 30 days</p><h3 class="mt-4 text-xl font-semibold">How long message text is kept</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must approve how long the system keeps question text, model output, and evidence.</p></article>
+          <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-teal">Default: message.channels</p><h3 class="mt-4 text-xl font-semibold">Slack messages the app receives</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">Accept new top-level messages in one public channel. Do not accept direct messages, mentions, edits, files, or thread replies in version one.</p></article>
+          <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-rust">Blocks production</p><h3 class="mt-4 text-xl font-semibold">Vertex AI data rules</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must approve sending question text to Vertex AI. The customer must also approve the Google Cloud project, model location, data rules, and contract.</p></article>
+          <article class="paper-card rounded-3xl p-7"><p class="eyebrow text-teal">Default: private import</p><h3 class="mt-4 text-xl font-semibold">Policy owner and source</h3><p class="mt-3 text-sm leading-relaxed text-ink/65">The customer must name who approves a policy and where production files live. The public repository contains sample policies only.</p></article>
+        </div>
+
+        <div class="mt-8 rounded-3xl border border-rust/20 bg-rust/5 p-7 md:p-10">
+          <p class="eyebrow text-rust">Required failure tests</p>
+          <h3 class="mt-4 font-display text-3xl md:text-4xl">Slack delivery crash tests</h3>
+          <div class="mt-6 grid gap-4 text-sm leading-relaxed text-ink/70 md:grid-cols-3">
+            <p><strong>Before delivery starts:</strong> a crash before the <code>sending</code> state is stored leaves delivery <code>pending</code>, so a later worker can send it.</p>
+            <p><strong>During delivery:</strong> any crash after <code>sending</code> is stored becomes <code>uncertain</code> when its lease ends, even if the Slack call did not start.</p>
+            <p><strong>After Slack replies:</strong> a crash before the database update becomes <code>uncertain</code> and needs thread reconciliation.</p>
+          </div>
+        </div>
+
+        <div class="mt-8 rounded-3xl bg-ink p-7 text-cream md:p-10">
+          <p class="eyebrow text-sand">Next action</p>
+          <p class="mt-4 max-w-4xl font-display text-4xl leading-tight md:text-5xl">Approve or change this design. Then turn the eight build phases into dependency-ordered GitHub issues.</p>
+        </div>
+
+        <div class="mt-8 grid gap-8 text-sm lg:grid-cols-2">
+          <div>
+            <h3 class="font-semibold">Out of scope</h3>
+            <ul class="mt-4 space-y-2 text-ink/65">
+              <li>Employee records, personal calculations, and approval actions.</li>
+              <li>Direct messages, attachments, edits, and multi-turn chat.</li>
+              <li>Several companies or public Slack Marketplace installation.</li>
+              <li>An HR admin screen, case system, or policy editor.</li>
+              <li>Vector and hybrid search in the core build.</li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="font-semibold">Sources</h3>
+            <ul class="mt-4 space-y-2 text-ink/65">
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="../../brief.md">HR Policy Assistant customer brief</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.slack.dev/apis/events-api/">Slack Events API</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.slack.dev/authentication/verifying-requests-from-slack/">Slack request verification</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.slack.dev/reference/methods/chat.postMessage">Slack thread replies and message metadata</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.slack.dev/messaging/message-metadata/">Slack message metadata</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/run/docs/authenticating/service-to-service">Cloud Run service authentication</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/tasks/docs/reference/rest/v2/projects.locations.queues.tasks/create">Cloud Tasks and named-task deduplication</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/tasks/docs/common-pitfalls">Cloud Tasks duplicate execution</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/run/docs/triggering/using-tasks">Cloud Tasks with a Cloud Run service</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/tasks/docs/configuring-queues">Cloud Tasks queue limits and retries</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/run/docs/create-jobs">Cloud Run Jobs</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://docs.cloud.google.com/vertex-ai/generative-ai/docs/start/quickstart">Gemini API in Vertex AI</a></li>
+              <li><a class="underline decoration-rust/50 underline-offset-4 hover:text-rust" href="https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/api-errors">Vertex AI model errors and retries</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+    </main>
+  </div>
+
+  <footer>
+    Source: <strong>brief.md</strong> · Technical design · Proposed for review
+  </footer>
+</body>
+</html>
