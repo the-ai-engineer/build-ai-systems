@@ -134,7 +134,8 @@ uv run python examples/01_basic_model_call.py
 ```
 
 The model examples require the matching provider API key.
-The Postgres retrieval examples also require a local Postgres database with `pgvector`.
+The whole-document, vector, and hybrid RAG examples use the OpenAI API.
+The SQL RAG example uses an in-memory SQLite database and needs no setup.
 
 ## Verify the starting repository
 

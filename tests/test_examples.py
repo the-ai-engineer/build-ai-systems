@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import importlib.util
 import os
 from pathlib import Path
+from types import ModuleType
 import unittest
 from unittest.mock import patch
 
 from pydantic_ai.models import infer_model
+
+
+def load_example(filename: str) -> ModuleType:
+    path = Path("examples") / filename
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class LessonExamplesTest(unittest.TestCase):
@@ -27,15 +39,48 @@ class LessonExamplesTest(unittest.TestCase):
 
         self.assertEqual(len(policy_paths), 3)
 
-    def test_vector_examples_use_postgres(self) -> None:
-        for path in [Path("examples/07a_vector_rag.py"), Path("examples/07b_hybrid_rag.py")]:
-            source = path.read_text(encoding="utf-8")
+    def test_whole_document_rag_exposes_an_index_and_read_tool(self) -> None:
+        example = load_example("06a_file_rag.py")
 
-            self.assertIn("psycopg.connect", source, msg=str(path))
-            self.assertIn("create extension if not exists vector", source, msg=str(path))
-            self.assertIn("create table if not exists documents", source, msg=str(path))
-            self.assertIn("<=>", source, msg=str(path))
-            self.assertNotIn("cosine_similarity", source, msg=str(path))
+        index = example.list_policy_documents()
+        document = example.read_policy_document("annual-leave-policy")
+
+        self.assertEqual(len(index), 3)
+        self.assertTrue(document["found"])
+        self.assertIn("five unused days", document["body"])
+
+    def test_sql_rag_retrieves_an_exact_structured_fact(self) -> None:
+        example = load_example("06b_sql_rag.py")
+
+        with example.create_database() as connection:
+            fact = example.get_policy_fact(
+                connection,
+                category="annual_leave",
+                field="carry_over_days",
+            )
+
+        self.assertEqual(fact["value"], "5")
+        self.assertEqual(fact["unit"], "days")
+        self.assertEqual(fact["source"], "annual-leave-policy")
+
+    def test_vector_rag_uses_cosine_similarity(self) -> None:
+        example = load_example("07a_vector_rag.py")
+
+        self.assertAlmostEqual(example.cosine_similarity([1.0, 0.0], [1.0, 0.0]), 1.0)
+        self.assertAlmostEqual(example.cosine_similarity([1.0, 0.0], [0.0, 1.0]), 0.0)
+
+    def test_hybrid_rag_fuses_keyword_and_vector_rankings(self) -> None:
+        example = load_example("07b_hybrid_rag.py")
+
+        scores = example.reciprocal_rank_fusion(
+            [
+                ["annual-leave-policy", "expenses-policy"],
+                ["annual-leave-policy", "remote-working-policy"],
+            ]
+        )
+
+        self.assertGreater(scores["annual-leave-policy"], scores["expenses-policy"])
+        self.assertGreater(scores["annual-leave-policy"], scores["remote-working-policy"])
 
     def test_first_framework_agent_uses_direct_providers(self) -> None:
         source = Path("examples/05_first_framework_agent.py").read_text(encoding="utf-8")
@@ -57,14 +102,6 @@ class LessonExamplesTest(unittest.TestCase):
 
         self.assertEqual(type(openai_model).__name__, "OpenAIResponsesModel")
         self.assertEqual(type(anthropic_model).__name__, "AnthropicModel")
-
-    def test_sql_rag_uses_the_support_document_shape(self) -> None:
-        source = Path("examples/06b_sql_rag.py").read_text(encoding="utf-8")
-
-        self.assertIn("category", source)
-        self.assertIn("keywords", source)
-        self.assertIn("is_active = true", source)
-
 
 if __name__ == "__main__":
     unittest.main()

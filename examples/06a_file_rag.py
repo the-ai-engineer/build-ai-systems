@@ -1,29 +1,81 @@
-"""
-File RAG
+"""Whole-document RAG with an index and a read tool.
 
-Load markdown policy files and pick a relevant document for a question.
-This is intentionally local to the example.
+The index tells an agent which trusted documents exist.
+The read tool returns one complete document after the agent chooses its id.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic import BaseModel
+from pydantic_ai import Agent
 
 
 POLICY_DIR = Path(__file__).with_name("policies")
+MODEL_NAME = "openai:gpt-5.6"
 
 
-class SupportDocument(BaseModel):
+class PolicySummary(BaseModel):
     id: str
     title: str
-    body: str
+    summary: str
+
+
+POLICY_INDEX = [
+    PolicySummary(
+        id="annual-leave-policy",
+        title="Annual Leave Policy",
+        summary="Annual leave allowance, requests, and carrying unused days forward.",
+    ),
+    PolicySummary(
+        id="expenses-policy",
+        title="Expenses Policy",
+        summary="Receipts, deadlines, and approval rules for business expenses.",
+    ),
+    PolicySummary(
+        id="remote-working-policy",
+        title="Remote Working Policy",
+        summary="Remote working limits, manager agreement, and office attendance.",
+    ),
+]
+
+
+def list_policy_documents() -> list[dict[str, str]]:
+    """Return the small index the agent uses to choose a policy."""
+    return [policy.model_dump() for policy in POLICY_INDEX]
+
+
+def read_policy_document(document_id: str) -> dict[str, str | bool]:
+    """Read one trusted policy by its id."""
+    known_ids = {policy.id for policy in POLICY_INDEX}
+    if document_id not in known_ids:
+        return {"found": False, "reason": "Unknown policy document."}
+
+    body = (POLICY_DIR / f"{document_id}.md").read_text(encoding="utf-8")
+    return {"found": True, "document_id": document_id, "body": body}
+
+
+policy_agent = Agent(
+    MODEL_NAME,
+    instructions=(
+        "Answer employee questions from approved company policies. "
+        "List the policy documents before choosing one. "
+        "Read the chosen policy before answering. "
+        "Cite the policy title. If the policy does not answer the question, say so."
+    ),
+    tools=[list_policy_documents, read_policy_document],
+    defer_model_check=True,
+)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Lesson 06A: simple file RAG.")
+    load_dotenv(Path(__file__).with_name(".env"))
+
+    parser = argparse.ArgumentParser(description="Whole-document RAG with two tools.")
     parser.add_argument(
         "question",
         nargs="?",
@@ -31,58 +83,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    document = find_policy_document(args.question)
-    if document is None:
-        print("No matching policy document found.")
+    if not os.getenv("OPENAI_API_KEY"):
+        print("Set OPENAI_API_KEY in examples/.env to run the agent.")
+        print("The available document index is:")
+        for policy in list_policy_documents():
+            print(f"- {policy['id']}: {policy['summary']}")
         return
 
-    print(f"Question: {args.question}")
-    print(f"Document: {document.title}")
-    print()
-    print(document.body[:800])
-
-
-def find_policy_document(question: str) -> SupportDocument | None:
-    query_terms = {token.strip(".,!?():").lower() for token in question.split()}
-
-    scored = []
-    for document in load_policy_documents():
-        haystack = f"{document.title} {document.body}".lower()
-        score = sum(1 for term in query_terms if len(term) > 3 and term in haystack)
-        scored.append((score, document))
-
-    score, document = max(scored, key=lambda row: row[0])
-    if score == 0:
-        return None
-
-    return document
-
-
-def load_policy_documents() -> list[SupportDocument]:
-    documents = []
-
-    for path in sorted(POLICY_DIR.glob("*.md")):
-        if path.name == "README.md":
-            continue
-
-        body = path.read_text(encoding="utf-8").strip()
-        documents.append(
-            SupportDocument(
-                id=path.stem,
-                title=extract_title(body, path.stem),
-                body=body,
-            )
-        )
-
-    return documents
-
-
-def extract_title(markdown: str, fallback: str) -> str:
-    for line in markdown.splitlines():
-        if line.startswith("# "):
-            return line.removeprefix("# ").strip()
-
-    return fallback
+    result = policy_agent.run_sync(args.question)
+    print(result.output)
 
 
 if __name__ == "__main__":

@@ -1,18 +1,17 @@
-"""
-Hybrid RAG
+"""Hybrid RAG with keyword search, vector search, and rank fusion.
 
-Use Postgres full-text search and pgvector together.
-Keyword search is good for exact terms like "annual leave".
-Vector search is good for semantic matches like "unused holiday next year".
+Keyword search rewards exact words. Vector search rewards similar meaning.
+Reciprocal Rank Fusion combines their rankings without mixing raw scores.
 """
 
 from __future__ import annotations
 
 import argparse
+import math
 import os
+import re
 from pathlib import Path
 
-import psycopg
 from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
@@ -20,229 +19,149 @@ from pydantic import BaseModel
 
 POLICY_DIR = Path(__file__).with_name("policies")
 EMBEDDING_MODEL = "text-embedding-3-small"
-EMBEDDING_DIMENSIONS = 1536
-
-
-CREATE_TABLE_SQL = f"""
-create extension if not exists vector;
-
-create table if not exists documents (
-    id text primary key,
-    title text not null,
-    body text not null,
-    keywords text[] not null default '{{}}',
-    search_document tsvector generated always as (
-        setweight(to_tsvector('english', title), 'A') ||
-        setweight(to_tsvector('english', array_to_string(keywords, ' ')), 'B') ||
-        setweight(to_tsvector('english', body), 'C')
-    ) stored,
-    embedding vector({EMBEDDING_DIMENSIONS}) not null,
-    updated_at timestamptz not null default now()
-);
-
-create index if not exists documents_search_idx
-    on documents
-    using gin (search_document);
-"""
-
-
-UPSERT_DOCUMENT_SQL = """
-insert into documents (
-    id,
-    title,
-    body,
-    keywords,
-    embedding,
-    updated_at
-)
-values (%s, %s, %s, %s, %s::vector, now())
-on conflict (id) do update set
-    title = excluded.title,
-    body = excluded.body,
-    keywords = excluded.keywords,
-    embedding = excluded.embedding,
-    updated_at = now();
-"""
-
-
-HYBRID_SEARCH_SQL = """
-with query as (
-    select
-        websearch_to_tsquery('english', %s) as keyword_query,
-        %s::vector as embedding
-)
-select
-    document.id,
-    document.title,
-    ts_rank_cd(document.search_document, query.keyword_query) as keyword_score,
-    1 - (document.embedding <=> query.embedding) as vector_score,
-    (
-        ts_rank_cd(document.search_document, query.keyword_query) * 0.3
-        + (1 - (document.embedding <=> query.embedding)) * 0.7
-    ) as score
-from documents document, query
-where
-    document.search_document @@ query.keyword_query
-    or document.embedding is not null
-order by score desc
-limit %s;
-"""
 
 
 class SupportDocument(BaseModel):
     id: str
     title: str
     body: str
-    keywords: list[str]
 
 
-class SearchResult(BaseModel):
-    id: str
-    title: str
-    keyword_score: float
-    vector_score: float
+class HybridResult(BaseModel):
+    document: SupportDocument
     score: float
-
-
-def main() -> None:
-    load_dotenv(Path(__file__).with_name(".env"))
-
-    parser = argparse.ArgumentParser(description="Lesson 07B: hybrid RAG with Postgres.")
-    parser.add_argument(
-        "question",
-        nargs="?",
-        default="Can I carry unused holiday into next year?",
-    )
-    parser.add_argument("--limit", type=int, default=3)
-    args = parser.parse_args()
-
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        print("Set DATABASE_URL to run this example against Postgres with pgvector.")
-        print(
-            "Example: DATABASE_URL='postgresql://localhost/ai_architect' "
-            "uv run python examples/07b_hybrid_rag.py"
-        )
-        return
-
-    if not os.getenv("OPENAI_API_KEY"):
-        print("Set OPENAI_API_KEY in examples/.env to create embeddings for this example.")
-        return
-
-    client = OpenAI()
-    documents = load_policy_documents()
-
-    with psycopg.connect(database_url) as conn:
-        setup_database(conn)
-        ingest_documents(conn, client, documents)
-        results = search_documents(conn, client, args.question, args.limit)
-
-    print(f"Question: {args.question}")
-    print()
-    for result in results:
-        print(
-            f"{result.score:.3f} {result.id}: {result.title} "
-            f"(keyword={result.keyword_score:.3f}, vector={result.vector_score:.3f})"
-        )
-
-
-def setup_database(conn: psycopg.Connection) -> None:
-    with conn.cursor() as cur:
-        cur.execute(CREATE_TABLE_SQL)
-
-
-def ingest_documents(
-    conn: psycopg.Connection,
-    client: OpenAI,
-    documents: list[SupportDocument],
-) -> None:
-    with conn.cursor() as cur:
-        for document in documents:
-            embedding = embed(client, document.body)
-            cur.execute(
-                UPSERT_DOCUMENT_SQL,
-                (
-                    document.id,
-                    document.title,
-                    document.body,
-                    list(document.keywords),
-                    to_pgvector(embedding),
-                ),
-            )
-
-
-def search_documents(
-    conn: psycopg.Connection,
-    client: OpenAI,
-    question: str,
-    limit: int,
-) -> list[SearchResult]:
-    query_embedding = to_pgvector(embed(client, question))
-
-    with conn.cursor() as cur:
-        cur.execute(HYBRID_SEARCH_SQL, (question, query_embedding, limit))
-        rows = cur.fetchall()
-
-    return [
-        SearchResult(
-            id=row[0],
-            title=row[1],
-            keyword_score=float(row[2]),
-            vector_score=float(row[3]),
-            score=float(row[4]),
-        )
-        for row in rows
-    ]
+    vector_rank: int | None
+    keyword_rank: int | None
 
 
 def load_policy_documents() -> list[SupportDocument]:
     documents = []
-
     for path in sorted(POLICY_DIR.glob("*.md")):
-        if path.name == "README.md":
-            continue
-
         body = path.read_text(encoding="utf-8").strip()
         documents.append(
             SupportDocument(
                 id=path.stem,
                 title=extract_title(body, path.stem),
                 body=body,
-                keywords=extract_keywords(path.stem),
             )
         )
-
     return documents
+
+
+def keyword_ranking(
+    documents: list[SupportDocument],
+    question: str,
+) -> list[str]:
+    query_terms = tokenise(question)
+    scored = []
+    for document in documents:
+        document_terms = tokenise(f"{document.title} {document.body}")
+        score = len(query_terms & document_terms)
+        if score > 0:
+            scored.append((score, document.id))
+    return [document_id for _, document_id in sorted(scored, reverse=True)]
+
+
+def vector_ranking(
+    client: OpenAI,
+    documents: list[SupportDocument],
+    question: str,
+) -> list[str]:
+    response = client.embeddings.create(
+        model=EMBEDDING_MODEL,
+        input=[question, *[document.body for document in documents]],
+    )
+    query_vector = response.data[0].embedding
+    document_vectors = [item.embedding for item in response.data[1:]]
+    scored = [
+        (cosine_similarity(query_vector, vector), document.id)
+        for document, vector in zip(documents, document_vectors, strict=True)
+    ]
+    return [document_id for _, document_id in sorted(scored, reverse=True)]
+
+
+def reciprocal_rank_fusion(
+    rankings: list[list[str]],
+    smoothing: int = 60,
+) -> dict[str, float]:
+    scores: dict[str, float] = {}
+    for ranking in rankings:
+        for rank, document_id in enumerate(ranking, start=1):
+            scores[document_id] = scores.get(document_id, 0.0) + 1 / (smoothing + rank)
+    return scores
+
+
+def hybrid_search(
+    client: OpenAI,
+    documents: list[SupportDocument],
+    question: str,
+) -> list[HybridResult]:
+    keyword = keyword_ranking(documents, question)
+    vector = vector_ranking(client, documents, question)
+    scores = reciprocal_rank_fusion([keyword, vector])
+
+    document_by_id = {document.id: document for document in documents}
+    return [
+        HybridResult(
+            document=document_by_id[document_id],
+            score=score,
+            vector_rank=rank_of(document_id, vector),
+            keyword_rank=rank_of(document_id, keyword),
+        )
+        for document_id, score in sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    ]
+
+
+def tokenise(text: str) -> set[str]:
+    return {token for token in re.findall(r"[a-z0-9£-]+", text.lower()) if len(token) > 2}
+
+
+def cosine_similarity(left: list[float], right: list[float]) -> float:
+    dot_product = sum(a * b for a, b in zip(left, right, strict=True))
+    left_length = math.sqrt(sum(value * value for value in left))
+    right_length = math.sqrt(sum(value * value for value in right))
+    if left_length == 0 or right_length == 0:
+        return 0.0
+    return dot_product / (left_length * right_length)
+
+
+def rank_of(document_id: str, ranking: list[str]) -> int | None:
+    try:
+        return ranking.index(document_id) + 1
+    except ValueError:
+        return None
 
 
 def extract_title(markdown: str, fallback: str) -> str:
     for line in markdown.splitlines():
         if line.startswith("# "):
             return line.removeprefix("# ").strip()
-
     return fallback
 
 
-def extract_keywords(document_id: str) -> list[str]:
-    keyword_map = {
-        "annual-leave-policy": ["annual leave", "holiday", "carry", "days"],
-        "expenses-policy": ["expenses", "receipt", "claim", "approval"],
-        "remote-working-policy": ["remote", "home", "office", "manager"],
-    }
-    return keyword_map.get(document_id, document_id.split("-"))
+def main() -> None:
+    load_dotenv(Path(__file__).with_name(".env"))
 
-
-def embed(client: OpenAI, text: str) -> list[float]:
-    response = client.embeddings.create(
-        model=EMBEDDING_MODEL,
-        input=text,
-        dimensions=EMBEDDING_DIMENSIONS,
+    parser = argparse.ArgumentParser(description="Combine exact and semantic retrieval.")
+    parser.add_argument(
+        "question",
+        nargs="?",
+        default="Can I carry unused holiday into next year?",
     )
-    return response.data[0].embedding
+    args = parser.parse_args()
 
+    if not os.getenv("OPENAI_API_KEY"):
+        print("Set OPENAI_API_KEY in examples/.env to create embeddings.")
+        return
 
-def to_pgvector(values: list[float]) -> str:
-    return "[" + ",".join(str(value) for value in values) + "]"
+    results = hybrid_search(OpenAI(), load_policy_documents(), args.question)
+
+    print(f"Question: {args.question}")
+    for result in results:
+        print(
+            f"{result.score:.4f}  {result.document.title} "
+            f"(keyword rank={result.keyword_rank}, vector rank={result.vector_rank})"
+        )
 
 
 if __name__ == "__main__":
