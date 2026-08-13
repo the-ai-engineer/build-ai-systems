@@ -65,9 +65,10 @@ uv run python -m compileall -q examples tests
 
 Run a changed model example with the required provider credentials.
 
-Run the Postgres examples when `DATABASE_URL` points at a Postgres database with `pgvector`:
+Run the retrieval examples that do not need an API key:
 
 ```bash
-DATABASE_URL="postgresql://..." uv run python examples/07a_vector_rag.py
-DATABASE_URL="postgresql://..." uv run python examples/07b_hybrid_rag.py
+uv run python examples/06b_sql_rag.py
 ```
+
+Run the whole-document, vector, and hybrid examples with `OPENAI_API_KEY` set.

@@ -1,128 +1,80 @@
-"""
-SQL RAG
+"""SQL RAG for facts that already have a schema.
 
-Turn markdown support policies into rows that can be stored in Postgres.
-This file only prints the insert shape.
+An agent can turn a question into the category and field arguments for this
+tool. SQL retrieves the exact value. No embeddings are needed.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from pydantic import BaseModel
-
-
-POLICY_DIR = Path(__file__).with_name("policies")
+import argparse
+import sqlite3
+from typing import Any
 
 
-UPSERT_DOCUMENT_SQL = """
-insert into support_documents (
-    id,
-    title,
-    category,
-    summary,
-    body,
-    keywords,
-    updated_at
-)
-values (%s, %s, %s, %s, %s, %s, now())
-on conflict (id) do update set
-    title = excluded.title,
-    category = excluded.category,
-    summary = excluded.summary,
-    body = excluded.body,
-    keywords = excluded.keywords,
-    is_active = true,
-    updated_at = now();
-"""
+POLICY_FACTS = [
+    ("annual_leave", "allowance_days", "25", "days", "annual-leave-policy"),
+    ("annual_leave", "carry_over_days", "5", "days", "annual-leave-policy"),
+    ("annual_leave", "carry_over_deadline", "3", "months", "annual-leave-policy"),
+    ("expenses", "claim_deadline", "30", "days", "expenses-policy"),
+    ("expenses", "approval_threshold", "250", "GBP", "expenses-policy"),
+    ("remote_working", "weekly_limit", "3", "days", "remote-working-policy"),
+]
 
 
-class SupportDocument(BaseModel):
-    id: str
-    title: str
-    category: str
-    summary: str
-    body: str
-    keywords: list[str]
+def create_database() -> sqlite3.Connection:
+    """Create a tiny in-memory database so the example has no setup."""
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    connection.execute(
+        """
+        create table policy_facts (
+            category text not null,
+            field text not null,
+            value text not null,
+            unit text not null,
+            source text not null,
+            primary key (category, field)
+        )
+        """
+    )
+    connection.executemany(
+        "insert into policy_facts values (?, ?, ?, ?, ?)",
+        POLICY_FACTS,
+    )
+    return connection
+
+
+def get_policy_fact(
+    connection: sqlite3.Connection,
+    category: str,
+    field: str,
+) -> dict[str, Any]:
+    """Retrieve one approved fact using structured arguments."""
+    row = connection.execute(
+        """
+        select category, field, value, unit, source
+        from policy_facts
+        where category = ? and field = ?
+        """,
+        (category, field),
+    ).fetchone()
+
+    if row is None:
+        return {"found": False, "reason": "No approved policy fact matched."}
+
+    return {"found": True, **dict(row)}
 
 
 def main() -> None:
-    documents = load_policy_documents()
+    parser = argparse.ArgumentParser(description="Retrieve an exact policy fact with SQL.")
+    parser.add_argument("--category", default="annual_leave")
+    parser.add_argument("--field", default="carry_over_days")
+    args = parser.parse_args()
 
-    print("Lesson 06B: SQL RAG")
-    print()
-    print("In production these markdown files become rows in Postgres.")
-    print(f"Policy directory: {POLICY_DIR}")
-    print(f"Documents parsed: {len(documents)}")
-    print()
-    print("Example row:")
-    print(
-        {
-            "id": documents[0].id,
-            "title": documents[0].title,
-            "category": documents[0].category,
-            "summary": documents[0].summary,
-            "keywords": documents[0].keywords,
-            "body": documents[0].body[:120] + "...",
-        }
-    )
-    print()
-    print("Upsert shape:")
-    print(UPSERT_DOCUMENT_SQL.strip())
+    with create_database() as connection:
+        result = get_policy_fact(connection, args.category, args.field)
 
-
-def load_policy_documents() -> list[SupportDocument]:
-    documents = []
-
-    for path in sorted(POLICY_DIR.glob("*.md")):
-        if path.name == "README.md":
-            continue
-
-        body = path.read_text(encoding="utf-8").strip()
-        documents.append(
-            SupportDocument(
-                id=path.stem,
-                title=extract_title(body, path.stem),
-                category=path.stem.removesuffix("-policy"),
-                summary=extract_summary(body),
-                body=body,
-                keywords=extract_keywords(path.stem),
-            )
-        )
-
-    return documents
-
-
-def extract_title(markdown: str, fallback: str) -> str:
-    for line in markdown.splitlines():
-        if line.startswith("# "):
-            return line.removeprefix("# ").strip()
-
-    return fallback
-
-
-def extract_summary(markdown: str) -> str:
-    paragraph = []
-
-    for line in markdown.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or stripped.startswith("Last updated:"):
-            if paragraph:
-                break
-            continue
-
-        paragraph.append(stripped)
-
-    return " ".join(paragraph)
-
-
-def extract_keywords(document_id: str) -> list[str]:
-    keyword_map = {
-        "annual-leave-policy": ["annual leave", "holiday", "carry", "days"],
-        "expenses-policy": ["expenses", "receipt", "claim", "approval"],
-        "remote-working-policy": ["remote", "home", "office", "manager"],
-    }
-    return keyword_map.get(document_id, document_id.split("-"))
+    print(result)
 
 
 if __name__ == "__main__":
