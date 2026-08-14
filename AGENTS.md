@@ -6,6 +6,14 @@ The code is designed for lessons, recordings, and student exercises.
 Prefer clarity over cleverness.
 Examples should be easy to read on screen and easy to run locally.
 
+## Repository boundary
+
+Canonical written lessons, diagrams, scripts, and teaching material live in `/Users/owainlewis/Code/github/owainlewis/slip/content/build-ai-systems/`.
+This repository owns runnable code, tests, policies, deployment configuration, and `docs/final-agent-spec.md` as the implementation contract.
+`MEMORY.md` is a sanitized coordination log, not a source of truth.
+Do not duplicate paid lesson prose in this public repository.
+`ai-engineer-curriculum` is not part of the active Build AI Systems workflow and must not be modified for this project.
+
 ## Course direction
 
 The course builds a professional HR policy assistant in Python.
@@ -69,11 +77,10 @@ Students must still understand the contracts, authority boundaries, failure beha
 - `brief.md` defines the customer problem and first-release scope.
 - `examples/` contains standalone teaching examples for the AI foundations.
 - `examples/policies/` contains sample data for the retrieval examples only.
-- `docs/course-outline.md` defines the teaching sequence.
-- `docs/course-code-map.md` maps lessons to current and planned code.
+- `docs/course-code-map.md` contains only lesson names and their runnable or planned code.
 - `docs/final-agent-spec.md` defines the finished application contract.
 - `docs/resources/deploy-with-codex-prompt.md` contains the supervised deployment prompt.
-- `MEMORY.md` is the sanitized coordination log for implementation and teaching notes.
+- `MEMORY.md` is the sanitized, non-authoritative coordination log.
 - `tests/` verifies the examples and repository contracts.
 
 The examples must not import the future deployable application.

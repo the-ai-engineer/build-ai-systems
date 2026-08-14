@@ -2,11 +2,20 @@
 
 This file is the sanitized coordination log for the Build AI Systems course application.
 Every implementation task must append its decisions, steps, commands, proof, manual setup, and teaching notes.
+This file is not a source of truth.
 
 Slack tokens, signing secrets, OAuth values, database credentials, complete customer or employee messages, complete Slack event payloads, policy excerpts, and other secrets must never be recorded here.
 Use placeholders for identifiers and describe test inputs without copying employee content.
 
 ## Decisions
+
+### 2026-08-14: Repository boundary
+
+- Canonical written lessons, diagrams, scripts, and teaching material live in `/Users/owainlewis/Code/github/owainlewis/slip/content/build-ai-systems/`.
+- This public repository owns runnable code, tests, policies, deployment configuration, and `docs/final-agent-spec.md` as the implementation contract.
+- `MEMORY.md` remains a sanitized coordination log and is not authoritative.
+- Do not duplicate paid lesson prose in this repository.
+- `ai-engineer-curriculum` is not part of the active Build AI Systems workflow and must not be modified for this project.
 
 ### 2026-08-14: Canonical application contract
 
@@ -64,6 +73,8 @@ Use placeholders for identifiers and describe test inputs without copying employ
 - Recorded the local-first worker, development Cloud Run, Cloud Tasks, and Slack ingress sequence without changing production architecture.
 - Replaced the finished-app provider contract with Gemini through Google Cloud and retained existing standalone examples unchanged.
 - Independent review tightened stale `sending` recovery, the five-attempt business limit, local-first lesson ordering, and one non-cancelled reply action per `request_id`.
+- Removed the detailed course outline and reduced the course code map and README to implementation-facing information.
+- Recorded the boundary between the private lesson source and this public code repository without modifying any other repository.
 
 ## Manual Setup
 
@@ -86,6 +97,7 @@ Temporary tunnel URLs, service URLs, workspace identifiers, and credentials must
 - Model-backed examples were not run because this documentation task changed no example code and had no provider credentials.
 - No live Slack, Cloud Tasks, Cloud Run, Gemini, or Postgres integration was exercised because issue #16 changes the repository contract only.
 - A fresh independent review returned `Approve` with no remaining findings after the documented fixes.
+- The repository-boundary update passed 16 unit tests, byte-compilation, the local SQL RAG run, stale-channel audit, example-preservation check, and `git diff --check`.
 
 ## Teaching Notes
 
@@ -106,6 +118,12 @@ Temporary tunnel URLs, service URLs, workspace identifiers, and credentials must
 - Keep queue delivery, durable business state, and Slack display state separate.
 - Show why retries need fenced claims and why uncertain external sends require reconciliation instead of blind resend.
 - Show grounding as evidence verification: a supported answer carries a policy file and an exact supporting excerpt.
+
+### 2026-08-14: Keep code and lesson content separate
+
+- Keep this repository focused on runnable application code and its implementation contract.
+- Keep the public lesson-to-code map to lesson names and code locations only.
+- Develop detailed lesson prose, diagrams, and scripts in the canonical private lesson source instead of copying them here.
 
 ## Unresolved Questions
 

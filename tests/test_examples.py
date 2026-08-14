@@ -25,7 +25,6 @@ class LessonExamplesTest(unittest.TestCase):
         for path in [
             Path("brief.md"),
             Path("MEMORY.md"),
-            Path("docs/course-outline.md"),
             Path("docs/course-code-map.md"),
             Path("docs/final-agent-spec.md"),
             Path("docs/resources/deploy-with-codex-prompt.md"),
@@ -121,7 +120,6 @@ class LessonExamplesTest(unittest.TestCase):
         paths = [
             Path("AGENTS.md"),
             Path("README.md"),
-            Path("docs/course-outline.md"),
             Path("docs/course-code-map.md"),
             Path("docs/final-agent-spec.md"),
             Path("docs/resources/deploy-with-codex-prompt.md"),
@@ -148,6 +146,19 @@ class LessonExamplesTest(unittest.TestCase):
 
         self.assertIn("must never be recorded", source)
 
+    def test_repository_boundary_is_documented(self) -> None:
+        lesson_source = "/Users/owainlewis/Code/github/owainlewis/slip/content/build-ai-systems/"
+
+        for path in [Path("AGENTS.md"), Path("README.md"), Path("MEMORY.md")]:
+            source = path.read_text(encoding="utf-8")
+
+            self.assertIn(lesson_source, source, msg=str(path))
+            self.assertIn("ai-engineer-curriculum", source, msg=str(path))
+
+        memory = Path("MEMORY.md").read_text(encoding="utf-8")
+        self.assertIn("not a source of truth", memory)
+        self.assertFalse(Path("docs/course-outline.md").exists())
+
     def test_development_deployment_seam_is_documented(self) -> None:
         for path in [Path("MEMORY.md"), Path("docs/final-agent-spec.md")]:
             source = path.read_text(encoding="utf-8")
@@ -164,8 +175,6 @@ class LessonExamplesTest(unittest.TestCase):
             Path("AGENTS.md"),
             Path("README.md"),
             Path("MEMORY.md"),
-            Path("docs/course-outline.md"),
-            Path("docs/course-code-map.md"),
             Path("docs/final-agent-spec.md"),
         ]:
             source = path.read_text(encoding="utf-8")
