@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from time import perf_counter
+from typing import Callable
 
 from pydantic_ai import Agent, RunContext, Tool
 from pydantic_ai.messages import ModelResponse
@@ -121,6 +122,7 @@ def run_support_workflow(
     *,
     model: Model | str | None = None,
     model_id: str | None = None,
+    context_token_counter: Callable[[str], int] | None = None,
 ) -> WorkflowOutcome:
     dependencies = WorkflowDependencies(repository=repository)
     selected_model, resolved_model_id, model_location, service_tier = _resolve_model(
@@ -145,6 +147,7 @@ def run_support_workflow(
     ]
     finish_reason = model_responses[-1].finish_reason or "unknown"
     usage = result.usage
+    count_context_tokens = context_token_counter or estimate_context_tokens
     run = AgentRunRecord(
         model_id=resolved_model_id,
         model_location=model_location,
@@ -154,6 +157,10 @@ def run_support_workflow(
             for document in dependencies.loaded_documents.values()
         ),
         input_tokens=usage.input_tokens,
+        retrieved_context_tokens=sum(
+            count_context_tokens(document.body)
+            for document in dependencies.loaded_documents.values()
+        ),
         output_tokens=usage.output_tokens,
         duration_ms=duration_ms,
         finish_reason=finish_reason,
@@ -161,6 +168,12 @@ def run_support_workflow(
         model_turn_count=usage.requests,
     )
     return WorkflowOutcome(result=decision, run=run)
+
+
+def estimate_context_tokens(text: str) -> int:
+    """Return a visible local estimate when a provider tokenizer is unavailable."""
+
+    return (len(text.encode("utf-8")) + 3) // 4
 
 
 def _resolve_model(

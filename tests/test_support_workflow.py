@@ -74,6 +74,7 @@ class SupportWorkflowTests(unittest.TestCase):
         self.assertEqual(outcome.run.finish_reason, "stop")
         self.assertEqual(outcome.run.model_id, "function:fixture")
         self.assertEqual(outcome.run.model_location, "local")
+        self.assertGreater(outcome.run.retrieved_context_tokens, 0)
         self.assertEqual(
             outcome.run.selected_documents,
             (
@@ -310,6 +311,7 @@ class SupportWorkflowTests(unittest.TestCase):
             service_tier="standard",
             selected_documents=(),
             input_tokens=1_000_000,
+            retrieved_context_tokens=0,
             output_tokens=1_000_000,
             duration_ms=1,
             finish_reason="stop",
