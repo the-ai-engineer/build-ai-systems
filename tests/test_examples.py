@@ -21,11 +21,15 @@ def load_example(filename: str) -> ModuleType:
 
 
 class LessonExamplesTest(unittest.TestCase):
-    def test_repository_starts_without_a_finished_application(self) -> None:
-        self.assertTrue(Path("brief.md").is_file())
-        self.assertFalse(Path("support_agent_app/__init__.py").exists())
-        self.assertFalse(Path("remotion-chart/package.json").exists())
-        self.assertFalse(Path("Dockerfile").exists())
+    def test_repository_contract_exists(self) -> None:
+        for path in [
+            Path("brief.md"),
+            Path("MEMORY.md"),
+            Path("docs/course-code-map.md"),
+            Path("docs/final-agent-spec.md"),
+            Path("docs/resources/deploy-with-codex-prompt.md"),
+        ]:
+            self.assertTrue(path.is_file(), msg=str(path))
 
     def test_standalone_examples_do_not_import_shared_application_code(self) -> None:
         for path in sorted(Path("examples").glob("*.py")):
@@ -33,6 +37,8 @@ class LessonExamplesTest(unittest.TestCase):
 
             self.assertNotIn("from support_agent", source, msg=str(path))
             self.assertNotIn("import support_agent", source, msg=str(path))
+            self.assertNotIn("from support_agent_app", source, msg=str(path))
+            self.assertNotIn("import support_agent_app", source, msg=str(path))
 
     def test_retrieval_examples_have_local_policy_data(self) -> None:
         policy_paths = sorted(Path("examples/policies").glob("*.md"))
@@ -102,6 +108,91 @@ class LessonExamplesTest(unittest.TestCase):
 
         self.assertEqual(type(openai_model).__name__, "OpenAIResponsesModel")
         self.assertEqual(type(anthropic_model).__name__, "AnthropicModel")
+
+    def test_slack_contract_contains_every_design_criterion(self) -> None:
+        source = Path("docs/final-agent-spec.md").read_text(encoding="utf-8")
+
+        for prefix, count in [("AC", 12), ("INV", 9)]:
+            for number in range(1, count + 1):
+                self.assertIn(f"`{prefix}-{number}`", source)
+
+    def test_canonical_docs_use_the_slack_contract(self) -> None:
+        paths = [
+            Path("AGENTS.md"),
+            Path("README.md"),
+            Path("docs/course-code-map.md"),
+            Path("docs/final-agent-spec.md"),
+            Path("docs/resources/deploy-with-codex-prompt.md"),
+        ]
+
+        for path in paths:
+            source = path.read_text(encoding="utf-8").lower()
+            self.assertIn("slack", source, msg=str(path))
+            self.assertNotIn("gmail", source, msg=str(path))
+            self.assertNotIn("pub/sub", source, msg=str(path))
+
+    def test_memory_has_required_sections_and_privacy_warning(self) -> None:
+        source = Path("MEMORY.md").read_text(encoding="utf-8")
+
+        for heading in [
+            "## Decisions",
+            "## Implementation Log",
+            "## Manual Setup",
+            "## Commands and Checks",
+            "## Teaching Notes",
+            "## Unresolved Questions",
+        ]:
+            self.assertIn(heading, source)
+
+        self.assertIn("must never be recorded", source)
+
+    def test_repository_boundary_is_documented(self) -> None:
+        lesson_source = "/Users/owainlewis/Code/github/owainlewis/slip/content/build-ai-systems/"
+
+        for path in [Path("AGENTS.md"), Path("README.md"), Path("MEMORY.md")]:
+            source = path.read_text(encoding="utf-8")
+
+            self.assertIn(lesson_source, source, msg=str(path))
+            self.assertIn("ai-engineer-curriculum", source, msg=str(path))
+
+        memory = Path("MEMORY.md").read_text(encoding="utf-8")
+        self.assertIn("not a source of truth", memory)
+        self.assertFalse(Path("docs/course-outline.md").exists())
+
+    def test_development_deployment_seam_is_documented(self) -> None:
+        for path in [Path("MEMORY.md"), Path("docs/final-agent-spec.md")]:
+            source = path.read_text(encoding="utf-8")
+
+            self.assertIn("HTTP handler", source, msg=str(path))
+            self.assertIn("request_id", source, msg=str(path))
+            self.assertIn("development Cloud Run", source, msg=str(path))
+            self.assertIn("gcloud run services proxy", source, msg=str(path))
+            self.assertIn("Cloud Tasks", source, msg=str(path))
+            self.assertIn("OIDC", source, msg=str(path))
+
+    def test_finished_app_uses_gemini_with_application_default_credentials(self) -> None:
+        for path in [
+            Path("AGENTS.md"),
+            Path("README.md"),
+            Path("MEMORY.md"),
+            Path("docs/final-agent-spec.md"),
+        ]:
+            source = path.read_text(encoding="utf-8")
+
+            self.assertIn("google-cloud:gemini-3.5-flash", source, msg=str(path))
+            self.assertIn("Application Default Credentials", source, msg=str(path))
+            self.assertIn("separate Gemini API key", source, msg=str(path))
+
+    def test_model_cost_teaching_contract_is_documented(self) -> None:
+        for path in [Path("MEMORY.md"), Path("docs/final-agent-spec.md")]:
+            source = path.read_text(encoding="utf-8")
+
+            self.assertIn("smallest model", source, msg=str(path))
+            self.assertIn("input tokens", source, msg=str(path))
+            self.assertIn("tool-call count", source, msg=str(path))
+            self.assertIn("dated price configuration", source, msg=str(path))
+            self.assertIn("cost per request", source, msg=str(path))
+
 
 if __name__ == "__main__":
     unittest.main()
