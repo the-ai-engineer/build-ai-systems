@@ -286,3 +286,61 @@ No live model or database integration was run for the default deterministic proo
 - Confirm the 30-day retention period before using the system with real employee data.
 - Decide whether a later version should re-read an edited or deleted Slack message before replying.
 - Decide whether human review should also post to a private HR channel after the first version.
+
+## Issue #17 Slack app setup
+
+### Decisions
+
+- The signed-in Gradientwork Slack app-management page showed one unrelated existing app and safe team ID `T0B2CKH25KK`.
+- Its non-secret manifest had extra history and assistant scopes, direct-message events, interactivity, and Socket Mode, so it was not a matching course app and was left unchanged.
+- The course app is named `HR Policy Assistant` and uses only `app_mentions:read` and `chat:write` bot scopes.
+- Direct messages, the App Home Messages tab, incoming webhooks, interactive components, shortcuts, slash commands, Socket Mode, organization deployment, MCP, and multi-workspace distribution remain disabled.
+- Slack currently rejects a manifest with bot events unless it also has a request URL or Socket Mode.
+- The bootstrap manifest therefore creates the minimal app without event delivery.
+- The deployment-stage manifest adds only `app_mention` and uses a non-routable placeholder that must be replaced locally after the HTTPS webhook exists.
+
+### Current UI path and manual checkpoints
+
+- The checked creation path is **Your Apps → Create New App → From a manifest → Continue**.
+- The current manifest screen places the JSON or YAML editor above a **Workspace** selector, then proceeds to a review step.
+- Inspect and compare existing apps before selecting **Create and Install**.
+- Stop immediately before the final **Create and Install** action unless the user has just confirmed that workspace change.
+- Stop whenever Slack shows an OAuth consent or workspace installation approval screen.
+- The user must approve installation themselves after confirming that only the two course bot scopes are requested.
+- The operator enters local Slack credentials directly into the gitignored `support_agent_app/.env` file without exposing their values to an agent.
+- Deployed Slack credentials belong in Secret Manager.
+- Event delivery stays disabled until a deployed HTTPS `/slack/events` endpoint passes Slack's URL-verification challenge.
+- The app ID, team ID, bot user ID, support user-group ID, and dedicated channel ID are safe to record.
+- Credential values, group membership, messages, payloads, and request URLs are not recorded.
+- The installed course app has safe app ID `A0BQF2X29MF` in team `T0B2CKH25KK`.
+- Slack's current web profile did not expose **Copy member ID** for the bot; after the operator stores the bot credential locally, call `auth.test` from a process that prints only `user_id`.
+- Do not treat the app's direct-message channel ID as the bot user ID.
+- **People → User groups** currently shows only **See paid subscriptions** and no group records, so no `SLACK_HR_USER_GROUP_ID` can be recorded yet.
+- Do not invent a support group ID or substitute a person; resume this checkpoint only after the workspace supports user groups.
+
+### Teaching notes
+
+- A manifest is useful evidence of requested capabilities, but installed OAuth grants can remain broader until the app is reinstalled.
+- Separating the bootstrap manifest from the deployment-stage manifest makes the missing public webhook visible instead of hiding it behind Socket Mode.
+- The Slack app list is the first duplicate-prevention checkpoint.
+- Installation approval and secure credential entry remain operator actions, even when a browser agent performs the surrounding setup.
+
+### Initial proof
+
+- Verified the current signed-in Slack app list and manifest-creation path in Chrome on 14 August 2026.
+- Confirmed the unrelated existing app and left it unchanged.
+- Slack accepted the bootstrap manifest through its review step and showed exactly `app_mentions:read` and `chat:write`, with zero event responses.
+- The first browser pass stopped at **Create and Install** for action-time confirmation, before any app or credential was created.
+- After confirmation, Slack created `HR Policy Assistant`; the user approved the separate OAuth screen and completed installation.
+- The installed settings show exactly `app_mentions:read` and `chat:write`, with no user scopes.
+- App Home messages, interactivity, slash commands, Events API delivery, Socket Mode, and public distribution are off.
+- The application settings pages were inspected without reading or exposing any credential field.
+- `uv run python -m unittest tests.test_slack_setup` passed 3 focused manifest tests.
+- `uv run python -m unittest discover -s tests` passed 51 tests with 14 expected database skips.
+- `uv run python -m compileall -q examples tests` passed.
+- `uv run python examples/06b_sql_rag.py` passed and returned the expected local annual-leave result.
+- Ruff check and format checks passed for the focused test file.
+- `git check-ignore support_agent_app/.env`, `git diff --check`, and the credential-pattern audit passed.
+- Added focused manifest contract tests and the repository setup guide.
+- No Slack credential, OAuth code, customer message, complete event payload, group membership, or deployed request URL was recorded.
+- A fresh final independent review found no actionable findings and returned `Approve`.
