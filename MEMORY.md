@@ -79,6 +79,44 @@ Use placeholders for identifiers and describe test inputs without copying employ
 - Strip and reject whitespace-only decision reasons so every human-review result remains inspectable.
 - Mark both retrieval tools as sequential execution barriers so parallel model tool calls cannot bypass the three-document limit.
 
+### 2026-08-14: Issue #19 Postgres request lifecycle
+
+- Store each accepted Slack event once by a database unique constraint on `slack_event_id`.
+- Keep the request state machine explicit: `accepted` to `queued` to `processing`, then `completed`, `failed`, or `reconciliation`.
+- Mark complete question text for expiry 30 days after acceptance and return only the internal request ID and creation flag from acceptance.
+- Record each successful claim as a historical row with a unique token, increasing lease version, expiry, business attempt number, and release time.
+- Count business attempts only when a worker obtains a claim and insert the matching attempt row in the claim transaction.
+- Limit workflow claims to five business attempts and make the next claim return `permanent-failure` without incrementing the count.
+- Persist safe agent-run metadata, selected document IDs and revisions, and the typed decision in one fenced transaction.
+- Record retrieved context tokens with an injectable counter and use a visible UTF-8 byte estimate divided by four for the local provider-independent path.
+- Persist exact outbound text and its SHA-256 hash together when the reply action is created.
+- Permit only one non-cancelled reply action per request and only one known successful reply in database constraints.
+- Replace a known failed reply only through a fenced transaction that cancels it and creates the next action generation with identical text and hash.
+- Keep uncertain sends non-cancelled in `reconciliation`; they are never converted into an automatic retry.
+
+Transaction boundaries are:
+
+- Acceptance inserts or finds one request in one transaction.
+- Claiming locks the request row, checks terminal state and the latest lease, inserts the new claim and attempt, and moves the request to `processing` in one transaction.
+- Agent run, source revisions, and decision are written together after validating the current fence.
+- Reply action text and hash are created together after validating the current fence.
+- Sending, known failure, uncertain outcome, and known success each validate the current fence before changing state.
+- Known success updates the action, attempt, claim release, and request terminal state in one transaction.
+- Safe retry replacement cancels the known failed action and inserts the next pending generation in one transaction.
+
+The fencing rule is that every worker-owned mutation locks the request row and compares the newest claim token and lease version.
+The claim must be unreleased, unexpired, and attached to a request in `processing`.
+After a newer lease version exists, an older worker cannot write a result, create or start an action, record failure or uncertainty, or complete the request.
+
+Alternatives rejected:
+
+- Process-local locks were rejected because they do not survive process failure or coordinate Cloud Run instances.
+- A status-only claim was rejected because an expired worker could still write after another worker restarted the request.
+- Updating without a request-row lock was rejected because concurrent deliveries could both observe claimable work.
+- Rebuilding outbound text during retry was rejected because reconciliation requires the exact planned content and hash.
+- Treating an uncertain send as retryable was rejected because the first Slack call may have succeeded.
+- Keeping a retryable known-failed action as the active action was rejected after review proved that the next claim could not start it.
+
 ## Implementation Log
 
 ### 2026-08-14: Issue #16 course contract migration
@@ -115,6 +153,24 @@ Use placeholders for identifiers and describe test inputs without copying employ
 - A later independent review reproduced four concurrent document loads passing the shared three-document check.
   Both retrieval tools now run sequentially, and a real agent-loop regression proves that the fourth simultaneous request is rejected after three loads.
 
+### 2026-08-14: Issue #19 Postgres request lifecycle
+
+- Started from the latest merged `origin/main` at commit `5f9c5a9` and read issue #19, repository rules, and the final application contract before editing.
+- Added an ordered SQL migration, migration runner, small Postgres request repository, focused integration tests, and a local stale-worker demo.
+- Kept Slack calls, Cloud Tasks, model execution, deployment, recovery scheduling, and other external calls outside this task.
+- The first proof run found no lifecycle failures.
+- Expanding `INV-7` proof to uniqueness across action generations exposed and fixed a conflict-query parameter mistake.
+- The first independent review reproduced a real `AC-5` failure: a new claim could not retry a reply after a known failed send because the old failed action remained active and owned by the old claim.
+- The retry path now has an explicit fenced transaction that cancels the known-failed action and creates the next generation with the same exact text and hash.
+- The review also identified the required coordination log as missing while review was still in progress.
+  This entry supplies the state machine, transaction boundaries, fencing rule, rejected alternatives, review finding, and current proof.
+- Stale-claim coverage now includes result writes, action creation, action start, known action failure, uncertain action outcome, workflow failure, and completion.
+- The second independent review found that `retrieved_context_tokens` always used the database default of zero.
+  The workflow record now carries a non-negative retrieved-context count, the repository writes it explicitly, and the integration test proves a nonzero value is preserved.
+- The local workflow uses a documented provider-independent estimate and accepts an injected counter so a provider-aware implementation can supply its own measurement without changing the durable repository contract.
+- The stale-claim regression now also covers the known-failed reply replacement transaction.
+- A final fresh independent review inspected the complete corrected diff and returned `Approve` with no findings.
+
 ## Manual Setup
 
 ### 2026-08-14: Issue #16
@@ -128,6 +184,12 @@ Temporary tunnel URLs, service URLs, workspace identifiers, and credentials must
 No Slack app, Google Cloud resource, Cloud Task, Cloud Run service, database, model credential, or external message was created or requested.
 Optional Postgres and authenticated Google Cloud commands use environment configuration supplied outside the repository.
 No live model or database integration was run for the default deterministic proof.
+
+### 2026-08-14: Issue #19 local Postgres proof
+
+- Used a temporary local PostgreSQL 15 database with no repository credential or external service.
+- Created no Slack app, Cloud Task, Cloud Run service, model invocation, deployment, scheduler, or outbound network call.
+- Database connection details remained in the local environment and were not written to the repository.
 
 ## Commands and Checks
 
@@ -168,6 +230,20 @@ No live model or database integration was run for the default deterministic proo
 - The focused regressions cover model identity mismatch, global and non-global pricing, blank answers, blank excerpts, blank human-review reasons, forced Google Cloud on-demand routing, and concurrent document-limit enforcement.
 - Live Google Cloud ADC invocation and real Postgres execution remain intentionally unverified because this proof does not use external credentials or services.
 - After two time-boxed review attempts were interrupted, a bounded fresh reviewer returned `Approve` with no Must or Should findings from its completed inspection.
+
+### 2026-08-14: Issue #19 proof after review fixes
+
+- `DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_support_repository tests.test_worker_claims tests.test_outbound_actions` passed 14 focused PostgreSQL tests.
+- `DATABASE_URL="postgresql://..." uv run python -m support_agent_app.demo_state_machine` printed worker A at lease version 1, worker B at lease version 2, and an explicit stale-worker rejection before worker B created one pending action.
+- `DATABASE_URL="postgresql://..." uv run python -m unittest discover -s tests` passed 48 tests.
+- `uv run python -m compileall -q examples support_agent_app tests` passed.
+- `uv run python examples/06b_sql_rag.py` passed and returned the expected local annual-leave result.
+- Ruff check and format checks passed for all new Python files.
+- `git diff --check` passed.
+- The credential-pattern audit passed.
+- The focused tests prove duplicate event acceptance, 30-day question expiry, auditable timestamps, safe run metadata and source revisions, atomic claims, active-lease rejection, increasing expired-lease reclaim, complete stale-worker fencing, five-attempt exhaustion, exact outbound text and hash, action uniqueness, known failure retry, uncertain-send reconciliation, duplicate completion, and every explicit lifecycle outcome.
+- The repository integration proof stores a nonzero retrieved-context token value instead of relying on a database default.
+- A final fresh independent review returned `Approve` with no Must, Should, or Could findings.
 
 ## Teaching Notes
 

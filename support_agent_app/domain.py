@@ -181,6 +181,7 @@ class AgentRunRecord(BaseModel):
     service_tier: str
     selected_documents: tuple[LoadedDocumentRecord, ...]
     input_tokens: int = Field(ge=0)
+    retrieved_context_tokens: int = Field(ge=0)
     output_tokens: int = Field(ge=0)
     duration_ms: int = Field(ge=0)
     finish_reason: str
