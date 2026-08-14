@@ -71,7 +71,7 @@ HR should spend less time answering repeated questions and more time handling co
 
 The first version will operate in one dedicated public Slack channel, such as `#ask-hr`.
 
-An employee posts a new top-level message:
+An employee mentions the assistant in a new top-level message:
 
 > How many days of annual leave can I carry into next year?
 
@@ -85,7 +85,7 @@ It then posts a reply in the message thread:
 If the employee asks an off-topic question, the assistant gives a short standard response explaining that it only answers HR policy questions.
 
 If the question is personal, sensitive, or not supported by an approved policy, the assistant does not invent an answer.
-It directs the employee to the agreed HR contact route.
+It mentions the configured Slack HR support user group so a person can help.
 
 Examples that require HR include:
 
@@ -148,7 +148,8 @@ The course project will also use a fixed evaluation set to prove that supported 
 
 - The first release supports one company and one Slack workspace.
 - The assistant operates in one configured public HR questions channel.
-- Version one handles new top-level text messages only.
+- Version one handles text `app_mention` events in the configured channel.
+- A mention can start a new thread or appear inside an existing thread, and each mention creates an independent request.
 - Each question receives one assistant response.
 - Employees should not post private employee information in the public channel.
 - The assistant has access only to approved policy content, not employee records.
