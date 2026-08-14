@@ -15,7 +15,7 @@ This file only maps high-level lesson names to code in this repository.
 | SQL RAG | `examples/06b_sql_rag.py` |
 | Optional vector RAG | `examples/07a_vector_rag.py` |
 | Optional hybrid RAG | `examples/07b_hybrid_rag.py` |
-| Local policy application | Planned application modules and Postgres migrations |
+| Local policy application | `support_agent_app/`, `docs/policies/`, `tests/test_support_workflow.py` |
 | Worker | Planned private HTTP handler accepting only `request_id` |
 | Queue and Slack ingress | Planned Cloud Tasks adapter and public Slack webhook |
 | Reliability and evaluation | Planned integration tests, scheduled jobs, and evals |
