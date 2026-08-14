@@ -28,6 +28,20 @@ Deterministic fake-model tests remain required.
 
 See [docs/final-agent-spec.md](docs/final-agent-spec.md) for the complete implementation contract and [docs/course-code-map.md](docs/course-code-map.md) for the short lesson-to-code map.
 
+## Run the local policy agent
+
+The first application slice runs with synthetic fixtures and a deterministic Pydantic AI model.
+It needs no Slack, Google Cloud, database, model credentials, or network access.
+
+```bash
+uv run python -m unittest tests.test_support_workflow
+uv run python -m support_agent_app.demo --fixture documented
+uv run python -m support_agent_app.demo --fixture unsupported
+uv run python -m support_agent_app.demo --fixture prompt-injection
+```
+
+See [docs/local-policy-agent.md](docs/local-policy-agent.md) for the optional Postgres and Google Cloud model paths.
+
 ## Run the examples
 
 Install the Python dependencies:
@@ -51,7 +65,7 @@ The SQL RAG example uses an in-memory SQLite database and needs no setup.
 
 ```bash
 uv run python -m unittest discover -s tests
-uv run python -m compileall -q examples tests
+uv run python -m compileall -q examples support_agent_app tests
 uv run python examples/06b_sql_rag.py
 ```
 
@@ -61,9 +75,10 @@ uv run python examples/06b_sql_rag.py
 brief.md       Customer problem and first-release requirements
 examples/      Small standalone AI engineering examples
   policies/    Sample data used only by retrieval examples
-docs/          Short code map, implementation contract, and deployment guidance
+support_agent_app/  Local typed policy workflow and repository adapters
+docs/          Application docs, approved policy fixtures, and implementation contract
 MEMORY.md      Sanitized, non-authoritative coordination log
 tests/         Checks for examples and repository contracts
 ```
 
-Application code, production policies, database migrations, deployment files, and operational checks are added by linked implementation tasks.
+Request state, worker, Slack, cloud deployment, and operational checks are added by later linked implementation tasks.

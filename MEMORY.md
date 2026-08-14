@@ -61,6 +61,24 @@ Use placeholders for identifiers and describe test inputs without copying employ
 - Evals estimate cost per request and per resolved answer from a dated price configuration.
 - Do not place current model price figures in long-lived course prose.
 
+### 2026-08-14: Issue #18 local policy workflow
+
+- Keep one explicit workflow instead of adding a registry, graph framework, or Slack abstraction.
+- Use typed domain input without Slack fields and a discriminated typed result for `answer` or `human_review`.
+- Give the Pydantic AI agent only `list_support_documents()` and `get_support_document(document_id)`.
+- Limit one run to three loaded documents, six model requests, five single tool calls, a 20-second model timeout, and 500 output tokens per model response.
+- Configure `google-cloud:gemini-3.5-flash` by default and construct the Google Cloud provider explicitly from project and location configuration so authenticated runs use Application Default Credentials.
+- Use a deterministic Pydantic AI `FunctionModel` and file repository for the default proof path.
+- Keep the same workflow replaceable with the active Postgres repository and live Google Cloud model adapters.
+- Verify document ID, title, filename, revision, active state, and exact excerpt occurrence in application code before accepting an answer.
+- Convert invalid citation evidence to `human_review` with no automated answer.
+- Store a dated price input outside long-lived prose and estimate request cost from recorded input and output tokens.
+- Record the actual injected model ID and reject an explicit label that does not match it.
+- Record model location and service tier, use separate dated global and non-global rates, and force live Google Cloud requests to standard on-demand routing.
+- Reject answers and excerpts that contain only whitespace before deterministic evidence checks.
+- Strip and reject whitespace-only decision reasons so every human-review result remains inspectable.
+- Mark both retrieval tools as sequential execution barriers so parallel model tool calls cannot bypass the three-document limit.
+
 ## Implementation Log
 
 ### 2026-08-14: Issue #16 course contract migration
@@ -76,6 +94,27 @@ Use placeholders for identifiers and describe test inputs without copying employ
 - Removed the detailed course outline and reduced the course code map and README to implementation-facing information.
 - Recorded the boundary between the private lesson source and this public code repository without modifying any other repository.
 
+### 2026-08-14: Issue #18 local policy workflow
+
+- Fetched the latest merged default branch and created `codex/issue-18-policy-agent` from commit `140ec61`.
+- Read issue #18, the customer brief, final agent specification, canonical private Slip design, repository rules, and existing coordination memory before editing.
+- Added the local typed workflow, constrained retrieval tools, policy repository adapters, deterministic model fixtures, evidence validation, safe run metadata, dated cost input, CLI, synthetic policies, SQL schema, and focused tests.
+- Preserved the standalone examples and kept Slack, Cloud Tasks, Cloud Run, request state, worker leases, and outbound actions out of this slice.
+- The public browser fetch for the private canonical design returned a not-found response, so the same file was read through the authenticated GitHub API without copying private lesson prose into this repository.
+- The first CLI proof exposed an `unknown` finish reason because the workflow inspected the final output-tool acknowledgement.
+  The workflow now selects the last model response and records its finish reason.
+- The provider review found that a bare provider string could allow an unrelated Google API key to take precedence.
+  Live runs now construct the Google Cloud provider explicitly from project and location configuration to select Application Default Credentials.
+- The first independent review reproduced an injected-model identity mismatch, regional cost misclassification, and acceptance of a whitespace-only answer.
+  The workflow now derives and validates model identity, records location and tier for price selection, and rejects blank answers.
+- The second independent review reproduced a newline-only citation that matched Markdown and found that the default Google Cloud routing could use provisioned capacity while metadata claimed standard pricing.
+  Citation validation now requires visible excerpt text in both schema and application checks, and live model settings force on-demand routing.
+- Each review cycle required current proof to be appended to this log before publication.
+- The next independent review reproduced acceptance of a whitespace-only human-review reason.
+  Model-facing and final decision schemas now strip and reject blank reasons.
+- A later independent review reproduced four concurrent document loads passing the shared three-document check.
+  Both retrieval tools now run sequentially, and a real agent-loop regression proves that the fourth simultaneous request is rejected after three loads.
+
 ## Manual Setup
 
 ### 2026-08-14: Issue #16
@@ -83,6 +122,12 @@ Use placeholders for identifiers and describe test inputs without copying employ
 No Slack app, Google Cloud resource, secret, OAuth grant, tunnel, or database was created for this documentation task.
 Later tasks must document manual setup with sanitized resource names and placeholders only.
 Temporary tunnel URLs, service URLs, workspace identifiers, and credentials must not be recorded here.
+
+### 2026-08-14: Issue #18 initial proof
+
+No Slack app, Google Cloud resource, Cloud Task, Cloud Run service, database, model credential, or external message was created or requested.
+Optional Postgres and authenticated Google Cloud commands use environment configuration supplied outside the repository.
+No live model or database integration was run for the default deterministic proof.
 
 ## Commands and Checks
 
@@ -98,6 +143,31 @@ Temporary tunnel URLs, service URLs, workspace identifiers, and credentials must
 - No live Slack, Cloud Tasks, Cloud Run, Gemini, or Postgres integration was exercised because issue #16 changes the repository contract only.
 - A fresh independent review returned `Approve` with no remaining findings after the documented fixes.
 - The repository-boundary update passed 16 unit tests, byte-compilation, the local SQL RAG run, stale-channel audit, example-preservation check, and `git diff --check`.
+
+### 2026-08-14: Issue #18
+
+- `uv run python -m unittest tests.test_support_workflow` passed 13 focused tests.
+- `uv run python -m support_agent_app.demo --fixture documented` returned a grounded answer with verified document identity, filename, revision, and excerpt.
+- `uv run python -m support_agent_app.demo --fixture unsupported` returned `human_review` without an automated answer.
+- `uv run python -m support_agent_app.demo --fixture prompt-injection` returned `human_review` without an automated answer.
+- `uv run python -m unittest discover -s tests` passed 29 tests.
+- `uv run python -m compileall -q examples support_agent_app tests` passed.
+- `uv run python examples/06b_sql_rag.py` passed and preserved the standalone SQL lesson.
+- `git diff --check` passed.
+- The credential-pattern audit passed.
+- Model-backed and Postgres integration paths were not run because the requested deterministic proof needs no credentials or external services.
+
+### 2026-08-14: Issue #18 final local proof
+
+- `uv run python -m unittest tests.test_support_workflow` passed 18 focused tests after the independent review fixes.
+- All three exact issue fixture commands passed after the review fixes.
+- `uv run python -m unittest discover -s tests` passed 34 tests.
+- `uv run python -m compileall -q examples support_agent_app tests` passed.
+- `uv run python examples/06b_sql_rag.py` passed.
+- `git diff --check` and the credential-pattern audit passed.
+- The focused regressions cover model identity mismatch, global and non-global pricing, blank answers, blank excerpts, blank human-review reasons, forced Google Cloud on-demand routing, and concurrent document-limit enforcement.
+- Live Google Cloud ADC invocation and real Postgres execution remain intentionally unverified because this proof does not use external credentials or services.
+- After two time-boxed review attempts were interrupted, a bounded fresh reviewer returned `Approve` with no Must or Should findings from its completed inspection.
 
 ## Teaching Notes
 
@@ -124,6 +194,16 @@ Temporary tunnel URLs, service URLs, workspace identifiers, and credentials must
 - Keep this repository focused on runnable application code and its implementation contract.
 - Keep the public lesson-to-code map to lesson names and code locations only.
 - Develop detailed lesson prose, diagrams, and scripts in the canonical private lesson source instead of copying them here.
+
+### 2026-08-14: Make evidence and capability boundaries visible
+
+- Keep the model fixture inside Pydantic AI so tests exercise the real agent loop, tool dispatch, typed output, usage limits, and run accounting.
+- Show the document index and full-document lookup as the only model capabilities.
+- Keep the active-document rule in the repository and enforce the loaded-document limit again in the workflow.
+- Treat a model citation as a proposal until deterministic application code verifies every identity and excerpt field.
+- Keep `human_review` structurally unable to carry an answer or sources.
+- Record document IDs and revisions for audit while excluding the complete question, answer, and policy content from run metadata.
+- Use the exact fixture CLI before adding Postgres, a live model, worker state, Slack, or cloud infrastructure.
 
 ## Unresolved Questions
 
