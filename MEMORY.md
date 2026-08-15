@@ -219,6 +219,8 @@ Alternatives rejected:
 - Invalid typed output, usage-limit violations, non-retryable provider responses, and configuration errors now fail permanently with safe categories.
 - Provider, database, concurrency, and deadline failures remain retryable, including provider `408`, `409`, `429`, and `5xx` responses.
 - The invalid-output regression proves one business attempt, no Slack call, terminal failure, and no second model run on duplicate delivery.
+- The fourth fresh review reproduced a non-ASCII identity causing `compare_digest` to raise and return `500`.
+- Task identities are now compared as UTF-8 bytes, so arbitrary invalid header text receives `401` without reaching the processor.
 
 ## Manual Setup
 

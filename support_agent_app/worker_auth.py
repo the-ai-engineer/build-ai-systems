@@ -28,7 +28,7 @@ class StaticTaskAuthenticator:
 
     def authenticate(self, presented_identity: str | None) -> None:
         if presented_identity is None or not secrets.compare_digest(
-            presented_identity,
-            self._expected_identity,
+            presented_identity.encode("utf-8"),
+            self._expected_identity.encode("utf-8"),
         ):
             raise InvalidTaskIdentityError("invalid task identity")

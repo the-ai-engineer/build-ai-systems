@@ -42,7 +42,7 @@ class WorkerAuthTests(unittest.TestCase):
     def test_static_authenticator_rejects_missing_and_wrong_identities(self) -> None:
         authenticator = StaticTaskAuthenticator("expected-task")
 
-        for identity in (None, "wrong-task"):
+        for identity in (None, "wrong-task", "wrong-☃"):
             with self.subTest(identity=identity):
                 with self.assertRaises(InvalidTaskIdentityError):
                     authenticator.authenticate(identity)
@@ -86,6 +86,18 @@ class WorkerAuthTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json(), {"detail": "invalid task identity"})
+        self.assertEqual(processor.calls, 0)
+
+        non_ascii = client.post(
+            "/tasks/process-support-request",
+            headers=[
+                (TASK_IDENTITY_HEADER.encode("ascii"), b"wrong-\xff"),
+                (b"content-type", b"application/json"),
+            ],
+            json={"request_id": str(uuid4())},
+        )
+        self.assertEqual(non_ascii.status_code, 401)
+        self.assertEqual(non_ascii.json(), {"detail": "invalid task identity"})
         self.assertEqual(processor.calls, 0)
 
     def test_endpoint_returns_retry_status_for_an_active_lease(self) -> None:
