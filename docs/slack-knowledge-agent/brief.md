@@ -85,7 +85,11 @@ It then posts a reply in the message thread:
 If the employee asks an off-topic question, the assistant gives a short standard response explaining that it only answers HR policy questions.
 
 If the question is personal, sensitive, or not supported by an approved policy, the assistant does not invent an answer.
-It mentions the configured Slack HR support user group so a person can help.
+It replies:
+
+> I couldn’t find a reliable answer in the policy documents. Please ask a member of the HR team.
+
+The reply does not tag a Slack user or user group.
 
 Examples that require HR include:
 

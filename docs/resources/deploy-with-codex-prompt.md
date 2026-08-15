@@ -11,7 +11,7 @@ You are helping me deploy the asynchronous Slack support agent in this repositor
 
 Goal:
 Deploy the public Slack webhook, private Cloud Tasks worker, Postgres database, recovery job, and retention job.
-Verify one synthetic Slack mention from acceptance through one cited thread reply or human-review notification.
+Verify one synthetic Slack mention from acceptance through one cited thread reply or fixed human-review reply.
 
 Repository:
 <repository URL>
@@ -31,7 +31,7 @@ Canonical architecture:
 - The agent loads no more than three trusted policy documents from Postgres.
 - A supported answer has verified policy filenames and excerpts.
 - Application code records one outbound action and replies in the original Slack thread.
-- Human review contains no automated policy answer and mentions the configured HR support user group.
+- Human review contains no automated policy answer and replies, “I couldn’t find a reliable answer in the policy documents. Please ask a member of the HR team.” without tagging a Slack user or user group.
 - Cloud Scheduler starts finite recovery and retention Cloud Run Jobs from the same application image.
 - Secret Manager stores Slack and database credentials.
 
@@ -68,7 +68,7 @@ Tasks:
 16. Deploy the finite recovery and retention Cloud Run Jobs from the same image.
 17. Schedule recovery every five minutes and retention once per day with the maintenance identity.
 18. Verify that the maintenance identity cannot invoke the worker and that the task identity cannot start maintenance jobs.
-19. Give the manual Slack configuration steps for the deployed event URL, app_mention subscription, bot scopes, one allowed team, one allowed channel, and HR support user group without reading credential values.
+19. Give the manual Slack configuration steps for the deployed event URL, app_mention subscription, bot scopes, one allowed team, and one allowed channel without reading credential values.
 20. Run a synthetic signed webhook check without including complete message text in command output.
 21. Complete one real mention smoke test in the dedicated course workspace.
 22. Record only sanitized identifiers, state transitions, timings, source filenames, and final status as evidence.

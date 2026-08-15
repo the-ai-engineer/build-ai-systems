@@ -1,0 +1,49 @@
+{
+  "_metadata": {
+    "major_version": 1,
+    "minor_version": 1
+  },
+  "display_information": {
+    "name": "HR Policy Assistant",
+    "description": "Answers approved HR policy questions in Slack.",
+    "background_color": "#2C2D30"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": false,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "hr-policy-assistant",
+      "always_online": false
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "chat:write"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://replace-after-deployment.invalid/slack/events",
+      "bot_events": [
+        "app_mention"
+      ]
+    },
+    "incoming_webhooks": {
+      "incoming_webhooks_enabled": false
+    },
+    "interactivity": {
+      "is_enabled": false
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false,
+    "is_hosted": false,
+    "is_mcp_enabled": false
+  }
+}

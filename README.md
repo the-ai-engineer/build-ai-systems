@@ -4,7 +4,7 @@ Public code repository for the Build AI Systems course.
 
 The project builds a professional HR policy assistant in Python.
 An employee mentions it in a dedicated Slack channel, the system processes the request asynchronously, retrieves approved policies from Postgres, and replies in the Slack thread.
-It refuses off-topic requests and refers uncertain, unsupported, sensitive, or conflicting requests to the configured HR support user group.
+It refuses off-topic requests and gives uncertain, unsupported, sensitive, or conflicting requests a fixed reply that asks the employee to contact HR.
 
 ## Repository boundary
 
@@ -27,6 +27,7 @@ Cloud Run uses its runtime service identity and does not require a separate Gemi
 Deterministic fake-model tests remain required.
 
 See [docs/final-agent-spec.md](docs/final-agent-spec.md) for the complete implementation contract and [docs/course-code-map.md](docs/course-code-map.md) for the short lesson-to-code map.
+Use [docs/slack-setup.md](docs/slack-setup.md) and the versioned manifests in `slack/` to configure the course Slack app without enabling event delivery before the webhook exists.
 
 ## Run the local policy agent
 
@@ -76,6 +77,7 @@ brief.md       Customer problem and first-release requirements
 examples/      Small standalone AI engineering examples
   policies/    Sample data used only by retrieval examples
 support_agent_app/  Local typed policy workflow and repository adapters
+slack/         Bootstrap and deployment-stage Slack app manifests
 docs/          Application docs, approved policy fixtures, and implementation contract
 MEMORY.md      Sanitized, non-authoritative coordination log
 tests/         Checks for examples and repository contracts
