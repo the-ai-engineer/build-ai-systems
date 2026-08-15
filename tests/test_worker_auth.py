@@ -4,6 +4,7 @@ import unittest
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from pydantic_ai.exceptions import ModelHTTPError
 
 from support_agent_app.worker import create_app
 from support_agent_app.worker_auth import (
@@ -12,7 +13,7 @@ from support_agent_app.worker_auth import (
     InvalidTaskIdentityError,
     StaticTaskAuthenticator,
 )
-from support_agent_app.worker_service import WorkerResult
+from support_agent_app.worker_service import WorkerResult, classify_workflow_failure
 
 
 class StubProcessor:
@@ -28,6 +29,16 @@ class StubProcessor:
 
 
 class WorkerAuthTests(unittest.TestCase):
+    def test_workflow_failure_classification_separates_permanent_configuration(self) -> None:
+        self.assertEqual(
+            classify_workflow_failure(ValueError("synthetic configuration")),
+            ("model_configuration", False),
+        )
+        self.assertEqual(
+            classify_workflow_failure(ModelHTTPError(503, "synthetic-model")),
+            ("model_provider_temporary", True),
+        )
+
     def test_static_authenticator_rejects_missing_and_wrong_identities(self) -> None:
         authenticator = StaticTaskAuthenticator("expected-task")
 

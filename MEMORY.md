@@ -215,6 +215,10 @@ Alternatives rejected:
 - The complete Pydantic AI run is bounded by the remaining worker budget, including its model turns and deadline-aware Postgres policy tools.
 - The worker recomputes the Slack timeout after the database send transition and records a known unsent failure if no send budget remains.
 - Slack connect and pool timeouts are clear retryable failures; read and write timeouts remain uncertain and enter reconciliation.
+- The third fresh review found that invalid typed model output and configuration errors were still classified as temporary.
+- Invalid typed output, usage-limit violations, non-retryable provider responses, and configuration errors now fail permanently with safe categories.
+- Provider, database, concurrency, and deadline failures remain retryable, including provider `408`, `409`, `429`, and `5xx` responses.
+- The invalid-output regression proves one business attempt, no Slack call, terminal failure, and no second model run on duplicate delivery.
 
 ## Manual Setup
 
@@ -299,12 +303,12 @@ No live model or database integration was run for the default deterministic proo
 
 ### 2026-08-15: Issue #21 initial local proof
 
-- `DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth` passed 25 focused tests against PostgreSQL 15.
+- `DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth` passed 27 focused tests against PostgreSQL 15.
 - The documented demo printed one completed fake thread reply with `Sources` and `annual-leave-policy.md`.
 - The human-review demo printed the exact fixed HR fallback with one fake send and no mention.
 - The uncertain-send demo printed `reconciliation` and exactly one send attempt.
 - A live loopback Uvicorn check returned `200 duplicate-complete` for the valid local identity and `401` for an invalid identity.
-- `DATABASE_URL="postgresql://..." uv run python -m unittest discover -s tests` passed 79 tests.
+- `DATABASE_URL="postgresql://..." uv run python -m unittest discover -s tests` passed 81 tests.
 - `uv run python -m compileall -q examples support_agent_app tests` passed.
 - `uv run python examples/06b_sql_rag.py` passed and returned the expected local annual-leave result.
 - Ruff check, changed-file format check, and `git diff --check` passed.

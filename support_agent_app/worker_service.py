@@ -8,6 +8,16 @@ from time import monotonic
 from typing import Callable
 from uuid import UUID
 
+from psycopg import Error as PostgresError
+from pydantic import ValidationError
+from pydantic_ai.exceptions import (
+    ConcurrencyLimitExceeded,
+    ModelAPIError,
+    ModelHTTPError,
+    UnexpectedModelBehavior,
+    UsageLimitExceeded,
+    UserError,
+)
 from pydantic_ai.models import Model
 
 from .domain import SupportDecision, SupportQuestion, WorkflowOutcome
@@ -41,6 +51,12 @@ class WorkerDeadlineExceeded(RuntimeError):
 
 class WorkerTemporaryError(RuntimeError):
     """A safe retry signal that deliberately carries no request content."""
+
+
+class WorkerPermanentFailure(RuntimeError):
+    def __init__(self, result: WorkerResult) -> None:
+        super().__init__(result.outcome)
+        self.result = result
 
 
 @dataclass(frozen=True)
@@ -209,6 +225,8 @@ class WorkerService:
             return WorkerResult(request_id=request_id, outcome=LifecycleOutcome.RETRYABLE.value)
         except WorkerTemporaryError:
             raise
+        except WorkerPermanentFailure as error:
+            return error.result
         except Exception:
             try:
                 return self._record_pre_send_failure(
@@ -233,9 +251,17 @@ class WorkerService:
                 model=self._model,
                 model_timeout_seconds=deadline.model_timeout_seconds(),
             )
-        except Exception:
-            self._record_pre_send_failure(claim, "model_temporary_failure", deadline)
-            raise WorkerTemporaryError("policy workflow failed") from None
+        except Exception as error:
+            category, retryable = classify_workflow_failure(error)
+            result = self._record_pre_send_failure(
+                claim,
+                category,
+                deadline,
+                retryable=retryable,
+            )
+            if retryable:
+                raise WorkerTemporaryError("policy workflow failed") from None
+            raise WorkerPermanentFailure(result) from None
 
         deadline.require("workflow result", FINALIZATION_RESERVE_SECONDS)
         try:
@@ -383,6 +409,8 @@ class WorkerService:
         claim: Claim,
         category: str,
         deadline: WorkerDeadline | None = None,
+        *,
+        retryable: bool = True,
     ) -> WorkerResult:
         timeout_seconds = None
         if deadline is not None:
@@ -390,7 +418,7 @@ class WorkerService:
         outcome = self._requests.record_failure(
             claim,
             category,
-            retryable=True,
+            retryable=retryable,
             timeout_seconds=timeout_seconds,
         )
         return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
@@ -399,3 +427,22 @@ class WorkerService:
         if isinstance(self._policies, PostgresPolicyRepository):
             return self._policies.with_timeout_provider(deadline.database_timeout_seconds)
         return self._policies
+
+
+def classify_workflow_failure(error: Exception) -> tuple[str, bool]:
+    """Return a safe durable category and whether another attempt can help."""
+
+    if isinstance(error, ModelHTTPError):
+        retryable = error.status_code in {408, 409, 429} or error.status_code >= 500
+        category = "model_provider_temporary" if retryable else "model_configuration"
+        return category, retryable
+    if isinstance(
+        error,
+        (TimeoutError, ModelAPIError, ConcurrencyLimitExceeded, PostgresError),
+    ):
+        return "model_or_database_temporary", True
+    if isinstance(error, (ValidationError, UnexpectedModelBehavior, UsageLimitExceeded)):
+        return "invalid_model_output", False
+    if isinstance(error, (UserError, ValueError)):
+        return "model_configuration", False
+    return "model_or_database_temporary", True

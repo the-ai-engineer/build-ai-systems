@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from psycopg import connect, errors
 from psycopg.rows import dict_row
+from pydantic_ai.exceptions import UnexpectedModelBehavior
 
 from support_agent_app.fake_model import fixture_model
 from support_agent_app.fixtures import FIXTURE_QUESTIONS
@@ -568,7 +569,41 @@ class WorkerTests(PostgresTestCase):
         )
         self.assertEqual(
             row,
-            {"status": "queued", "last_error_category": "model_temporary_failure"},
+            {"status": "queued", "last_error_category": "model_or_database_temporary"},
+        )
+
+    def test_invalid_typed_model_output_is_permanent_after_one_attempt(self) -> None:
+        accepted = self.accept_fixture("documented", "Ev-worker-invalid-output")
+        calls = []
+        slack = FakeSlackClient()
+
+        def invalid_output(*args, **kwargs):
+            calls.append("invalid")
+            raise UnexpectedModelBehavior("synthetic invalid typed output")
+
+        service = self.service("documented", slack, invalid_output)
+        first = service.process(accepted.request_id, WorkerDeadline.after(30))
+        duplicate = service.process(accepted.request_id, WorkerDeadline.after(30))
+
+        self.assertEqual(first.outcome, LifecycleOutcome.PERMANENT_FAILURE.value)
+        self.assertEqual(duplicate.outcome, LifecycleOutcome.PERMANENT_FAILURE.value)
+        self.assertEqual(calls, ["invalid"])
+        self.assertEqual(slack.attempts, [])
+        row = self.fetchone(
+            """
+            select status, business_attempt_count, last_error_category
+            from support_requests
+            where request_id = %s
+            """,
+            (accepted.request_id,),
+        )
+        self.assertEqual(
+            row,
+            {
+                "status": "failed",
+                "business_attempt_count": 1,
+                "last_error_category": "invalid_model_output",
+            },
         )
 
     def _expire_claim(self, claim_token) -> None:
