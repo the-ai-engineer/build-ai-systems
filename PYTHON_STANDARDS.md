@@ -45,10 +45,15 @@ app/
       schemas.py
       auth.py
 
+    application/
+      __init__.py
+      protocols.py
+      process_request.py
+
     worker/
       __init__.py
       main.py
-      service.py
+      routes.py
       schemas.py
       auth.py
 
@@ -80,9 +85,15 @@ app/
 migrations/
 tests/
   unit/
+    api/
+    application/
+    agent/
+    worker/
   integration/
-  api/
-  worker/
+    api/
+    database/
+    integrations/
+    worker/
 
 infra/
 examples/
@@ -159,6 +170,21 @@ Use a small `main.py` as the composition root for the API process.
 Create the FastAPI application and wire its dependencies there.
 Group routes with `APIRouter` when the service has more than one boundary.
 
+### `application/`
+
+The application package owns use cases and business orchestration shared by runtime boundaries.
+
+It contains:
+
+- named use cases such as `process_request.py`
+- protocols implemented by database and external integration adapters
+- transaction and side-effect sequencing
+- application-level result and failure types
+
+It must not import FastAPI, provider SDKs, concrete database connections, or runtime entry points.
+API routes, worker routes, and commands call application use cases instead of duplicating orchestration.
+Keep use cases named after the action they perform rather than collecting them in a generic `service.py`.
+
 ### `worker/`
 
 The worker package owns asynchronous job handling.
@@ -167,9 +193,8 @@ It may:
 
 - authenticate a queue or scheduler invocation
 - validate a small task payload
-- claim durable work
-- coordinate the agent and external actions
-- classify failures as retryable or permanent
+- call the appropriate application use case
+- translate application outcomes into queue responses
 - return the status expected by the queue
 
 It must not:
@@ -257,16 +282,23 @@ Dependencies should point inward toward application behavior and outward only th
 API, worker, and commands
           |
           v
-Application and agent behavior
-          ^
+Application use cases and protocols
           |
-Database and external integration adapters
+          v
+      Agent behavior
+
+Database and integration adapters
+implement application protocols and are
+wired at the runtime composition roots.
 ```
 
 Follow these rules:
 
 - API routes may depend on application interfaces, not worker internals or concrete provider clients.
-- Agent code may depend on repository protocols, not Postgres implementations.
+- Worker routes and commands may depend on application use cases, not concrete provider clients.
+- Agent code may depend on protocols owned by the application package, not Postgres implementations.
+- Database and integration adapters may depend on application protocols that they implement.
+- Application use cases must not import concrete database or integration adapters.
 - Integration clients must not import API routes or worker entry points.
 - Database repositories must not invoke Slack or model providers.
 - Composition roots may import concrete implementations because their job is to wire the application.
@@ -347,19 +379,23 @@ Organize tests by purpose and component:
 ```text
 tests/
   unit/
+    api/
+    application/
     agent/
     worker/
   integration/
+    api/
     database/
     integrations/
-  api/
-  worker/
+    worker/
+  fakes/
 ```
 
 Testing rules:
 
 - unit tests do not require a network, cloud account, or external database
 - integration tests use real boundaries where the integration behavior matters
+- organize tests by test type first and by application component second
 - API tests exercise validation, authentication, status codes, and response contracts
 - worker tests exercise retry, idempotency, concurrency, and partial failure
 - agent tests use deterministic models and verify evidence, tool limits, and structured outputs
@@ -434,7 +470,7 @@ Avoid generic dumping grounds:
 - a global `services.py`
 - `misc.py`
 
-A component may use `schemas.py`, `models.py`, or `service.py` when the containing package supplies the missing context, such as `api/schemas.py` or `worker/service.py`.
+A component may use `schemas.py`, `models.py`, or `service.py` when the containing package supplies the missing context, such as `api/schemas.py` or `application/models.py`.
 
 Keep modules small enough that their responsibility is obvious.
 A file reaching roughly 300 to 400 lines triggers a responsibility review.
@@ -455,6 +491,25 @@ Use:
 Declare runtime and development dependencies in `pyproject.toml`.
 Commit `uv.lock` for applications.
 Use `uv` for environment and command execution.
+
+Projects using the standard `app/<package>/` layout must configure package discovery explicitly.
+Use Hatchling as the default build backend and tell Pyright where importable code lives:
+
+```toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app/<package>"]
+
+[tool.pyright]
+extraPaths = ["app"]
+```
+
+Replace `<package>` with the real import package name.
+Run `uv sync` before running the application or tests so the package is installed in the project environment.
+Application imports use `<package>`, never `app.<package>`.
 
 Default tooling:
 
