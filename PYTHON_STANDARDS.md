@@ -177,11 +177,11 @@ The application package owns use cases and business orchestration shared by runt
 It contains:
 
 - named use cases such as `process_request.py`
-- protocols implemented by database and external integration adapters
+- protocols implemented by agent, database, and external integration adapters
 - transaction and side-effect sequencing
 - application-level result and failure types
 
-It must not import FastAPI, provider SDKs, concrete database connections, or runtime entry points.
+It must not import FastAPI, provider SDKs, concrete agents, concrete database connections, or runtime entry points.
 API routes, worker routes, and commands call application use cases instead of duplicating orchestration.
 Keep use cases named after the action they perform rather than collecting them in a generic `service.py`.
 
@@ -210,6 +210,7 @@ The API and worker may be deployed independently even when they share one Python
 ### `agent/`
 
 The agent package owns AI behavior.
+It implements an application-owned protocol such as `AgentRunner` and is injected into a use case at a composition root.
 
 It contains:
 
@@ -283,11 +284,8 @@ API, worker, and commands
           |
           v
 Application use cases and protocols
-          |
-          v
-      Agent behavior
 
-Database and integration adapters
+Agent, database, and integration adapters
 implement application protocols and are
 wired at the runtime composition roots.
 ```
@@ -296,9 +294,9 @@ Follow these rules:
 
 - API routes may depend on application interfaces, not worker internals or concrete provider clients.
 - Worker routes and commands may depend on application use cases, not concrete provider clients.
-- Agent code may depend on protocols owned by the application package, not Postgres implementations.
-- Database and integration adapters may depend on application protocols that they implement.
-- Application use cases must not import concrete database or integration adapters.
+- Agent code may depend on application protocols that it implements or uses, not Postgres implementations.
+- Agent, database, and integration adapters may depend on application protocols that they implement.
+- Application use cases must not import concrete agent, database, or integration adapters.
 - Integration clients must not import API routes or worker entry points.
 - Database repositories must not invoke Slack or model providers.
 - Composition roots may import concrete implementations because their job is to wire the application.
@@ -307,6 +305,7 @@ Follow these rules:
 
 Use `Protocol` or an abstract base class when more than one implementation exists or when a boundary needs a deterministic fake.
 Do not introduce an interface for every class by default.
+The agent boundary is an explicit exception: application use cases depend on an application-owned agent protocol so a concrete or deterministic agent can be injected without reversing the dependency direction.
 
 ## 6. Settings and environment configuration
 
