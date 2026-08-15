@@ -581,7 +581,7 @@ class PostgresSupportRepository:
             )
         return outcome
 
-    def mark_pending_action_failed(
+    def mark_unsent_action_failed(
         self,
         claim: Claim,
         action_id: UUID,
@@ -589,7 +589,7 @@ class PostgresSupportRepository:
         *,
         retryable: bool,
     ) -> LifecycleOutcome:
-        """Record a clear failure before the external send starts."""
+        """Record a clear failure when the external send was never called."""
 
         if not error_category:
             raise ValueError("error_category is required")
@@ -602,13 +602,13 @@ class PostgresSupportRepository:
                 update outbound_actions
                 set status = 'failed', last_error_category = %s, completed_at = now()
                 where action_id = %s and request_id = %s and claim_token = %s
-                  and status = 'pending'
+                  and status in ('pending', 'sending')
                 returning action_id
                 """,
                 (error_category, action_id, claim.request_id, claim.claim_token),
             ).fetchone()
             if action is None:
-                raise StateConflictError("reply action is not pending under this claim")
+                raise StateConflictError("reply action was not unsent under this claim")
             self._finish_attempt(connection, claim, outcome.value.replace("-", "_"))
             connection.execute(
                 """

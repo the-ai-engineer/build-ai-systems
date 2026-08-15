@@ -207,6 +207,9 @@ Alternatives rejected:
 - An expired claim with a pending action enters reconciliation without a model or Slack call.
 - A clear temporary Slack failure retries the identical persisted reply under a newer action generation without another model call.
 - The application code adds no message, answer, excerpt, payload, or credential logging.
+- The first fresh review reproduced a transient database failure before Slack that left a pending action and then entered reconciliation on retry despite zero send attempts.
+- The worker now records both `pending` and `sending` states as a known unsent failure when `mark_action_sending` fails before the Slack adapter is called.
+- The regression proves the first call remains retryable, Slack receives zero attempts, and the next claim sends the exact stored reply without another model call.
 
 ## Manual Setup
 
@@ -291,12 +294,12 @@ No live model or database integration was run for the default deterministic proo
 
 ### 2026-08-15: Issue #21 initial local proof
 
-- `DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth` passed 20 focused tests against PostgreSQL 15.
+- `DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth` passed 21 focused tests against PostgreSQL 15.
 - The documented demo printed one completed fake thread reply with `Sources` and `annual-leave-policy.md`.
 - The human-review demo printed the exact fixed HR fallback with one fake send and no mention.
 - The uncertain-send demo printed `reconciliation` and exactly one send attempt.
 - A live loopback Uvicorn check returned `200 duplicate-complete` for the valid local identity and `401` for an invalid identity.
-- `DATABASE_URL="postgresql://..." uv run python -m unittest discover -s tests` passed 73 tests.
+- `DATABASE_URL="postgresql://..." uv run python -m unittest discover -s tests` passed 74 tests.
 - `uv run python -m compileall -q examples support_agent_app tests` passed.
 - `uv run python examples/06b_sql_rag.py` passed and returned the expected local annual-leave result.
 - Ruff check, changed-file format check, and `git diff --check` passed.

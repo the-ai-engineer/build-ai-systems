@@ -258,6 +258,62 @@ class WorkerTests(PostgresTestCase):
         )
         self.assertEqual(counts, {"cancelled": 1, "succeeded": 1})
 
+    def test_database_failure_before_send_retries_without_reconciliation(self) -> None:
+        accepted = self.accept_fixture("documented", "Ev-worker-pre-send-database")
+        workflow = CountingWorkflow()
+        first_slack = FakeSlackClient()
+        original_mark_sending = self.repository.mark_action_sending
+
+        def fail_before_send(*args, **kwargs):
+            raise ConnectionError("synthetic pre-send database failure")
+
+        self.repository.mark_action_sending = fail_before_send
+        try:
+            first = self.service("documented", first_slack, workflow).process(
+                accepted.request_id,
+                WorkerDeadline.after(30),
+            )
+        finally:
+            self.repository.mark_action_sending = original_mark_sending
+
+        self.assertEqual(first.outcome, LifecycleOutcome.RETRYABLE.value)
+        self.assertEqual(first_slack.attempts, [])
+        failed = self.fetchone(
+            """
+            select r.status as request_status, a.status as action_status,
+                   r.last_error_category
+            from support_requests as r
+            join outbound_actions as a using (request_id)
+            where r.request_id = %s
+            """,
+            (accepted.request_id,),
+        )
+        self.assertEqual(
+            failed,
+            {
+                "request_status": "queued",
+                "action_status": "failed",
+                "last_error_category": "database_pre_send_failure",
+            },
+        )
+
+        second_slack = FakeSlackClient()
+        second = self.service("documented", second_slack, workflow).process(
+            accepted.request_id,
+            WorkerDeadline.after(30),
+        )
+
+        self.assertEqual(second.outcome, "completed")
+        self.assertEqual(workflow.calls, 1)
+        self.assertEqual(len(second_slack.attempts), 1)
+        self.assertEqual(
+            self.fetchone(
+                "select status from support_requests where request_id = %s",
+                (accepted.request_id,),
+            )["status"],
+            "completed",
+        )
+
     def test_clear_permanent_send_rejection_fails_without_retry(self) -> None:
         accepted = self.accept_fixture("documented", "Ev-worker-permanent-send")
         slack = PermanentlyRejectedSlackClient()

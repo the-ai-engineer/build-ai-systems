@@ -210,7 +210,7 @@ class WorkerService:
         try:
             timeout_seconds = deadline.slack_timeout_seconds()
         except WorkerDeadlineExceeded:
-            outcome = self._requests.mark_pending_action_failed(
+            outcome = self._requests.mark_unsent_action_failed(
                 claim,
                 action_id,
                 "worker_deadline",
@@ -218,7 +218,21 @@ class WorkerService:
             )
             return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
 
-        self._requests.mark_action_sending(claim, action_id)
+        try:
+            self._requests.mark_action_sending(claim, action_id)
+        except StaleClaimError:
+            raise
+        except Exception:
+            try:
+                outcome = self._requests.mark_unsent_action_failed(
+                    claim,
+                    action_id,
+                    "database_pre_send_failure",
+                    retryable=True,
+                )
+            except Exception as failure_error:
+                raise WorkerTemporaryError("pre-send state update failed") from failure_error
+            return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
         try:
             slack_message_ts = self._slack.post_thread_reply(
                 channel_id=channel_id,
