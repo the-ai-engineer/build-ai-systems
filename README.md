@@ -43,6 +43,23 @@ uv run python -m support_agent_app.demo --fixture prompt-injection
 
 See [docs/local-policy-agent.md](docs/local-policy-agent.md) for the optional Postgres and Google Cloud model paths.
 
+## Run the local worker
+
+The worker loads a synthetic request that is already stored in Postgres.
+Its default model and Slack adapters are deterministic fakes, so it makes no Google Cloud or Slack call.
+
+```bash
+DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth
+DATABASE_URL="postgresql://..." uv run python -m support_agent_app.demo_worker --fixture documented
+DATABASE_URL="postgresql://..." uv run python -m support_agent_app.demo_worker --fixture human-review
+DATABASE_URL="postgresql://..." uv run python -m support_agent_app.demo_worker --fixture uncertain-send
+DATABASE_URL="postgresql://..." uv run uvicorn support_agent_app.worker:app --port 8081
+```
+
+The local HTTP endpoint is `POST /tasks/process-support-request`.
+Its JSON body contains only `request_id`, and local calls provide `X-Worker-Task-Identity: local-development-task`.
+The identity check is an explicit local seam that a later task replaces with Google OIDC verification.
+
 ## Run the examples
 
 Install the Python dependencies:
@@ -76,11 +93,11 @@ uv run python examples/06b_sql_rag.py
 brief.md       Customer problem and first-release requirements
 examples/      Small standalone AI engineering examples
   policies/    Sample data used only by retrieval examples
-support_agent_app/  Local typed policy workflow and repository adapters
+support_agent_app/  Local policy workflow, worker, and repository adapters
 slack/         Bootstrap and deployment-stage Slack app manifests
 docs/          Application docs, approved policy fixtures, and implementation contract
 MEMORY.md      Sanitized, non-authoritative coordination log
 tests/         Checks for examples and repository contracts
 ```
 
-Request state, worker, Slack, cloud deployment, and operational checks are added by later linked implementation tasks.
+Slack ingress, queues, cloud deployment, and operational checks are added by later linked implementation tasks.

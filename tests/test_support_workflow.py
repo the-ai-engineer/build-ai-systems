@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import unittest
 from decimal import Decimal
 from types import SimpleNamespace
@@ -350,6 +351,24 @@ class SupportWorkflowTests(unittest.TestCase):
         self.assertEqual(MODEL_TIMEOUT_SECONDS, 20.0)
         agent = build_agent(fixture_model("unsupported"))
         self.assertEqual(agent.model_settings["google_cloud_service_tier"], "on_demand")
+        deadline_agent = build_agent(
+            fixture_model("unsupported"),
+            model_timeout_seconds=3.0,
+        )
+        self.assertEqual(deadline_agent.model_settings["timeout"], 3.0)
+
+    def test_workflow_timeout_bounds_the_complete_agent_run(self) -> None:
+        async def slow_model(messages, info):
+            await asyncio.sleep(0.05)
+            return ModelResponse(model_name="slow-fixture", finish_reason="stop")
+
+        with self.assertRaises(TimeoutError):
+            run_support_workflow(
+                FIXTURE_QUESTIONS["unsupported"],
+                self.repository,
+                model=FunctionModel(slow_model, model_name="slow-fixture"),
+                model_timeout_seconds=0.001,
+            )
 
     def test_live_model_boundary_requires_google_cloud_provider(self) -> None:
         with self.assertRaisesRegex(ValueError, "google-cloud"):

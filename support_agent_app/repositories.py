@@ -5,9 +5,12 @@ from __future__ import annotations
 import hashlib
 import re
 from pathlib import Path
-from typing import Protocol
+from typing import Callable, Protocol
+
+from psycopg.rows import dict_row
 
 from .domain import SupportDocument, SupportDocumentIndexItem
+from .postgres import connect_with_timeout
 
 
 class PolicyRepository(Protocol):
@@ -48,16 +51,36 @@ class DirectoryPolicyRepository(MemoryPolicyRepository):
 class PostgresPolicyRepository:
     """Retrieve only active documents with fixed, parameterized SQL."""
 
-    def __init__(self, database_url: str) -> None:
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        timeout_provider: Callable[[], float] | None = None,
+    ) -> None:
         if not database_url:
             raise ValueError("database_url is required")
         self._database_url = database_url
+        self._timeout_provider = timeout_provider
+
+    def _connect(self):
+        timeout_seconds = None if self._timeout_provider is None else self._timeout_provider()
+        return connect_with_timeout(
+            self._database_url,
+            row_factory=dict_row,
+            timeout_seconds=timeout_seconds,
+        )
+
+    def with_timeout_provider(
+        self,
+        timeout_provider: Callable[[], float],
+    ) -> PostgresPolicyRepository:
+        return PostgresPolicyRepository(
+            self._database_url,
+            timeout_provider=timeout_provider,
+        )
 
     def list_active_documents(self) -> list[SupportDocumentIndexItem]:
-        from psycopg import connect
-        from psycopg.rows import dict_row
-
-        with connect(self._database_url, row_factory=dict_row) as connection:
+        with self._connect() as connection:
             rows = connection.execute(
                 """
                 select id, title, category, summary, keywords, source_file, revision
@@ -80,10 +103,7 @@ class PostgresPolicyRepository:
         ]
 
     def get_active_document(self, document_id: str) -> SupportDocument | None:
-        from psycopg import connect
-        from psycopg.rows import dict_row
-
-        with connect(self._database_url, row_factory=dict_row) as connection:
+        with self._connect() as connection:
             row = connection.execute(
                 """
                 select id, title, category, summary, keywords, source_file,
