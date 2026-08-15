@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import dataclass, field
 from time import perf_counter
@@ -78,7 +79,13 @@ def get_support_document(
     return document
 
 
-def build_agent(model: Model | str) -> Agent[WorkflowDependencies, AgentDecision]:
+def build_agent(
+    model: Model | str,
+    *,
+    model_timeout_seconds: float = MODEL_TIMEOUT_SECONDS,
+) -> Agent[WorkflowDependencies, AgentDecision]:
+    if model_timeout_seconds <= 0:
+        raise ValueError("model_timeout_seconds must be positive")
     return Agent(
         model,
         deps_type=WorkflowDependencies,
@@ -89,7 +96,7 @@ def build_agent(model: Model | str) -> Agent[WorkflowDependencies, AgentDecision
             Tool(get_support_document, sequential=True),
         ],
         model_settings={
-            "timeout": MODEL_TIMEOUT_SECONDS,
+            "timeout": min(MODEL_TIMEOUT_SECONDS, model_timeout_seconds),
             "max_tokens": MAX_OUTPUT_TOKENS,
             "parallel_tool_calls": False,
             "google_cloud_service_tier": "on_demand",
@@ -123,6 +130,7 @@ def run_support_workflow(
     model: Model | str | None = None,
     model_id: str | None = None,
     context_token_counter: Callable[[str], int] | None = None,
+    model_timeout_seconds: float = MODEL_TIMEOUT_SECONDS,
 ) -> WorkflowOutcome:
     dependencies = WorkflowDependencies(repository=repository)
     selected_model, resolved_model_id, model_location, service_tier = _resolve_model(
@@ -130,14 +138,23 @@ def run_support_workflow(
         model_id,
     )
     started = perf_counter()
-    result = build_agent(selected_model).run_sync(
-        question.text,
-        deps=dependencies,
-        usage_limits=UsageLimits(
-            request_limit=MAX_MODEL_TURNS,
-            tool_calls_limit=MAX_TOOL_CALLS,
-            output_tokens_limit=MAX_OUTPUT_TOKENS * MAX_MODEL_TURNS,
-        ),
+    agent = build_agent(
+        selected_model,
+        model_timeout_seconds=model_timeout_seconds,
+    )
+    result = asyncio.run(
+        asyncio.wait_for(
+            agent.run(
+                question.text,
+                deps=dependencies,
+                usage_limits=UsageLimits(
+                    request_limit=MAX_MODEL_TURNS,
+                    tool_calls_limit=MAX_TOOL_CALLS,
+                    output_tokens_limit=MAX_OUTPUT_TOKENS * MAX_MODEL_TURNS,
+                ),
+            ),
+            timeout=model_timeout_seconds,
+        )
     )
     duration_ms = max(0, round((perf_counter() - started) * 1_000))
 
@@ -188,9 +205,7 @@ def _resolve_model(
 
     actual_id = model if isinstance(model, str) else model.model_id
     if model_id is not None and model_id != actual_id:
-        raise ValueError(
-            f"Injected model ID {actual_id!r} does not match model_id {model_id!r}"
-        )
+        raise ValueError(f"Injected model ID {actual_id!r} does not match model_id {model_id!r}")
     if isinstance(model, Model) and model.system == "function":
         return model, actual_id, "local", "deterministic-test"
     return model, actual_id, "unknown", "unknown"

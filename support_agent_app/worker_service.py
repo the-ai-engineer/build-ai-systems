@@ -11,7 +11,7 @@ from uuid import UUID
 from pydantic_ai.models import Model
 
 from .domain import SupportDecision, SupportQuestion, WorkflowOutcome
-from .repositories import PolicyRepository
+from .repositories import PolicyRepository, PostgresPolicyRepository
 from .request_repository import (
     Claim,
     LifecycleOutcome,
@@ -72,6 +72,24 @@ class WorkerDeadline:
             raise WorkerDeadlineExceeded("insufficient deadline budget before Slack send")
         return min(MAX_SLACK_TIMEOUT_SECONDS, available)
 
+    def database_timeout_seconds(self) -> float:
+        available = self.remaining_seconds() - FINALIZATION_RESERVE_SECONDS
+        if available <= 0:
+            raise WorkerDeadlineExceeded("insufficient deadline budget before database operation")
+        return available
+
+    def model_timeout_seconds(self) -> float:
+        available = self.remaining_seconds() - FINALIZATION_RESERVE_SECONDS
+        if available <= 0:
+            raise WorkerDeadlineExceeded("insufficient deadline budget before model operation")
+        return available
+
+    def finalization_timeout_seconds(self) -> float:
+        available = self.remaining_seconds()
+        if available <= 0:
+            raise WorkerDeadlineExceeded("worker deadline expired before finalization")
+        return available
+
 
 @dataclass(frozen=True)
 class WorkerResult:
@@ -106,7 +124,11 @@ class WorkerService:
     def process(self, request_id: UUID, deadline: WorkerDeadline) -> WorkerResult:
         deadline.require("claim", FINALIZATION_RESERVE_SECONDS)
         try:
-            claim_result = self._requests.claim_request(request_id, self._lease_duration)
+            claim_result = self._requests.claim_request(
+                request_id,
+                self._lease_duration,
+                timeout_seconds=deadline.database_timeout_seconds(),
+            )
         except RequestNotFoundError:
             raise
         except Exception as error:
@@ -118,11 +140,21 @@ class WorkerService:
         claim = claim_result.claim
         assert claim is not None
         try:
-            stored_request = self._requests.load_claimed_request(claim)
+            stored_request = self._requests.load_claimed_request(
+                claim,
+                timeout_seconds=deadline.database_timeout_seconds(),
+            )
 
-            failed_action = self._requests.find_failed_reply_action(claim)
+            failed_action = self._requests.find_failed_reply_action(
+                claim,
+                timeout_seconds=deadline.database_timeout_seconds(),
+            )
             if failed_action is not None:
-                action = self._requests.retry_failed_reply(claim, failed_action.action_id)
+                action = self._requests.retry_failed_reply(
+                    claim,
+                    failed_action.action_id,
+                    timeout_seconds=deadline.database_timeout_seconds(),
+                )
                 return self._send_reply(
                     claim,
                     action.action_id,
@@ -132,16 +164,23 @@ class WorkerService:
                     deadline,
                 )
 
-            stranded_action = self._requests.find_stranded_reply_action(claim)
+            stranded_action = self._requests.find_stranded_reply_action(
+                claim,
+                timeout_seconds=deadline.database_timeout_seconds(),
+            )
             if stranded_action is not None:
                 outcome = self._requests.reconcile_stranded_reply(
                     claim,
                     stranded_action.action_id,
                     "expired_claim_action",
+                    timeout_seconds=deadline.database_timeout_seconds(),
                 )
                 return WorkerResult(request_id=request_id, outcome=outcome.value)
 
-            decision = self._requests.load_latest_decision(claim)
+            decision = self._requests.load_latest_decision(
+                claim,
+                timeout_seconds=deadline.database_timeout_seconds(),
+            )
             if decision is None:
                 decision = self._run_and_record_workflow(
                     claim,
@@ -151,7 +190,11 @@ class WorkerService:
 
             deadline.require("reply action", FINALIZATION_RESERVE_SECONDS)
             outbound_text = format_slack_reply(decision)
-            action = self._requests.create_reply_action(claim, outbound_text)
+            action = self._requests.create_reply_action(
+                claim,
+                outbound_text,
+                timeout_seconds=deadline.database_timeout_seconds(),
+            )
             return self._send_reply(
                 claim,
                 action.action_id,
@@ -161,14 +204,18 @@ class WorkerService:
                 deadline,
             )
         except WorkerDeadlineExceeded:
-            return self._record_pre_send_failure(claim, "worker_deadline")
+            return self._record_pre_send_failure(claim, "worker_deadline", deadline)
         except StaleClaimError:
             return WorkerResult(request_id=request_id, outcome=LifecycleOutcome.RETRYABLE.value)
         except WorkerTemporaryError:
             raise
         except Exception:
             try:
-                return self._record_pre_send_failure(claim, "worker_temporary_failure")
+                return self._record_pre_send_failure(
+                    claim,
+                    "worker_temporary_failure",
+                    deadline,
+                )
             except Exception as record_error:
                 raise WorkerTemporaryError("worker state update failed") from record_error
 
@@ -182,16 +229,21 @@ class WorkerService:
         try:
             outcome = self._workflow_runner(
                 SupportQuestion(text=question_text),
-                self._policies,
+                self._deadline_policies(deadline),
                 model=self._model,
+                model_timeout_seconds=deadline.model_timeout_seconds(),
             )
         except Exception:
-            self._record_pre_send_failure(claim, "model_temporary_failure")
+            self._record_pre_send_failure(claim, "model_temporary_failure", deadline)
             raise WorkerTemporaryError("policy workflow failed") from None
 
         deadline.require("workflow result", FINALIZATION_RESERVE_SECONDS)
         try:
-            self._requests.record_workflow_result(claim, outcome)
+            self._requests.record_workflow_result(
+                claim,
+                outcome,
+                timeout_seconds=deadline.database_timeout_seconds(),
+            )
         except StaleClaimError:
             raise
         except Exception as error:
@@ -208,18 +260,23 @@ class WorkerService:
         deadline: WorkerDeadline,
     ) -> WorkerResult:
         try:
-            timeout_seconds = deadline.slack_timeout_seconds()
+            deadline.slack_timeout_seconds()
         except WorkerDeadlineExceeded:
             outcome = self._requests.mark_unsent_action_failed(
                 claim,
                 action_id,
                 "worker_deadline",
                 retryable=True,
+                timeout_seconds=deadline.finalization_timeout_seconds(),
             )
             return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
 
         try:
-            self._requests.mark_action_sending(claim, action_id)
+            self._requests.mark_action_sending(
+                claim,
+                action_id,
+                timeout_seconds=deadline.database_timeout_seconds(),
+            )
         except StaleClaimError:
             raise
         except Exception:
@@ -229,10 +286,23 @@ class WorkerService:
                     action_id,
                     "database_pre_send_failure",
                     retryable=True,
+                    timeout_seconds=deadline.finalization_timeout_seconds(),
                 )
             except Exception as failure_error:
                 raise WorkerTemporaryError("pre-send state update failed") from failure_error
             return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
+        try:
+            timeout_seconds = deadline.slack_timeout_seconds()
+        except WorkerDeadlineExceeded:
+            outcome = self._requests.mark_unsent_action_failed(
+                claim,
+                action_id,
+                "worker_deadline",
+                retryable=True,
+                timeout_seconds=deadline.finalization_timeout_seconds(),
+            )
+            return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
+
         try:
             slack_message_ts = self._slack.post_thread_reply(
                 channel_id=channel_id,
@@ -246,6 +316,7 @@ class WorkerService:
                 action_id,
                 error.category,
                 retryable=error.retryable,
+                timeout_seconds=deadline.finalization_timeout_seconds(),
             )
             return WorkerResult(
                 request_id=claim.request_id,
@@ -253,7 +324,12 @@ class WorkerService:
                 send_attempted=True,
             )
         except SlackSendUncertainError as error:
-            outcome = self._requests.mark_action_uncertain(claim, action_id, error.category)
+            outcome = self._requests.mark_action_uncertain(
+                claim,
+                action_id,
+                error.category,
+                timeout_seconds=deadline.finalization_timeout_seconds(),
+            )
             return WorkerResult(
                 request_id=claim.request_id,
                 outcome=outcome.value,
@@ -264,6 +340,7 @@ class WorkerService:
                 claim,
                 action_id,
                 "send_uncertain",
+                timeout_seconds=deadline.finalization_timeout_seconds(),
             )
             return WorkerResult(
                 request_id=claim.request_id,
@@ -272,13 +349,19 @@ class WorkerService:
             )
 
         try:
-            self._requests.complete_reply(claim, action_id, slack_message_ts)
+            self._requests.complete_reply(
+                claim,
+                action_id,
+                slack_message_ts,
+                timeout_seconds=deadline.finalization_timeout_seconds(),
+            )
         except Exception:
             try:
                 outcome = self._requests.mark_action_uncertain(
                     claim,
                     action_id,
                     "send_result_not_recorded",
+                    timeout_seconds=deadline.finalization_timeout_seconds(),
                 )
             except Exception as reconciliation_error:
                 raise WorkerTemporaryError("Slack result persistence failed") from (
@@ -295,6 +378,24 @@ class WorkerService:
             send_attempted=True,
         )
 
-    def _record_pre_send_failure(self, claim: Claim, category: str) -> WorkerResult:
-        outcome = self._requests.record_failure(claim, category, retryable=True)
+    def _record_pre_send_failure(
+        self,
+        claim: Claim,
+        category: str,
+        deadline: WorkerDeadline | None = None,
+    ) -> WorkerResult:
+        timeout_seconds = None
+        if deadline is not None:
+            timeout_seconds = deadline.finalization_timeout_seconds()
+        outcome = self._requests.record_failure(
+            claim,
+            category,
+            retryable=True,
+            timeout_seconds=timeout_seconds,
+        )
         return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
+
+    def _deadline_policies(self, deadline: WorkerDeadline) -> PolicyRepository:
+        if isinstance(self._policies, PostgresPolicyRepository):
+            return self._policies.with_timeout_provider(deadline.database_timeout_seconds)
+        return self._policies

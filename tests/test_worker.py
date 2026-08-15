@@ -3,11 +3,12 @@ from __future__ import annotations
 import hashlib
 from datetime import timedelta
 
-from psycopg import connect
+from psycopg import connect, errors
 from psycopg.rows import dict_row
 
 from support_agent_app.fake_model import fixture_model
 from support_agent_app.fixtures import FIXTURE_QUESTIONS
+from support_agent_app.postgres import connect_with_timeout
 from support_agent_app.repositories import PostgresPolicyRepository
 from support_agent_app.request_repository import (
     IncomingSupportRequest,
@@ -31,10 +32,17 @@ from tests.postgres_test_case import PostgresTestCase
 class CountingWorkflow:
     def __init__(self) -> None:
         self.calls = 0
+        self.model_timeouts = []
 
-    def __call__(self, question, repository, *, model):
+    def __call__(self, question, repository, *, model, model_timeout_seconds):
         self.calls += 1
-        return run_support_workflow(question, repository, model=model)
+        self.model_timeouts.append(model_timeout_seconds)
+        return run_support_workflow(
+            question,
+            repository,
+            model=model,
+            model_timeout_seconds=model_timeout_seconds,
+        )
 
 
 class InspectingSlackClient(FakeSlackClient):
@@ -159,6 +167,14 @@ class WorkerTests(PostgresTestCase):
         self.assertEqual(row["sources"][0]["source_filename"], "annual-leave-policy.md")
         self.assertTrue(row["sources"][0]["supporting_excerpt"])
         self.assertTrue(row["sources"][0]["document_revision"].startswith("sha256:"))
+
+    def test_database_operations_receive_a_statement_timeout(self) -> None:
+        with self.assertRaises(errors.QueryCanceled):
+            with connect_with_timeout(
+                self.database_url,
+                timeout_seconds=0.01,
+            ) as connection:
+                connection.execute("select pg_sleep(0.1)")
 
     def test_human_review_uses_exact_fixed_reply_without_a_tag(self) -> None:
         accepted = self.accept_fixture("unsupported", "Ev-worker-human-review")
@@ -484,6 +500,52 @@ class WorkerTests(PostgresTestCase):
             {
                 "status": "queued",
                 "business_attempt_count": 1,
+                "last_error_category": "worker_deadline",
+            },
+        )
+
+    def test_database_step_consuming_send_budget_does_not_call_slack(self) -> None:
+        accepted = self.accept_fixture("documented", "Ev-worker-send-budget")
+        workflow = CountingWorkflow()
+        slack = FakeSlackClient()
+        clock = [0.0]
+        deadline = WorkerDeadline(expires_at=30.0, clock=lambda: clock[0])
+        original_mark_sending = self.repository.mark_action_sending
+
+        def consume_send_budget(*args, **kwargs):
+            self.assertLessEqual(kwargs["timeout_seconds"], 29.0)
+            original_mark_sending(*args, **kwargs)
+            clock[0] = 29.0
+
+        self.repository.mark_action_sending = consume_send_budget
+        try:
+            result = self.service("documented", slack, workflow).process(
+                accepted.request_id,
+                deadline,
+            )
+        finally:
+            self.repository.mark_action_sending = original_mark_sending
+
+        self.assertEqual(result.outcome, LifecycleOutcome.RETRYABLE.value)
+        self.assertFalse(result.send_attempted)
+        self.assertEqual(slack.attempts, [])
+        self.assertEqual(workflow.calls, 1)
+        self.assertLessEqual(workflow.model_timeouts[0], 29.0)
+        row = self.fetchone(
+            """
+            select r.status as request_status, a.status as action_status,
+                   r.last_error_category
+            from support_requests as r
+            join outbound_actions as a using (request_id)
+            where r.request_id = %s
+            """,
+            (accepted.request_id,),
+        )
+        self.assertEqual(
+            row,
+            {
+                "request_status": "queued",
+                "action_status": "failed",
                 "last_error_category": "worker_deadline",
             },
         )

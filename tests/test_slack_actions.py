@@ -9,6 +9,7 @@ from support_agent_app.slack_actions import (
     HUMAN_REVIEW_REPLY,
     FakeSlackClient,
     SlackSendError,
+    SlackSendUncertainError,
     SlackWebApiClient,
     format_slack_reply,
 )
@@ -83,6 +84,48 @@ class SlackActionTests(unittest.TestCase):
             )
 
         self.assertFalse(raised.exception.retryable)
+
+    def test_connect_timeout_is_a_clear_retryable_failure(self) -> None:
+        def connect_timeout(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectTimeout("synthetic connect timeout", request=request)
+
+        slack = SlackWebApiClient(
+            "synthetic-token",
+            client=httpx.Client(
+                base_url="https://slack.com/api",
+                transport=httpx.MockTransport(connect_timeout),
+            ),
+        )
+
+        with self.assertRaises(SlackSendError) as raised:
+            slack.post_thread_reply(
+                channel_id="C-test",
+                thread_ts="100.001",
+                text="Synthetic reply.",
+                timeout_seconds=3.0,
+            )
+
+        self.assertTrue(raised.exception.retryable)
+
+    def test_read_timeout_is_an_uncertain_failure(self) -> None:
+        def read_timeout(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadTimeout("synthetic read timeout", request=request)
+
+        slack = SlackWebApiClient(
+            "synthetic-token",
+            client=httpx.Client(
+                base_url="https://slack.com/api",
+                transport=httpx.MockTransport(read_timeout),
+            ),
+        )
+
+        with self.assertRaises(SlackSendUncertainError):
+            slack.post_thread_reply(
+                channel_id="C-test",
+                thread_ts="100.001",
+                text="Synthetic reply.",
+                timeout_seconds=3.0,
+            )
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ from .domain import (
     SupportDecision,
     WorkflowOutcome,
 )
+from .postgres import connect_with_timeout
 
 MAX_BUSINESS_ATTEMPTS = 5
 
@@ -110,10 +111,12 @@ class PostgresSupportRepository:
             raise ValueError("database_url is required")
         self._database_url = database_url
 
-    def _connect(self):
-        from psycopg import connect
-
-        return connect(self._database_url, row_factory=dict_row)
+    def _connect(self, timeout_seconds: float | None = None):
+        return connect_with_timeout(
+            self._database_url,
+            row_factory=dict_row,
+            timeout_seconds=timeout_seconds,
+        )
 
     def accept_request(self, incoming: IncomingSupportRequest) -> AcceptedRequest:
         """Store an event once without returning its sensitive question text."""
@@ -168,13 +171,19 @@ class PostgresSupportRepository:
                 return
             self._raise_request_state(connection, request_id, "cannot queue request")
 
-    def claim_request(self, request_id: UUID, lease_duration: timedelta) -> ClaimResult:
+    def claim_request(
+        self,
+        request_id: UUID,
+        lease_duration: timedelta,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> ClaimResult:
         """Atomically obtain the next lease version or return an explicit no-work outcome."""
 
         if lease_duration <= timedelta(0):
             raise ValueError("lease_duration must be positive")
 
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             request = connection.execute(
                 """
                 select request_id, status, task_generation, business_attempt_count
@@ -271,10 +280,15 @@ class PostgresSupportRepository:
                 ),
             )
 
-    def load_claimed_request(self, claim: Claim) -> ClaimedRequest:
+    def load_claimed_request(
+        self,
+        claim: Claim,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> ClaimedRequest:
         """Load sensitive worker input only while the supplied claim is current."""
 
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             row = connection.execute(
                 """
@@ -292,10 +306,15 @@ class PostgresSupportRepository:
                 question_text=row["question_text"],
             )
 
-    def load_latest_decision(self, claim: Claim) -> SupportDecision | None:
+    def load_latest_decision(
+        self,
+        claim: Claim,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> SupportDecision | None:
         """Resume a verified result without repeating a completed model call."""
 
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             row = connection.execute(
                 """
@@ -322,22 +341,42 @@ class PostgresSupportRepository:
                 reason_code=row["reason_code"],
             )
 
-    def find_failed_reply_action(self, claim: Claim) -> OutboundAction | None:
+    def find_failed_reply_action(
+        self,
+        claim: Claim,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> OutboundAction | None:
         """Return a known failed action whose exact text can be retried safely."""
 
-        return self._find_reply_action(claim, ("failed",))
+        return self._find_reply_action(claim, ("failed",), timeout_seconds=timeout_seconds)
 
-    def find_stranded_reply_action(self, claim: Claim) -> OutboundAction | None:
+    def find_stranded_reply_action(
+        self,
+        claim: Claim,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> OutboundAction | None:
         """Return an old pending or sending action that must not be resent."""
 
-        return self._find_reply_action(claim, ("pending", "sending"))
+        return self._find_reply_action(
+            claim,
+            ("pending", "sending"),
+            timeout_seconds=timeout_seconds,
+        )
 
-    def record_workflow_result(self, claim: Claim, outcome: WorkflowOutcome) -> UUID:
+    def record_workflow_result(
+        self,
+        claim: Claim,
+        outcome: WorkflowOutcome,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> UUID:
         """Persist decision, run metadata, and source revisions under one current fence."""
 
         agent_run_id = uuid4()
         decision_id = uuid4()
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             run = outcome.run
             connection.execute(
@@ -402,6 +441,7 @@ class PostgresSupportRepository:
         outbound_text: str,
         *,
         action_generation: int = 1,
+        timeout_seconds: float | None = None,
     ) -> OutboundAction:
         """Persist exact send content and its hash in the action-creation transaction."""
 
@@ -412,7 +452,7 @@ class PostgresSupportRepository:
         content_hash = f"sha256:{hashlib.sha256(outbound_text.encode('utf-8')).hexdigest()}"
         action_id = uuid4()
 
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             row = connection.execute(
                 """
@@ -455,8 +495,14 @@ class PostgresSupportRepository:
                     )
             return self._action_from_row(row)
 
-    def mark_action_sending(self, claim: Claim, action_id: UUID) -> None:
-        with self._connect() as connection:
+    def mark_action_sending(
+        self,
+        claim: Claim,
+        action_id: UUID,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> None:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             row = connection.execute(
                 """
@@ -471,12 +517,19 @@ class PostgresSupportRepository:
             if row is None:
                 raise StateConflictError("reply action is not pending under this claim")
 
-    def complete_reply(self, claim: Claim, action_id: UUID, slack_message_ts: str) -> None:
+    def complete_reply(
+        self,
+        claim: Claim,
+        action_id: UUID,
+        slack_message_ts: str,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> None:
         """Record known success and complete the request in one fenced transaction."""
 
         if not slack_message_ts:
             raise ValueError("slack_message_ts is required")
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             action = connection.execute(
                 """
@@ -506,6 +559,7 @@ class PostgresSupportRepository:
         error_category: str,
         *,
         retryable: bool,
+        timeout_seconds: float | None = None,
     ) -> LifecycleOutcome:
         """Release retryable work or record an explicit permanent failure."""
 
@@ -513,7 +567,7 @@ class PostgresSupportRepository:
             raise ValueError("error_category is required")
         outcome = LifecycleOutcome.RETRYABLE if retryable else LifecycleOutcome.PERMANENT_FAILURE
         request_status = "queued" if retryable else "failed"
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             self._finish_attempt(connection, claim, outcome.value.replace("-", "_"))
             connection.execute(
@@ -541,6 +595,7 @@ class PostgresSupportRepository:
         error_category: str,
         *,
         retryable: bool,
+        timeout_seconds: float | None = None,
     ) -> LifecycleOutcome:
         """Record a known failed send, then release or permanently fail the request."""
 
@@ -548,7 +603,7 @@ class PostgresSupportRepository:
             raise ValueError("error_category is required")
         outcome = LifecycleOutcome.RETRYABLE if retryable else LifecycleOutcome.PERMANENT_FAILURE
         request_status = "queued" if retryable else "failed"
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             action = connection.execute(
                 """
@@ -588,6 +643,7 @@ class PostgresSupportRepository:
         error_category: str,
         *,
         retryable: bool,
+        timeout_seconds: float | None = None,
     ) -> LifecycleOutcome:
         """Record a clear failure when the external send was never called."""
 
@@ -595,7 +651,7 @@ class PostgresSupportRepository:
             raise ValueError("error_category is required")
         outcome = LifecycleOutcome.RETRYABLE if retryable else LifecycleOutcome.PERMANENT_FAILURE
         request_status = "queued" if retryable else "failed"
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             action = connection.execute(
                 """
@@ -628,11 +684,17 @@ class PostgresSupportRepository:
             )
         return outcome
 
-    def retry_failed_reply(self, claim: Claim, failed_action_id: UUID) -> OutboundAction:
+    def retry_failed_reply(
+        self,
+        claim: Claim,
+        failed_action_id: UUID,
+        *,
+        timeout_seconds: float | None = None,
+    ) -> OutboundAction:
         """Replace one known-failed reply with the next controlled action generation."""
 
         next_action_id = uuid4()
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             failed = connection.execute(
                 """
@@ -680,10 +742,12 @@ class PostgresSupportRepository:
         claim: Claim,
         action_id: UUID,
         error_category: str,
+        *,
+        timeout_seconds: float | None = None,
     ) -> LifecycleOutcome:
         """Stop automatic retries after an ambiguous send outcome."""
 
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             action = connection.execute(
                 """
@@ -713,12 +777,14 @@ class PostgresSupportRepository:
         claim: Claim,
         action_id: UUID,
         error_category: str,
+        *,
+        timeout_seconds: float | None = None,
     ) -> LifecycleOutcome:
         """Fence a stranded old action and stop automatic delivery."""
 
         if not error_category:
             raise ValueError("error_category is required")
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             action = connection.execute(
                 """
@@ -747,8 +813,10 @@ class PostgresSupportRepository:
         self,
         claim: Claim,
         statuses: tuple[str, ...],
+        *,
+        timeout_seconds: float | None = None,
     ) -> OutboundAction | None:
-        with self._connect() as connection:
+        with self._connect(timeout_seconds) as connection:
             self._lock_current_claim(connection, claim)
             row = connection.execute(
                 """

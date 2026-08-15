@@ -125,9 +125,16 @@ class SlackWebApiClient:
                 content=json.dumps({"channel": channel_id, "thread_ts": thread_ts, "text": text}),
                 timeout=timeout_seconds,
             )
-        except httpx.ConnectError as error:
+        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as error:
             raise SlackSendError("slack_connect_failed", retryable=True) from error
-        except (httpx.TimeoutException, httpx.NetworkError) as error:
+        except (
+            httpx.ReadTimeout,
+            httpx.WriteTimeout,
+            httpx.ReadError,
+            httpx.WriteError,
+            httpx.RemoteProtocolError,
+            httpx.NetworkError,
+        ) as error:
             raise SlackSendUncertainError() from error
 
         if response.status_code >= 500 or response.status_code == 429:

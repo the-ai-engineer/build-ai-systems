@@ -210,6 +210,11 @@ Alternatives rejected:
 - The first fresh review reproduced a transient database failure before Slack that left a pending action and then entered reconciliation on retry despite zero send attempts.
 - The worker now records both `pending` and `sending` states as a known unsent failure when `mark_action_sending` fails before the Slack adapter is called.
 - The regression proves the first call remains retryable, Slack receives zero attempts, and the next claim sends the exact stored reply without another model call.
+- The next fresh review reproduced Slack starting after a database step consumed its send budget and a connect timeout entering reconciliation even though no request reached Slack.
+- Worker-owned Postgres connections now receive the remaining budget as connection and statement timeouts.
+- The complete Pydantic AI run is bounded by the remaining worker budget, including its model turns and deadline-aware Postgres policy tools.
+- The worker recomputes the Slack timeout after the database send transition and records a known unsent failure if no send budget remains.
+- Slack connect and pool timeouts are clear retryable failures; read and write timeouts remain uncertain and enter reconciliation.
 
 ## Manual Setup
 
@@ -294,12 +299,12 @@ No live model or database integration was run for the default deterministic proo
 
 ### 2026-08-15: Issue #21 initial local proof
 
-- `DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth` passed 21 focused tests against PostgreSQL 15.
+- `DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth` passed 25 focused tests against PostgreSQL 15.
 - The documented demo printed one completed fake thread reply with `Sources` and `annual-leave-policy.md`.
 - The human-review demo printed the exact fixed HR fallback with one fake send and no mention.
 - The uncertain-send demo printed `reconciliation` and exactly one send attempt.
 - A live loopback Uvicorn check returned `200 duplicate-complete` for the valid local identity and `401` for an invalid identity.
-- `DATABASE_URL="postgresql://..." uv run python -m unittest discover -s tests` passed 74 tests.
+- `DATABASE_URL="postgresql://..." uv run python -m unittest discover -s tests` passed 79 tests.
 - `uv run python -m compileall -q examples support_agent_app tests` passed.
 - `uv run python examples/06b_sql_rag.py` passed and returned the expected local annual-leave result.
 - Ruff check, changed-file format check, and `git diff --check` passed.
