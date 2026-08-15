@@ -124,6 +124,21 @@ Alternatives rejected:
 - Do not tag a Slack user or user group in the fallback.
 - Version 1 has no support-group setting and no paid Slack user-group dependency.
 
+### 2026-08-15: Issue #21 local stored-request worker
+
+- Keep FastAPI parsing, task authentication, orchestration, policy workflow, durable state, and Slack delivery as separate teachable boundaries.
+- The HTTP body contains only the internal `request_id`.
+- The local identity header is a replaceable test seam and is not presented as production Google OIDC verification.
+- Use the deterministic fake model and fake Slack client by default.
+- Keep configured Gemini and real Slack Web API adapters available behind the same injected interfaces.
+- Format supported replies from validated decisions with a visible `Sources` section and readable policy filenames.
+- Format non-off-topic human review with the fixed V1 fallback and no user or group mention.
+- Resume a persisted verified decision without another model call after a lease expires.
+- Retry a known failed send from the exact stored text and hash without another model call.
+- Move an old pending or sending action to `reconciliation` instead of automatically sending it from a newer claim.
+- Leave enough deadline budget to record the Slack result after the network call.
+- Treat any ambiguous send or unrecorded send result as reconciliation.
+
 ## Implementation Log
 
 ### 2026-08-14: Issue #16 course contract migration
@@ -178,6 +193,21 @@ Alternatives rejected:
 - The stale-claim regression now also covers the known-failed reply replacement transaction.
 - A final fresh independent review inspected the complete corrected diff and returned `Approve` with no findings.
 
+### 2026-08-15: Issue #21 local stored-request worker
+
+- Started from the pinned merged default branch at commit `44adec3`.
+- Read issue #21, issues #18 and #19, their merged implementations, repository rules, and the approved final application contract before editing.
+- Added a private FastAPI handler, deadline-aware orchestration, task-authentication seam, fake and configured Slack adapters, three local demos, and focused tests.
+- The synthetic claim sequence is claim, load durable input, run or resume the agent decision, persist the exact action, mark sending, call the injected Slack adapter, then finalize under the same fence.
+- Supported formatting includes `Sources` and verified filenames while full excerpts remain in Postgres.
+- Human review uses the exact fixed fallback with no mention syntax.
+- A five-second synthetic deadline proves the worker records retryable state before starting the model or send.
+- A timeout after the fake send begins records one attempt, marks the action uncertain, and moves the request to reconciliation.
+- An expired claim with a recorded decision resumes without another model run.
+- An expired claim with a pending action enters reconciliation without a model or Slack call.
+- A clear temporary Slack failure retries the identical persisted reply under a newer action generation without another model call.
+- The application code adds no message, answer, excerpt, payload, or credential logging.
+
 ## Manual Setup
 
 ### 2026-08-14: Issue #16
@@ -197,6 +227,13 @@ No live model or database integration was run for the default deterministic proo
 - Used a temporary local PostgreSQL 15 database with no repository credential or external service.
 - Created no Slack app, Cloud Task, Cloud Run service, model invocation, deployment, scheduler, or outbound network call.
 - Database connection details remained in the local environment and were not written to the repository.
+
+### 2026-08-15: Issue #21 local worker proof
+
+- Used one temporary local PostgreSQL 15 database containing only synthetic policy and request fixtures.
+- Started the FastAPI worker on loopback, called it with valid and invalid local identities, then stopped it.
+- Made no Google Cloud, real Slack, Cloud Tasks, deployment, release, or credential call.
+- Database connection details and synthetic UUIDs were not recorded in the repository.
 
 ## Commands and Checks
 
@@ -252,6 +289,18 @@ No live model or database integration was run for the default deterministic proo
 - The repository integration proof stores a nonzero retrieved-context token value instead of relying on a database default.
 - A final fresh independent review returned `Approve` with no Must, Should, or Could findings.
 
+### 2026-08-15: Issue #21 initial local proof
+
+- `DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth` passed 20 focused tests against PostgreSQL 15.
+- The documented demo printed one completed fake thread reply with `Sources` and `annual-leave-policy.md`.
+- The human-review demo printed the exact fixed HR fallback with one fake send and no mention.
+- The uncertain-send demo printed `reconciliation` and exactly one send attempt.
+- A live loopback Uvicorn check returned `200 duplicate-complete` for the valid local identity and `401` for an invalid identity.
+- `DATABASE_URL="postgresql://..." uv run python -m unittest discover -s tests` passed 73 tests.
+- `uv run python -m compileall -q examples support_agent_app tests` passed.
+- `uv run python examples/06b_sql_rag.py` passed and returned the expected local annual-leave result.
+- Ruff check, changed-file format check, and `git diff --check` passed.
+
 ## Teaching Notes
 
 ### 2026-08-14: Independent boundaries before the end-to-end path
@@ -287,6 +336,15 @@ No live model or database integration was run for the default deterministic proo
 - Keep `human_review` structurally unable to carry an answer or sources.
 - Record document IDs and revisions for audit while excluding the complete question, answer, and policy content from run metadata.
 - Use the exact fixture CLI before adding Postgres, a live model, worker state, Slack, or cloud infrastructure.
+
+### 2026-08-15: Keep the worker sequence visible
+
+- Teach FastAPI as parsing and status mapping only.
+- Teach authentication as an injected boundary before any claim or model work.
+- Teach the worker service as explicit orchestration over small repository, model, and Slack interfaces.
+- Inspect the fake Slack attempt in demos instead of logging production content.
+- Show that the action text and hash exist before the fake network call.
+- Show that known failures can reuse exact stored text, while uncertain sends cannot be retried automatically.
 
 ## Unresolved Questions
 

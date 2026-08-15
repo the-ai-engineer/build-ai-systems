@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -12,7 +12,13 @@ from uuid import UUID, uuid4
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from .domain import WorkflowOutcome
+from .domain import (
+    AnswerDecision,
+    HumanReviewDecision,
+    SourceCitation,
+    SupportDecision,
+    WorkflowOutcome,
+)
 
 MAX_BUSINESS_ATTEMPTS = 5
 
@@ -76,6 +82,14 @@ class Claim:
 class ClaimResult:
     outcome: LifecycleOutcome
     claim: Claim | None = None
+
+
+@dataclass(frozen=True)
+class ClaimedRequest:
+    request_id: UUID
+    slack_channel_id: str
+    slack_thread_ts: str
+    question_text: str = field(repr=False)
 
 
 @dataclass(frozen=True)
@@ -256,6 +270,67 @@ class PostgresSupportRepository:
                     lease_expires_at=claim_row["lease_expires_at"],
                 ),
             )
+
+    def load_claimed_request(self, claim: Claim) -> ClaimedRequest:
+        """Load sensitive worker input only while the supplied claim is current."""
+
+        with self._connect() as connection:
+            self._lock_current_claim(connection, claim)
+            row = connection.execute(
+                """
+                select request_id, slack_channel_id, slack_thread_ts, question_text
+                from support_requests
+                where request_id = %s
+                """,
+                (claim.request_id,),
+            ).fetchone()
+            assert row is not None
+            return ClaimedRequest(
+                request_id=row["request_id"],
+                slack_channel_id=row["slack_channel_id"],
+                slack_thread_ts=row["slack_thread_ts"],
+                question_text=row["question_text"],
+            )
+
+    def load_latest_decision(self, claim: Claim) -> SupportDecision | None:
+        """Resume a verified result without repeating a completed model call."""
+
+        with self._connect() as connection:
+            self._lock_current_claim(connection, claim)
+            row = connection.execute(
+                """
+                select decision, reason_code, answer, reason, sources
+                from support_decisions
+                where request_id = %s
+                order by created_at desc, decision_id desc
+                limit 1
+                """,
+                (claim.request_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            if row["decision"] == "answer":
+                return AnswerDecision(
+                    answer=row["answer"],
+                    reason=row["reason"],
+                    sources=tuple(
+                        SourceCitation.model_validate(source) for source in row["sources"]
+                    ),
+                )
+            return HumanReviewDecision(
+                reason=row["reason"],
+                reason_code=row["reason_code"],
+            )
+
+    def find_failed_reply_action(self, claim: Claim) -> OutboundAction | None:
+        """Return a known failed action whose exact text can be retried safely."""
+
+        return self._find_reply_action(claim, ("failed",))
+
+    def find_stranded_reply_action(self, claim: Claim) -> OutboundAction | None:
+        """Return an old pending or sending action that must not be resent."""
+
+        return self._find_reply_action(claim, ("pending", "sending"))
 
     def record_workflow_result(self, claim: Claim, outcome: WorkflowOutcome) -> UUID:
         """Persist decision, run metadata, and source revisions under one current fence."""
@@ -506,6 +581,53 @@ class PostgresSupportRepository:
             )
         return outcome
 
+    def mark_pending_action_failed(
+        self,
+        claim: Claim,
+        action_id: UUID,
+        error_category: str,
+        *,
+        retryable: bool,
+    ) -> LifecycleOutcome:
+        """Record a clear failure before the external send starts."""
+
+        if not error_category:
+            raise ValueError("error_category is required")
+        outcome = LifecycleOutcome.RETRYABLE if retryable else LifecycleOutcome.PERMANENT_FAILURE
+        request_status = "queued" if retryable else "failed"
+        with self._connect() as connection:
+            self._lock_current_claim(connection, claim)
+            action = connection.execute(
+                """
+                update outbound_actions
+                set status = 'failed', last_error_category = %s, completed_at = now()
+                where action_id = %s and request_id = %s and claim_token = %s
+                  and status = 'pending'
+                returning action_id
+                """,
+                (error_category, action_id, claim.request_id, claim.claim_token),
+            ).fetchone()
+            if action is None:
+                raise StateConflictError("reply action is not pending under this claim")
+            self._finish_attempt(connection, claim, outcome.value.replace("-", "_"))
+            connection.execute(
+                """
+                update support_requests
+                set status = %s, last_error_category = %s,
+                    queued_at = case when %s = 'queued' then now() else queued_at end,
+                    failed_at = case when %s = 'failed' then now() else failed_at end
+                where request_id = %s
+                """,
+                (
+                    request_status,
+                    error_category,
+                    request_status,
+                    request_status,
+                    claim.request_id,
+                ),
+            )
+        return outcome
+
     def retry_failed_reply(self, claim: Claim, failed_action_id: UUID) -> OutboundAction:
         """Replace one known-failed reply with the next controlled action generation."""
 
@@ -585,6 +707,62 @@ class PostgresSupportRepository:
                 (error_category, claim.request_id),
             )
         return LifecycleOutcome.RECONCILIATION
+
+    def reconcile_stranded_reply(
+        self,
+        claim: Claim,
+        action_id: UUID,
+        error_category: str,
+    ) -> LifecycleOutcome:
+        """Fence a stranded old action and stop automatic delivery."""
+
+        if not error_category:
+            raise ValueError("error_category is required")
+        with self._connect() as connection:
+            self._lock_current_claim(connection, claim)
+            action = connection.execute(
+                """
+                update outbound_actions
+                set status = 'uncertain', last_error_category = %s, completed_at = now()
+                where action_id = %s and request_id = %s
+                  and claim_token <> %s and status in ('pending', 'sending')
+                returning action_id
+                """,
+                (error_category, action_id, claim.request_id, claim.claim_token),
+            ).fetchone()
+            if action is None:
+                raise StateConflictError("reply action is not stranded under an expired claim")
+            self._finish_attempt(connection, claim, "reconciliation")
+            connection.execute(
+                """
+                update support_requests
+                set status = 'reconciliation', last_error_category = %s
+                where request_id = %s
+                """,
+                (error_category, claim.request_id),
+            )
+        return LifecycleOutcome.RECONCILIATION
+
+    def _find_reply_action(
+        self,
+        claim: Claim,
+        statuses: tuple[str, ...],
+    ) -> OutboundAction | None:
+        with self._connect() as connection:
+            self._lock_current_claim(connection, claim)
+            row = connection.execute(
+                """
+                select action_id, request_id, action_generation, status,
+                       outbound_text, content_hash
+                from outbound_actions
+                where request_id = %s and action_type = 'reply'
+                  and status = any(%s)
+                order by action_generation desc, created_at desc
+                limit 1
+                """,
+                (claim.request_id, list(statuses)),
+            ).fetchone()
+            return None if row is None else self._action_from_row(row)
 
     def _lock_current_claim(self, connection, claim: Claim) -> None:
         row = connection.execute(

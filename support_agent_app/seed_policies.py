@@ -22,8 +22,17 @@ def main() -> None:
     if not args.database_url:
         raise SystemExit("Set DATABASE_URL or pass --database-url.")
 
+    count = seed_policy_documents(args.database_url)
+    print(f"Loaded {count} active support documents.")
+
+
+def seed_policy_documents(database_url: str) -> int:
+    """Load the synthetic policy set for local demos and integration tests."""
+
+    if not database_url:
+        raise ValueError("database_url is required")
     documents = load_policy_directory(POLICY_DIRECTORY)
-    with connect(args.database_url) as connection:
+    with connect(database_url) as connection:
         statements = SCHEMA_PATH.read_text(encoding="utf-8").split(";")
         for statement in statements:
             if statement.strip():
@@ -59,7 +68,7 @@ def main() -> None:
                     document.revision,
                 ),
             )
-    print(f"Loaded {len(documents)} active support documents.")
+    return len(documents)
 
 
 if __name__ == "__main__":

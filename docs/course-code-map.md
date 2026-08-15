@@ -16,7 +16,7 @@ This file only maps high-level lesson names to code in this repository.
 | Optional vector RAG | `examples/07a_vector_rag.py` |
 | Optional hybrid RAG | `examples/07b_hybrid_rag.py` |
 | Local policy application | `support_agent_app/`, `docs/policies/`, `tests/test_support_workflow.py` |
-| Worker | Planned private HTTP handler accepting only `request_id` |
+| Worker | `support_agent_app/worker.py`, `support_agent_app/worker_service.py`, `support_agent_app/demo_worker.py` |
 | Queue and Slack ingress | Planned Cloud Tasks adapter and public Slack webhook |
 | Reliability and evaluation | Planned integration tests, scheduled jobs, and evals |
 | Production deployment | Planned Google Cloud deployment configuration and operational checks |
