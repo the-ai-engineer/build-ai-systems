@@ -23,6 +23,7 @@ def load_example(filename: str) -> ModuleType:
 class LessonExamplesTest(unittest.TestCase):
     def test_repository_contract_exists(self) -> None:
         for path in [
+            Path("PYTHON_STANDARDS.md"),
             Path("brief.md"),
             Path("MEMORY.md"),
             Path("docs/course-code-map.md"),
@@ -30,6 +31,15 @@ class LessonExamplesTest(unittest.TestCase):
             Path("docs/resources/deploy-with-codex-prompt.md"),
         ]:
             self.assertTrue(path.is_file(), msg=str(path))
+
+    def test_agents_file_only_references_python_standards(self) -> None:
+        source = Path("AGENTS.md").read_text(encoding="utf-8")
+
+        self.assertEqual(
+            source,
+            "When writing or changing Python code in this repository, "
+            "follow [PYTHON_STANDARDS.md](PYTHON_STANDARDS.md).\n",
+        )
 
     def test_standalone_examples_do_not_import_shared_application_code(self) -> None:
         for path in sorted(Path("examples").glob("*.py")):
@@ -118,7 +128,6 @@ class LessonExamplesTest(unittest.TestCase):
 
     def test_canonical_docs_use_the_slack_contract(self) -> None:
         paths = [
-            Path("AGENTS.md"),
             Path("README.md"),
             Path("docs/course-code-map.md"),
             Path("docs/final-agent-spec.md"),
@@ -149,7 +158,7 @@ class LessonExamplesTest(unittest.TestCase):
     def test_repository_boundary_is_documented(self) -> None:
         lesson_source = "/Users/owainlewis/Code/github/owainlewis/slip/content/build-ai-systems/"
 
-        for path in [Path("AGENTS.md"), Path("README.md"), Path("MEMORY.md")]:
+        for path in [Path("README.md"), Path("MEMORY.md")]:
             source = path.read_text(encoding="utf-8")
 
             self.assertIn(lesson_source, source, msg=str(path))
@@ -172,7 +181,6 @@ class LessonExamplesTest(unittest.TestCase):
 
     def test_finished_app_uses_gemini_with_application_default_credentials(self) -> None:
         for path in [
-            Path("AGENTS.md"),
             Path("README.md"),
             Path("MEMORY.md"),
             Path("docs/final-agent-spec.md"),
