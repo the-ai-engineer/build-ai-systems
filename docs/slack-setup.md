@@ -34,8 +34,9 @@ These identifiers are safe to record as configuration:
 - `SLACK_ALLOWED_TEAM_IDS`: the workspace team ID.
 - `SLACK_APP_ID`: the app ID shown under **Basic Information**.
 - `SLACK_BOT_USER_ID`: the bot member ID available after installation.
-- `SLACK_HR_USER_GROUP_ID`: the configured HR support user-group ID.
 - `SLACK_ALLOWED_CHANNEL_IDS`: the dedicated public HR channel ID, when that channel is selected.
+
+Version 1 does not tag a Slack user or user group in human-review replies, so no support-group configuration is required.
 
 These values are credentials and must never be copied into Codex, GitHub, screenshots, shell output, documentation, or `MEMORY.md`:
 
@@ -86,15 +87,6 @@ Do not mistake the direct-message channel ID for the bot user ID.
 After the operator stores the bot credential in `support_agent_app/.env`, use Slack's `auth.test` method from a local process that reads the file and prints only the returned `user_id`.
 Record that safe identifier as `SLACK_BOT_USER_ID` without printing the credential or the complete API response.
 
-To find the support user-group ID, open the workspace administration page, choose **People → User groups**, open the intended HR support group, and copy the ID from its details or URL.
-Do not record the group's membership.
-Record only the safe identifier as `SLACK_HR_USER_GROUP_ID`.
-
-On 14 August 2026, Gradientwork's **People → User groups** page showed **See paid subscriptions** and no user-group records.
-The course workspace therefore has no support user-group ID to record yet.
-Do not invent an ID or substitute a person.
-Create or select the HR support group only after the workspace supports user groups, then record its safe ID through the path above.
-
 Invite the installed bot to the dedicated test channel with Slack's normal channel invite flow.
 This invitation is a separate manual checkpoint because it changes channel membership.
 
@@ -120,7 +112,7 @@ Never commit the deployed service URL, temporary tunnel URL, or a complete Slack
 - **Event Subscriptions** remains off until the verified webhook is connected, then lists only `app_mention`.
 - **Socket Mode** is disabled.
 - **Manage Distribution** remains off because version 1 supports one workspace.
-- **People → User groups** exposes a real HR support group and its ID before human-review replies are enabled.
+- Human-review replies require no Slack user-group setup.
 - The app can be invited to the dedicated test channel after installation.
 - `git check-ignore support_agent_app/.env` prints that ignored path.
 - The Git diff contains no credential value, complete Slack message, or customer payload.

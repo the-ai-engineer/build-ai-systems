@@ -12,6 +12,7 @@ Do not create a duplicate blindly, and do not alter unrelated apps.
 Before a public HTTPS webhook exists, use slack/manifest.bootstrap.json.
 The app must have only the app_mentions:read and chat:write bot scopes.
 Keep direct messages, the App Home Messages tab, interactive components, shortcuts, slash commands, incoming webhooks, Socket Mode, organization deployment, MCP, and multi-workspace distribution disabled.
+Do not configure a Slack user or user group for human-review replies.
 
 Do not enable Events API delivery before a deployed HTTPS /slack/events endpoint can complete Slack's verification challenge.
 At that later checkpoint, replace the non-routable placeholder in a local copy of slack/manifest.json, apply it, and confirm app_mention is the only subscribed event.
@@ -19,7 +20,7 @@ Never commit a deployed or temporary request URL.
 
 Never reveal, show, copy, transcribe, log, document, screenshot, or commit a signing secret, bot token, OAuth code, configuration token, customer message, member list, or complete event payload.
 Do not ask me to paste any credential into chat.
-Record only safe team, app, bot-user, support-user-group, and channel identifiers, plus the locations where credentials belong.
+Record only safe team, app, bot-user, and channel identifiers, plus the locations where credentials belong.
 Local credentials belong only in the gitignored support_agent_app/.env file.
 Deployed credentials belong in Google Secret Manager.
 

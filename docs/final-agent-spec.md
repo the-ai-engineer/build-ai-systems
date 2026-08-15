@@ -36,7 +36,7 @@ It does not access employee records, calculate personal entitlements, approve re
 
 - Answer common questions from trusted policy documents.
 - Make the source of every supported answer visible and verifiable.
-- Refer unsupported, sensitive, personal, or conflicting questions to the configured HR support user group.
+- Give unsupported, sensitive, personal, or conflicting questions a fixed reply that asks the employee to contact HR without tagging a Slack user or user group.
 - Acknowledge Slack before model latency can exceed the webhook deadline.
 - Survive duplicate delivery, process crashes, and temporary provider failures.
 - Prevent stale workers and retries from creating duplicate known replies.
@@ -347,11 +347,11 @@ The Slack reply may omit the excerpts when the filename is enough for a readable
 
 A no-answer reply is a fixed application template selected by `reason_code`.
 An `off_topic` result states that the assistant answers only HR policy questions and does not notify HR.
-Every other human-review result states that HR needs to help and mentions the configured `SLACK_HR_USER_GROUP_ID` using Slack's user-group mention format.
+Every other human-review result replies exactly: “I couldn’t find a reliable answer in the policy documents. Please ask a member of the HR team.”
+The reply does not tag a Slack user or user group and requires no support-group configuration.
 No no-answer template contains a model-generated policy answer.
 
 Both outcomes reply to `slack_thread_ts` in the original channel.
-The support-group identifier is configuration, never model output.
 
 ## Outbound Action Safety
 
@@ -537,7 +537,7 @@ They never contain complete questions, answers, policy bodies, supporting excerp
 - `AC-1`: A valid Slack mention is stored once, queued once initially, acknowledged within 2.5 seconds, and receives one thread reply.
 - `AC-2`: Replaying the same Slack event does not create another request, initial task, completed model run, or known successful reply.
 - `AC-3`: A documented HR policy question produces an answer whose verified sources name the policy file, revision, and supporting excerpt loaded by the agent.
-- `AC-4`: An unsupported, sensitive, or conflicting question produces `human_review` with no automated policy answer and mentions the configured HR support user group.
+- `AC-4`: An unsupported, sensitive, or conflicting question produces `human_review` with no automated policy answer and replies, “I couldn’t find a reliable answer in the policy documents. Please ask a member of the HR team.” without tagging a Slack user or user group.
 - `AC-5`: A model, database, or safe pre-send failure is retried without losing the support request, and retry exhaustion becomes visible to recovery or an operator.
 - `AC-6`: A worker crash becomes retryable after its lease expires, while its stale token or version cannot write a result or send a reply.
 - `AC-7`: A task cannot invoke the worker without the expected Google Cloud identity.
@@ -574,7 +574,7 @@ The test asserts ten completions, no duplicate known replies, overlapping proces
 6. Deploy the private worker to a development Cloud Run service and invoke it manually through the supported proxy or an authenticated request.
 7. Add Cloud Tasks and prove OIDC invokes the same worker.
 8. Connect the public Slack webhook as the task producer and perform a sanitized real-Slack check.
-9. Add cited formatting, HR notification, deadlines, reconciliation, scheduled jobs, evals, observability, and production hardening.
+9. Add cited formatting, the fixed human-review fallback, deadlines, reconciliation, scheduled jobs, evals, observability, and production hardening.
 
 ## Open Questions
 

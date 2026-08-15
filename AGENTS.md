@@ -20,7 +20,7 @@ The course builds a professional HR policy assistant in Python.
 
 An employee mentions the assistant in a dedicated Slack channel.
 The system accepts the event quickly, processes it asynchronously, retrieves approved company policies, and replies in the Slack thread.
-It refuses off-topic requests and sends uncertain, unsupported, sensitive, or conflicting requests to a configured HR support user group.
+It refuses off-topic requests and gives uncertain, unsupported, sensitive, or conflicting requests a fixed reply that asks the employee to contact HR.
 
 The public Cloud Run webhook verifies and stores the request, then creates a Cloud Task containing only the internal request ID.
 The private Cloud Run worker claims the request with a fenced lease, runs the policy workflow, and records one controlled Slack action.

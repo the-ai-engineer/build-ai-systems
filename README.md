@@ -4,7 +4,7 @@ Public code repository for the Build AI Systems course.
 
 The project builds a professional HR policy assistant in Python.
 An employee mentions it in a dedicated Slack channel, the system processes the request asynchronously, retrieves approved policies from Postgres, and replies in the Slack thread.
-It refuses off-topic requests and refers uncertain, unsupported, sensitive, or conflicting requests to the configured HR support user group.
+It refuses off-topic requests and gives uncertain, unsupported, sensitive, or conflicting requests a fixed reply that asks the employee to contact HR.
 
 ## Repository boundary
 

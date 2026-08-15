@@ -6,9 +6,32 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BOOTSTRAP_MANIFEST = ROOT / "slack" / "manifest.bootstrap.json"
 DEPLOYED_MANIFEST = ROOT / "slack" / "manifest.json"
+HUMAN_REVIEW_FALLBACK = (
+    "I couldn’t find a reliable answer in the policy documents. Please ask a member of the HR team."
+)
+REMOVED_SUPPORT_GROUP_SETTING = "_".join(("SLACK", "HR", "USER", "GROUP", "ID"))
+REMOVED_SUPPORT_GROUP_PHRASE = " ".join(("configured", "HR", "support", "user", "group"))
+V1_CONTRACT_PATHS = (
+    ROOT / "AGENTS.md",
+    ROOT / "README.md",
+    ROOT / "brief.md",
+    ROOT / "docs" / "final-agent-spec.md",
+    ROOT / "docs" / "resources" / "configure-slack-app-with-codex-prompt.md",
+    ROOT / "docs" / "resources" / "deploy-with-codex-prompt.md",
+    ROOT / "docs" / "slack-setup.md",
+    ROOT / "docs" / "slack-knowledge-agent" / "brief.md",
+    ROOT / "MEMORY.md",
+)
+FIXED_FALLBACK_PATHS = (
+    ROOT / "brief.md",
+    ROOT / "docs" / "final-agent-spec.md",
+    ROOT / "docs" / "resources" / "deploy-with-codex-prompt.md",
+    ROOT / "docs" / "slack-knowledge-agent" / "brief.md",
+    ROOT / "MEMORY.md",
+)
 
 
-class SlackManifestTests(unittest.TestCase):
+class SlackSetupTests(unittest.TestCase):
     def load_manifest(self, path: Path) -> dict:
         return json.loads(path.read_text())
 
@@ -51,6 +74,18 @@ class SlackManifestTests(unittest.TestCase):
 
         deployed["settings"].pop("event_subscriptions")
         self.assertEqual(deployed, bootstrap)
+
+    def test_v1_contract_has_no_support_user_group_configuration(self) -> None:
+        for path in V1_CONTRACT_PATHS:
+            with self.subTest(path=path.relative_to(ROOT)):
+                contents = path.read_text()
+                self.assertNotIn(REMOVED_SUPPORT_GROUP_SETTING, contents)
+                self.assertNotIn(REMOVED_SUPPORT_GROUP_PHRASE, contents)
+
+    def test_human_review_contract_uses_fixed_fallback(self) -> None:
+        for path in FIXED_FALLBACK_PATHS:
+            with self.subTest(path=path.relative_to(ROOT)):
+                self.assertIn(HUMAN_REVIEW_FALLBACK, path.read_text())
 
 
 if __name__ == "__main__":

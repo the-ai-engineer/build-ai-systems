@@ -28,7 +28,7 @@ Use placeholders for identifiers and describe test inputs without copying employ
 - Worker ownership uses an increasing lease version and unique claim token so stale workers cannot update state or send replies.
 - The five-attempt business limit counts both started workflow claims and task generations that exhaust before application code obtains a claim.
 - Supported answers name the policy source file and include an excerpt verified against the loaded document.
-- Unsupported, sensitive, or conflicting questions produce human review and mention the configured Slack HR support user group.
+- Unsupported, sensitive, or conflicting questions produce human review with no automated answer and a fixed reply asking the employee to contact HR.
 - The standalone examples through `examples/07b_hybrid_rag.py` remain independent teaching programs.
 
 ### 2026-08-14: Local-first development and deployment seam
@@ -116,6 +116,13 @@ Alternatives rejected:
 - Rebuilding outbound text during retry was rejected because reconciliation requires the exact planned content and hash.
 - Treating an uncertain send as retryable was rejected because the first Slack call may have succeeded.
 - Keeping a retryable known-failed action as the active action was rejected after review proved that the next claim could not start it.
+
+### 2026-08-15: Human-review Slack fallback
+
+- Keep `human_review` as the typed internal outcome and keep it structurally unable to carry an automated answer or sources.
+- For every non-off-topic human-review result, reply exactly: “I couldn’t find a reliable answer in the policy documents. Please ask a member of the HR team.”
+- Do not tag a Slack user or user group in the fallback.
+- Version 1 has no support-group setting and no paid Slack user-group dependency.
 
 ## Implementation Log
 
@@ -310,13 +317,12 @@ No live model or database integration was run for the default deterministic proo
 - The operator enters local Slack credentials directly into the gitignored `support_agent_app/.env` file without exposing their values to an agent.
 - Deployed Slack credentials belong in Secret Manager.
 - Event delivery stays disabled until a deployed HTTPS `/slack/events` endpoint passes Slack's URL-verification challenge.
-- The app ID, team ID, bot user ID, support user-group ID, and dedicated channel ID are safe to record.
-- Credential values, group membership, messages, payloads, and request URLs are not recorded.
+- The app ID, team ID, bot user ID, and dedicated channel ID are safe to record.
+- Credential values, messages, payloads, and request URLs are not recorded.
 - The installed course app has safe app ID `A0BQF2X29MF` in team `T0B2CKH25KK`.
 - Slack's current web profile did not expose **Copy member ID** for the bot; after the operator stores the bot credential locally, call `auth.test` from a process that prints only `user_id`.
 - Do not treat the app's direct-message channel ID as the bot user ID.
-- **People → User groups** currently shows only **See paid subscriptions** and no group records, so no `SLACK_HR_USER_GROUP_ID` can be recorded yet.
-- Do not invent a support group ID or substitute a person; resume this checkpoint only after the workspace supports user groups.
+- Human-review replies need no Slack user-group setup or identifier.
 
 ### Teaching notes
 
