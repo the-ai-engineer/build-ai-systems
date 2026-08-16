@@ -43,7 +43,7 @@ These values are credentials and must never be copied into Codex, GitHub, screen
 - `SLACK_SIGNING_SECRET` appears under **Settings → Basic Information → App Credentials**.
 - `SLACK_BOT_TOKEN` appears under **Features → OAuth & Permissions → OAuth Tokens** after installation.
 
-For local work, the operator enters those two values directly into `support_agent_app/.env`.
+For local work, the operator enters those two values directly into the repository root `.env`.
 The repository ignores that file through its `.env` rule.
 For deployment, create Secret Manager entries such as `slack-signing-secret` and `slack-bot-token`, then enter the values through a secure operator-controlled path.
 Do not pass a credential value through an agent command or task message.
@@ -79,12 +79,12 @@ Slack may then show an OAuth consent or workspace installation approval screen.
 The browser agent must stop there and ask the user for explicit confirmation.
 It must not approve the installation itself.
 
-After the user completes the approval, the operator stores the displayed bot credential directly in `support_agent_app/.env` without exposing it to the agent.
+After the user completes the approval, the operator stores the displayed bot credential directly in the repository root `.env` without exposing it to the agent.
 The operator stores the signing credential from **Basic Information → App Credentials** in the same file.
 
 The current Slack web profile for this installed app does not expose **Copy member ID**.
 Do not mistake the direct-message channel ID for the bot user ID.
-After the operator stores the bot credential in `support_agent_app/.env`, use Slack's `auth.test` method from a local process that reads the file and prints only the returned `user_id`.
+After the operator stores the bot credential in the repository root `.env`, use Slack's `auth.test` method from a local process that reads the file and prints only the returned `user_id`.
 Record that safe identifier as `SLACK_BOT_USER_ID` without printing the credential or the complete API response.
 
 Invite the installed bot to the dedicated test channel with Slack's normal channel invite flow.
@@ -114,7 +114,7 @@ Never commit the deployed service URL, temporary tunnel URL, or a complete Slack
 - **Manage Distribution** remains off because version 1 supports one workspace.
 - Human-review replies require no Slack user-group setup.
 - The app can be invited to the dedicated test channel after installation.
-- `git check-ignore support_agent_app/.env` prints that ignored path.
+- `git check-ignore .env` prints that ignored path.
 - The Git diff contains no credential value, complete Slack message, or customer payload.
 
 ## Reusable browser prompt

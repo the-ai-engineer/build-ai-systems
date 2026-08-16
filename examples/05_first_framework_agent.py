@@ -25,6 +25,7 @@ load_dotenv(Path(__file__).with_name(".env"))
 OPENAI_MODEL = "openai:gpt-5.6"
 CLAUDE_MODEL = "anthropic:claude-sonnet-4-6"
 
+
 def normalize_model_name(model_name: str) -> str:
     """Accept Pydantic AI names and the old provider/model course format."""
     if model_name.startswith(("openai/", "anthropic/")):

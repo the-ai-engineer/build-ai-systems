@@ -80,8 +80,7 @@ def extract_request(email: str) -> SupportRequest:
 
 
 email = (
-    "Hi, I am Maya Chen (maya@example.com). "
-    "Can you tell me whether order NS-1029 has shipped yet?"
+    "Hi, I am Maya Chen (maya@example.com). Can you tell me whether order NS-1029 has shipped yet?"
 )
 
 request = extract_request(email)

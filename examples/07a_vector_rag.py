@@ -15,8 +15,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 
-
-POLICY_DIR = Path(__file__).with_name("policies")
+POLICY_DIR = Path(__file__).parents[1] / "policies"
 EMBEDDING_MODEL = "text-embedding-3-small"
 
 

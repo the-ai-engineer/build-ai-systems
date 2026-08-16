@@ -26,7 +26,8 @@ Local authenticated integration uses Application Default Credentials.
 Cloud Run uses its runtime service identity and does not require a separate Gemini API key.
 Deterministic fake-model tests remain required.
 
-See [docs/final-agent-spec.md](docs/final-agent-spec.md) for the complete implementation contract and [docs/course-code-map.md](docs/course-code-map.md) for the short lesson-to-code map.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how the system is put together today, [docs/final-agent-spec.md](docs/final-agent-spec.md) for the complete implementation contract, and [docs/course-code-map.md](docs/course-code-map.md) for the short lesson-to-code map.
+[PYTHON_STANDARDS.md](PYTHON_STANDARDS.md) is the coding and structure standard for this repository.
 Use [docs/slack-setup.md](docs/slack-setup.md) and the versioned manifests in `slack/` to configure the course Slack app without enabling event delivery before the webhook exists.
 
 ## Run the local policy agent
@@ -35,10 +36,11 @@ The first application slice runs with synthetic fixtures and a deterministic Pyd
 It needs no Slack, Google Cloud, database, model credentials, or network access.
 
 ```bash
-uv run python -m unittest tests.test_support_workflow
-uv run python -m support_agent_app.demo --fixture documented
-uv run python -m support_agent_app.demo --fixture unsupported
-uv run python -m support_agent_app.demo --fixture prompt-injection
+uv sync
+uv run python -m unittest discover -s tests/unit -t .
+uv run python -m examples.demos.run_workflow --fixture documented
+uv run python -m examples.demos.run_workflow --fixture unsupported
+uv run python -m examples.demos.run_workflow --fixture prompt-injection
 ```
 
 See [docs/local-policy-agent.md](docs/local-policy-agent.md) for the optional Postgres and Google Cloud model paths.
@@ -46,14 +48,31 @@ See [docs/local-policy-agent.md](docs/local-policy-agent.md) for the optional Po
 ## Run the local worker
 
 The worker loads a synthetic request that is already stored in Postgres.
-Its default model and Slack adapters are deterministic fakes, so it makes no Google Cloud or Slack call.
+
+Copy `.env.example` to `.env` and set `DATABASE_URL`, then apply the schema:
 
 ```bash
-DATABASE_URL="postgresql://..." uv run python -m unittest tests.test_worker tests.test_slack_actions tests.test_worker_auth
-DATABASE_URL="postgresql://..." uv run python -m support_agent_app.demo_worker --fixture documented
-DATABASE_URL="postgresql://..." uv run python -m support_agent_app.demo_worker --fixture human-review
-DATABASE_URL="postgresql://..." uv run python -m support_agent_app.demo_worker --fixture uncertain-send
-DATABASE_URL="postgresql://..." uv run uvicorn support_agent_app.worker:app --port 8081
+cp .env.example .env
+uv run apply-migrations
+uv run seed-policies
+```
+
+The demos build deterministic fake model and Slack adapters directly, so they
+make no Google Cloud or Slack call:
+
+```bash
+uv run python -m unittest discover -s tests/integration -t .
+uv run python -m examples.demos.run_worker --fixture documented
+uv run python -m examples.demos.run_worker --fixture human-review
+uv run python -m examples.demos.run_worker --fixture uncertain-send
+```
+
+The worker service itself defaults to the real adapters. Ask for the fixture
+adapters explicitly when running it without Slack credentials:
+
+```bash
+WORKER_ADAPTER_MODE=local-fixtures \
+  uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 ```
 
 The local HTTP endpoint is `POST /tasks/process-support-request`.
@@ -82,22 +101,40 @@ The SQL RAG example uses an in-memory SQLite database and needs no setup.
 ## Verify the repository
 
 ```bash
+uv run ruff check .
+uv run ruff format --check .
 uv run python -m unittest discover -s tests
-uv run python -m compileall -q examples support_agent_app tests
 uv run python examples/06b_sql_rag.py
 ```
+
+Unit tests need no database. Integration tests are skipped unless `DATABASE_URL` is set.
+`uv run pyright` is configured but not yet clean; see the exceptions in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Repository structure
 
 ```text
-brief.md       Customer problem and first-release requirements
-examples/      Small standalone AI engineering examples
-  policies/    Sample data used only by retrieval examples
-support_agent_app/  Local policy workflow, worker, and repository adapters
-slack/         Bootstrap and deployment-stage Slack app manifests
-docs/          Application docs, approved policy fixtures, and implementation contract
-MEMORY.md      Sanitized, non-authoritative coordination log
-tests/         Checks for examples and repository contracts
+ARCHITECTURE.md      How the system is put together today
+PYTHON_STANDARDS.md  Coding and project structure standard
+brief.md             Customer problem and first-release requirements
+app/support_agent_app/
+  api/               Public Slack webhook boundary (sketched)
+  worker/            Private worker boundary
+  commands/          Operator actions
+  application/       Use cases, domain vocabulary, protocols
+  agent/             Prompts, tools, schemas, evidence checks
+  database/          Connections, migrations, repositories
+  integrations/      Slack, model provider, task queue
+  testing/           Deterministic adapters, not for production
+  settings.py        All configuration
+migrations/          One SQL migration history
+policies/            The approved policy set, used by the app and the examples
+examples/            Small standalone AI engineering examples
+  demos/             Runnable demos of the application slices
+slack/               Bootstrap and deployment-stage Slack app manifests
+docs/                Application docs and the implementation contract
+MEMORY.md            Sanitized, non-authoritative coordination log
+tests/unit/          No network, no database
+tests/integration/   Real Postgres and real boundaries
 ```
 
 Slack ingress, queues, cloud deployment, and operational checks are added by later linked implementation tasks.

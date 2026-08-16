@@ -173,7 +173,9 @@ class Agent:
         return ToolResult(tool=step.tool, content=step.answer or "")
 
     def format_messages(self, messages: list[Message]) -> str:
-        return "\n\n".join(f"{message.role.value.upper()}:\n{message.content}" for message in messages)
+        return "\n\n".join(
+            f"{message.role.value.upper()}:\n{message.content}" for message in messages
+        )
 
     def format_email(self, email: Email) -> str:
         return f"From: {email.sender}\nSubject: {email.subject}\n\n{email.body}"

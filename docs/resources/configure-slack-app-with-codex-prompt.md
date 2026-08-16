@@ -21,7 +21,7 @@ Never commit a deployed or temporary request URL.
 Never reveal, show, copy, transcribe, log, document, screenshot, or commit a signing secret, bot token, OAuth code, configuration token, customer message, member list, or complete event payload.
 Do not ask me to paste any credential into chat.
 Record only safe team, app, bot-user, and channel identifiers, plus the locations where credentials belong.
-Local credentials belong only in the gitignored support_agent_app/.env file.
+Local credentials belong only in the gitignored root .env file.
 Deployed credentials belong in Google Secret Manager.
 
 Stop immediately if Slack shows an OAuth consent or workspace installation approval screen.

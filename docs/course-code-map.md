@@ -11,12 +11,12 @@ This file only maps high-level lesson names to code in this repository.
 | Workflow and agent comparison | `examples/03_deterministic_workflow.py` |
 | Agent by hand | `examples/04_agent_by_hand.py` |
 | Pydantic AI agent | `examples/05_first_framework_agent.py` |
-| Whole-document RAG | `examples/06a_file_rag.py`, `examples/policies/` |
+| Whole-document RAG | `examples/06a_file_rag.py`, `policies/` |
 | SQL RAG | `examples/06b_sql_rag.py` |
 | Optional vector RAG | `examples/07a_vector_rag.py` |
 | Optional hybrid RAG | `examples/07b_hybrid_rag.py` |
-| Local policy application | `support_agent_app/`, `docs/policies/`, `tests/test_support_workflow.py` |
-| Worker | `support_agent_app/worker.py`, `support_agent_app/worker_service.py`, `support_agent_app/demo_worker.py` |
+| Local policy application | `app/support_agent_app/agent/`, `policies/`, `tests/unit/agent/test_support_workflow.py` |
+| Worker | `app/support_agent_app/worker/`, `app/support_agent_app/application/process_request.py`, `examples/demos/run_worker.py` |
 | Queue and Slack ingress | Planned Cloud Tasks adapter and public Slack webhook |
 | Reliability and evaluation | Planned integration tests, scheduled jobs, and evals |
 | Production deployment | Planned Google Cloud deployment configuration and operational checks |
