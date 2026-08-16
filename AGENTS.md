@@ -2,6 +2,9 @@
 
 This repository is the public project for the Build AI Systems course.
 
+When writing or changing Python code, follow `PYTHON_STANDARDS.md`.
+Read `ARCHITECTURE.md` before changing structure, ownership, or dependencies.
+
 The code is designed for lessons, recordings, and student exercises.
 Prefer clarity over cleverness.
 Examples should be easy to read on screen and easy to run locally.
@@ -28,7 +31,8 @@ Postgres is the durable source of truth.
 
 The customer problem and product requirements live in `brief.md`.
 `docs/final-agent-spec.md` is the approved reference contract for the finished application and implementation tasks.
-Students still create and review `ARCHITECTURE.md` during the first design lesson before application code is introduced.
+Students still create and review their own architecture document during the first design lesson before application code is introduced.
+The repository's `ARCHITECTURE.md` is the reference they compare against afterwards.
 
 Do not add application structure or infrastructure before the relevant linked task defines it.
 
@@ -74,9 +78,14 @@ Students must still understand the contracts, authority boundaries, failure beha
 
 ## Repository structure
 
+- `PYTHON_STANDARDS.md` is the coding and project structure standard.
+- `ARCHITECTURE.md` describes the system that exists today.
 - `brief.md` defines the customer problem and first-release scope.
+- `app/support_agent_app/` is the deployable application, split by component ownership.
+- `migrations/` holds the single SQL migration history.
 - `examples/` contains standalone teaching examples for the AI foundations.
-- `examples/policies/` contains sample data for the retrieval examples only.
+- `examples/demos/` contains runnable demos of the application slices.
+- `policies/` is the single approved policy set, used by the application and the retrieval examples.
 - `docs/course-code-map.md` contains only lesson names and their runnable or planned code.
 - `docs/final-agent-spec.md` defines the finished application contract.
 - `docs/resources/deploy-with-codex-prompt.md` contains the supervised deployment prompt.
@@ -95,9 +104,13 @@ Never record Slack tokens, signing secrets, OAuth values, database credentials, 
 Run this before reporting repository changes:
 
 ```bash
+uv run ruff check .
+uv run ruff format --check .
 uv run python -m unittest discover -s tests
-uv run python -m compileall -q examples tests
 ```
+
+Unit tests need no database. Integration tests skip unless `DATABASE_URL` is set.
+`uv run pyright` is configured but not yet clean; see the exceptions in `ARCHITECTURE.md`.
 
 Run a changed model example with the required provider credentials.
 

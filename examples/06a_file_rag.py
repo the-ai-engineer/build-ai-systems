@@ -14,8 +14,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
-
-POLICY_DIR = Path(__file__).with_name("policies")
+POLICY_DIR = Path(__file__).parents[1] / "policies"
 MODEL_NAME = "openai:gpt-5.6"
 
 
