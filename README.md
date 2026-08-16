@@ -117,7 +117,7 @@ ARCHITECTURE.md      How the system is put together today
 PYTHON_STANDARDS.md  Coding and project structure standard
 brief.md             Customer problem and first-release requirements
 app/support_agent_app/
-  api/               Public Slack webhook boundary (sketched)
+  api/               Public Slack webhook boundary (planned)
   worker/            Private worker boundary
   commands/          Operator actions
   application/       Use cases, domain vocabulary, protocols

@@ -26,12 +26,20 @@ A useful house style makes common decisions once, while still allowing a project
 7. Store each document, fixture, prompt, and configuration value in one canonical place.
 8. Add a directory only when it owns real code.
 9. Do not add empty directories for possible future work.
-10. Record justified exceptions in the root `ARCHITECTURE.md`.
+10. Make every file and interface earn its boundary. Prefer fewer, clearer files.
+11. When the standard would make the code harder to read, deviate and record why in `ARCHITECTURE.md`.
 
 ## 3. Default repository layout
 
+This is a starting shape, not a target to fill in.
 Omit any component the application does not need.
 A synchronous API without a background worker should not contain an empty `worker/` directory.
+
+The file names under each component show what that component can own once it is
+large enough to need the separation. They are not a required file set.
+A component with one route belongs in one file. Splitting it into `main.py`,
+`routes.py`, `schemas.py`, and `auth.py` to match the tree below makes it harder
+to read, not easier, and is a deviation in the wrong direction.
 
 ```
 ARCHITECTURE.md
@@ -136,8 +144,13 @@ agent, database, integrations  ->  implement those protocols
 - Avoid circular imports and import-time side effects.
 - Keep `__init__.py` files empty or limited to a deliberate public interface.
 
-Use `Protocol` or an abstract base class when more than one implementation exists or a boundary needs a deterministic fake.
+Use `Protocol` or an abstract base class when more than one implementation exists, a boundary needs a deterministic fake, or a use case would otherwise import a concrete adapter and lose its independence.
 Do not introduce an interface for every class by default.
+
+Prefer structural typing. Do not make a class inherit from a `Protocol` to prove
+it complies: a `Protocol` subclass silently inherits `...` bodies for anything it
+fails to implement, so a missing method returns `None` at runtime instead of
+failing. A type checker verifies the match where the adapter is passed in.
 
 ## 7. Settings
 
@@ -265,6 +278,19 @@ Every generated file should have a named source and a reproducible generation co
 
 ## 15. Justified exceptions
 
+Consistency is the goal, but a rule that makes code worse has failed at its job.
+When following this document would produce something a reader finds harder to
+follow, deviate. Record the deviation in `ARCHITECTURE.md` with the reason.
+An unexplained deviation is a mistake; an explained one is a decision.
+
+Signs the standard is being applied against its own purpose:
+
+- a file that exists only to hold a docstring or a single small function
+- a component split into the reference file set before it has the code to justify it
+- an interface with one implementation, no fake, and no dependency to invert
+- a layer boundary maintained by copying a signature list by hand
+- a module moved so the tree matches the example rather than so the code reads better
+
 These standards favour consistency, but they should not force meaningless structure.
 A library, command-line tool, notebook project, small set of teaching examples, or framework with a strong convention may need a smaller or different layout.
 
@@ -284,6 +310,7 @@ Before changing code:
 While changing code:
 
 - put new code under the component that owns it
+- ask whether each new file makes the code easier to read; if not, do not create it
 - keep route handlers and runtime entry points small
 - use settings instead of direct environment access
 - keep provider details inside integrations

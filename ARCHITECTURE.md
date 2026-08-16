@@ -10,7 +10,7 @@ Two runtimes share one Python package, `app/support_agent_app`, and deploy indep
 | Runtime | Entry point | Exposure | Status |
 |---|---|---|---|
 | Worker | `worker/main.py` | Private. Accepts authenticated task invocations. | Built |
-| Webhook | `api/main.py` | Public. Accepts Slack events. | Sketched, not implemented |
+| Webhook | `api/main.py` | Public. Accepts Slack events. | Planned, one file describing the design |
 | Commands | `commands/` | Operator only. | Built |
 
 The worker is a FastAPI application with one route, `POST /tasks/process-support-request`.
@@ -26,7 +26,7 @@ Postgres is the durable source of truth. Nothing else holds state.
 
 ```
 app/support_agent_app/
-  api/            Public HTTP boundary for Slack events        (sketched)
+  api/            Public HTTP boundary for Slack events        (planned)
   worker/         Private HTTP boundary for queued tasks
   commands/       Deliberate operator actions
   application/    Use cases, domain vocabulary, protocols
@@ -37,7 +37,8 @@ app/support_agent_app/
   settings.py     All configuration
 ```
 
-- `application/` owns the vocabulary (`domain.py`, `lifecycle.py`), the boundaries (`protocols.py`), the time budget (`deadlines.py`), failure classification (`failures.py`), and the single use case (`process_request.py`).
+- `application/` owns the vocabulary (`domain.py`, `lifecycle.py`), the boundaries (`protocols.py`), the time budget (`deadlines.py`), failure classification (`failures.py`), and the single use case (`process_request.py`). Reply formatting lives in `process_request.py` because it is one small function with one caller.
+- `worker/` is `main.py` and `auth.py`. One route does not need a router module, a schemas module, and a composition root as three files. `auth.py` stays separate because swapping the static identity check for Google OIDC is a real, isolated change.
 - `agent/` owns everything the model touches: `prompts.py`, `tools.py`, the untrusted output schema in `schemas.py`, and the deterministic checks in `evidence.py`.
 - `database/` owns SQL, transactions, and row mapping. Migrations live in root `migrations/`.
 - `integrations/` owns provider detail. Slack error codes and httpx exceptions do not escape `messaging.py`.
@@ -116,7 +117,9 @@ Retryable outcomes surface as HTTP 503 so the queue retries. Permanent failures 
 ## Recorded exceptions
 
 **`application/failures.py` imports provider exception types.**
-`classify_workflow_failure` maps `pydantic_ai` and `psycopg` exceptions to durable categories, so the application layer imports two provider packages. Moving it behind an injected classifier is the correct fix and is deliberately deferred; the mapping is small, tested, and in one place.
+`classify_workflow_failure` maps `pydantic_ai` and `psycopg` exceptions to durable categories, so the application layer imports two provider packages.
+
+This is a decision, not a deferral. Inverting it means adding a classifier parameter to `WorkerService` and threading it through every call site and test, so that one thirteen-line function can move one directory. The mapping is small, tested, and in one place, and the rule it breaks exists to stop provider details leaking into orchestration, which is not happening here. It stays until a second provider makes the abstraction real.
 
 **`ARCHITECTURE.md` exists before the design lesson.**
 The course has students write their own architecture document first. This file is the reference they compare against afterwards, not a substitute for that exercise.
@@ -124,8 +127,11 @@ The course has students write their own architecture document first. This file i
 **Root holds course documents.**
 `brief.md`, `MEMORY.md`, and `docs/` are teaching artifacts, not application structure.
 
-**`api/` and `integrations/task_queue.py` are sketched, not implemented.**
-The standard says not to create directories that own no code. These are deliberate exceptions: the webhook and queue are known parts of the design, and naming them now makes the shape of the finished system visible while it is being built. Each file states what it will own. They must be implemented or deleted, not left indefinitely.
+**`api/` and `integrations/task_queue.py` hold no code yet.**
+The standard says not to create directories that own no code. This is a deliberate exception: the webhook and queue are known parts of the design, and naming them now makes the shape of the finished system visible while it is being built. `api/` is a single `main.py` describing the whole planned boundary in order, rather than four files each holding one docstring. They must be implemented or deleted, not left indefinitely.
+
+**`SupportRequestStore` has fifteen methods and one implementation.**
+That is more surface than an interface usually earns. It stays because it is the boundary that keeps `WorkerService` free of Postgres, which is the system's central design claim, and because a type checker verifies the match where `worker/main.py` passes the repository in. Writing it caught nine signature mismatches. `PostgresSupportRepository` deliberately does not inherit from it: a `Protocol` subclass silently inherits `...` bodies for anything it fails to implement, which would turn drift into a `None` return at runtime instead of a type error.
 
 **Pyright is not yet clean.**
 It reports 259 errors, against 261 on the same code before this structure existed.

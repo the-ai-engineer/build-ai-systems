@@ -9,7 +9,7 @@ from support_agent_app.application.domain import (
     SourceCitation,
 )
 from support_agent_app.application.failures import SlackSendError, SlackSendUncertainError
-from support_agent_app.application.reply_format import HUMAN_REVIEW_REPLY, format_slack_reply
+from support_agent_app.application.process_request import HUMAN_REVIEW_REPLY, format_slack_reply
 from support_agent_app.integrations.messaging import SlackWebApiClient
 from support_agent_app.testing.fake_slack import FakeSlackClient
 
