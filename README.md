@@ -145,6 +145,31 @@ Sources
 The reply is read from the durable record, not from a log, because the complete
 message text is deliberately never logged. Postgres is the source of truth.
 
+### Asking your own question
+
+Both demos take `--question`. Add `--live-model` to make it mean something: the
+deterministic fixture model returns a canned decision and ignores what you typed,
+and the demos say so if you forget.
+
+Straight at the agent, no database, fastest loop:
+
+```bash
+uv run python -m examples.demos.run_workflow \
+  --question "How much annual leave can I carry over?" --live-model
+```
+
+Through the durable worker path, so you also see the claim, the decision record,
+and the outbound action:
+
+```bash
+DATABASE_URL="postgresql:///support_agent" \
+  uv run python -m examples.demos.run_worker \
+    --question "How much annual leave can I carry over?" --live-model
+```
+
+`--live-model` needs `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and
+Application Default Credentials.
+
 ### Things worth demonstrating
 
 | What to show | How |
