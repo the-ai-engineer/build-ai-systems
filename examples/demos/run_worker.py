@@ -33,6 +33,16 @@ FIXTURES: tuple[WorkerFixture, ...] = ("documented", "human-review", "uncertain-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the local stored-request worker.")
     parser.add_argument("--fixture", choices=FIXTURES, default="documented")
+    parser.add_argument(
+        "--question",
+        default=None,
+        help="Store your own question instead of the fixture's.",
+    )
+    parser.add_argument(
+        "--live-model",
+        action="store_true",
+        help="Use the configured Google Cloud model instead of the deterministic fake.",
+    )
     args = parser.parse_args()
 
     try:
@@ -43,6 +53,12 @@ def main() -> None:
     fixture: WorkerFixture = args.fixture
     model_fixture = "unsupported" if fixture == "human-review" else "documented"
     slack_behavior = "uncertain" if fixture == "uncertain-send" else "success"
+    question_text = args.question or FIXTURE_QUESTIONS[model_fixture].text
+    if args.question and not args.live_model:
+        print(
+            "warning: the fixture model returns a canned decision and ignores your question.\n"
+            "         add --live-model to actually ask it.\n"
+        )
 
     seed_policy_documents(database_url)
     requests = PostgresSupportRepository(database_url)
@@ -54,7 +70,7 @@ def main() -> None:
             slack_message_ts="700.001",
             slack_thread_ts="700.001",
             slack_user_id="U-demo",
-            question_text=FIXTURE_QUESTIONS[model_fixture].text,
+            question_text=question_text,
         )
     )
     requests.mark_queued(accepted.request_id)
@@ -63,7 +79,7 @@ def main() -> None:
     service = WorkerService(
         requests=requests,
         policies=PostgresPolicyRepository(database_url),
-        model=fixture_model(model_fixture),
+        model=None if args.live_model else fixture_model(model_fixture),
         slack=slack,
         workflow_runner=run_support_workflow,
     )
@@ -72,6 +88,7 @@ def main() -> None:
         WorkerDeadline.after(DEFAULT_WORKER_DEADLINE_SECONDS),
     )
 
+    print(f"question: {question_text}")
     print(f"request_id: {result.request_id}")
     print(f"outcome: {result.outcome}")
     print(f"send_attempts: {len(slack.attempts)}")

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 
+from support_agent_app.application.domain import SupportQuestion
 from support_agent_app.application.protocols import PolicyRepository
 from support_agent_app.database.repositories.policy_repository import PostgresPolicyRepository
 from support_agent_app.settings import WorkerSettings
@@ -26,6 +27,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the local HR policy support workflow.")
     parser.add_argument("--fixture", choices=FIXTURE_NAMES, default="documented")
     parser.add_argument(
+        "--question",
+        default=None,
+        help="Ask your own question instead of the fixture's. Needs --live-model to mean anything.",
+    )
+    parser.add_argument(
         "--live-model",
         action="store_true",
         help="Use the configured Google Cloud model instead of the deterministic fake.",
@@ -44,8 +50,16 @@ def main() -> None:
     model = None if args.live_model else fixture_model(fixture)
     model_id = args.model if args.live_model else None
 
+    question = SupportQuestion(text=args.question) if args.question else FIXTURE_QUESTIONS[fixture]
+    if args.question and not args.live_model:
+        print(
+            "warning: the fixture model returns a canned decision and ignores your question.\n"
+            "         add --live-model to actually ask it.\n"
+        )
+
+    print(f"question: {question.text}\n")
     outcome = run_support_workflow(
-        FIXTURE_QUESTIONS[fixture],
+        question,
         repository,
         model=model,
         model_id=model_id,
