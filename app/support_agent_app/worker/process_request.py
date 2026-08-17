@@ -11,6 +11,21 @@ from dataclasses import dataclass
 from datetime import timedelta
 from uuid import UUID
 
+from ..application.domain import SupportDecision, SupportQuestion
+from ..application.failures import SlackSendError, SlackSendUncertainError
+from ..application.lifecycle import (
+    Claim,
+    LifecycleOutcome,
+    RequestNotFoundError,
+    StaleClaimError,
+)
+from ..application.protocols import (
+    AgentRunner,
+    PolicyRepository,
+    SlackClient,
+    SupportRequestStore,
+    TimeoutAwarePolicyRepository,
+)
 from .deadlines import (
     DEFAULT_LEASE_DURATION,
     FINALIZATION_RESERVE_SECONDS,
@@ -18,26 +33,7 @@ from .deadlines import (
     WorkerDeadline,
     WorkerDeadlineExceeded,
 )
-from .domain import SupportDecision, SupportQuestion
-from .failures import (
-    SlackSendError,
-    SlackSendUncertainError,
-    WorkerTemporaryError,
-    classify_workflow_failure,
-)
-from .lifecycle import (
-    Claim,
-    LifecycleOutcome,
-    RequestNotFoundError,
-    StaleClaimError,
-)
-from .protocols import (
-    AgentRunner,
-    PolicyRepository,
-    SlackClient,
-    SupportRequestStore,
-    TimeoutAwarePolicyRepository,
-)
+from .failures import WorkerTemporaryError, classify_workflow_failure
 
 HUMAN_REVIEW_REPLY = (
     "I couldn’t find a reliable answer in the policy documents. Please ask a member of the HR team."

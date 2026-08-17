@@ -9,13 +9,7 @@ import argparse
 from typing import Literal
 from uuid import uuid4
 
-from support_agent_app.agent.agent import run_support_workflow
-from support_agent_app.application.deadlines import (
-    DEFAULT_WORKER_DEADLINE_SECONDS,
-    WorkerDeadline,
-)
 from support_agent_app.application.lifecycle import IncomingSupportRequest
-from support_agent_app.application.process_request import WorkerService
 from support_agent_app.commands.seed_policies import seed_policy_documents
 from support_agent_app.database.repositories.policy_repository import PostgresPolicyRepository
 from support_agent_app.database.repositories.support_request_repository import (
@@ -25,6 +19,12 @@ from support_agent_app.settings import WorkerSettings
 from support_agent_app.testing.fake_model import fixture_model
 from support_agent_app.testing.fake_slack import FakeSlackClient
 from support_agent_app.testing.fixtures import FIXTURE_QUESTIONS
+from support_agent_app.worker.agent.agent import run_support_workflow
+from support_agent_app.worker.deadlines import (
+    DEFAULT_WORKER_DEADLINE_SECONDS,
+    WorkerDeadline,
+)
+from support_agent_app.worker.process_request import WorkerService
 
 WorkerFixture = Literal["documented", "human-review", "uncertain-send"]
 FIXTURES: tuple[WorkerFixture, ...] = ("documented", "human-review", "uncertain-send")

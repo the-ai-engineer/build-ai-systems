@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 
 from pydantic_ai import RunContext
 
-from ..application.domain import SupportDocument, SupportDocumentIndexItem
-from ..application.protocols import PolicyRepository
+from ...application.domain import SupportDocument, SupportDocumentIndexItem
+from ...application.protocols import PolicyRepository
 
 MAX_LOADED_DOCUMENTS = 3
 

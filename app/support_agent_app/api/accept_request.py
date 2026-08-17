@@ -15,13 +15,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from .lifecycle import (
+from ..application.lifecycle import (
     FIRST_TASK_GENERATION,
     IncomingSupportRequest,
     TaskAlreadyQueuedError,
     task_name_for,
 )
-from .protocols import SupportRequestIntake, TaskQueue
+from ..application.protocols import SupportRequestIntake, TaskQueue
 
 
 class RequestNotQueuedError(RuntimeError):

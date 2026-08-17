@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import argparse
 
-from support_agent_app.agent.agent import DEFAULT_MODEL, run_support_workflow
-from support_agent_app.application.pricing import estimate_run_cost, load_price_configuration
 from support_agent_app.application.protocols import PolicyRepository
 from support_agent_app.database.repositories.policy_repository import PostgresPolicyRepository
 from support_agent_app.settings import WorkerSettings
@@ -20,6 +18,8 @@ from support_agent_app.testing.fixtures import (
     fixture_repository,
 )
 from support_agent_app.testing.memory_repository import DirectoryPolicyRepository
+from support_agent_app.worker.agent.agent import DEFAULT_MODEL, run_support_workflow
+from support_agent_app.worker.agent.pricing import estimate_run_cost, load_price_configuration
 
 
 def main() -> None:

@@ -11,13 +11,13 @@ from pydantic_ai.messages import ModelResponse
 from pydantic_ai.models import Model
 from pydantic_ai.usage import UsageLimits
 
-from ..application.domain import (
+from ...application.domain import (
     AgentRunRecord,
     LoadedDocumentRecord,
     SupportQuestion,
     WorkflowOutcome,
 )
-from ..application.protocols import PolicyRepository
+from ...application.protocols import PolicyRepository
 from .evidence import verify_decision
 from .prompts import INSTRUCTIONS
 from .schemas import AgentDecision
@@ -131,8 +131,8 @@ def _resolve_model(
     model_id: str | None,
 ) -> tuple[Model | str, str, str, str]:
     if model is None:
-        from ..integrations.model_provider import create_google_cloud_model
-        from ..settings import ModelProviderSettings
+        from ...settings import ModelProviderSettings
+        from ..model_provider import create_google_cloud_model
 
         settings = ModelProviderSettings.load()
         configured_id = model_id or settings.model_name

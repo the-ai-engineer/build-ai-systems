@@ -213,13 +213,12 @@ ARCHITECTURE.md      How the system is put together today
 PYTHON_STANDARDS.md  Coding and project structure standard
 brief.md             Customer problem and first-release requirements
 app/support_agent_app/
-  api/               Public Slack webhook boundary
-  worker/            Private worker boundary
-  commands/          Operator actions
-  application/       Use cases, domain vocabulary, protocols
-  agent/             Prompts, tools, schemas, evidence checks
+  api/               The public Slack webhook, whole
+  worker/            The private worker, whole
+    agent/           Prompts, tools, schemas, evidence checks
+  application/       Only what both services share
   database/          Connections, migrations, repositories
-  integrations/      Slack, model provider, task queue
+  commands/          Operator actions
   testing/           Deterministic adapters, not for production
   settings.py        All configuration
 migrations/          One SQL migration history

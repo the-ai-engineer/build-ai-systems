@@ -5,15 +5,15 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from pydantic_ai.exceptions import ModelHTTPError
-from support_agent_app.application.failures import classify_workflow_failure
-from support_agent_app.application.process_request import WorkerResult
 from support_agent_app.worker.auth import (
     LOCAL_TASK_IDENTITY,
     TASK_IDENTITY_HEADER,
     InvalidTaskIdentityError,
     StaticTaskAuthenticator,
 )
+from support_agent_app.worker.failures import classify_workflow_failure
 from support_agent_app.worker.main import create_app
+from support_agent_app.worker.process_request import WorkerResult
 
 
 class StubProcessor:

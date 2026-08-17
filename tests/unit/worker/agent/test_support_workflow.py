@@ -8,22 +8,6 @@ from types import SimpleNamespace
 from pydantic import ValidationError
 from pydantic_ai.messages import ModelResponse, ToolCallPart
 from pydantic_ai.models.function import FunctionModel
-from support_agent_app.agent.agent import (
-    DEFAULT_MODEL,
-    MAX_MODEL_TURNS,
-    MAX_OUTPUT_TOKENS,
-    MAX_TOOL_CALLS,
-    MODEL_TIMEOUT_SECONDS,
-    build_agent,
-    run_support_workflow,
-)
-from support_agent_app.agent.evidence import verify_decision
-from support_agent_app.agent.schemas import AgentDecision
-from support_agent_app.agent.tools import (
-    MAX_LOADED_DOCUMENTS,
-    WorkflowDependencies,
-    get_support_document,
-)
 from support_agent_app.application.domain import (
     AgentRunRecord,
     HumanReviewDecision,
@@ -32,8 +16,6 @@ from support_agent_app.application.domain import (
     SupportDocument,
     SupportQuestion,
 )
-from support_agent_app.application.pricing import estimate_run_cost, load_price_configuration
-from support_agent_app.integrations.model_provider import create_google_cloud_model
 from support_agent_app.testing.fake_model import DOCUMENTED_EXCERPT, fixture_model
 from support_agent_app.testing.fixtures import (
     FIXTURE_QUESTIONS,
@@ -44,6 +26,24 @@ from support_agent_app.testing.memory_repository import (
     DirectoryPolicyRepository,
     MemoryPolicyRepository,
 )
+from support_agent_app.worker.agent.agent import (
+    DEFAULT_MODEL,
+    MAX_MODEL_TURNS,
+    MAX_OUTPUT_TOKENS,
+    MAX_TOOL_CALLS,
+    MODEL_TIMEOUT_SECONDS,
+    build_agent,
+    run_support_workflow,
+)
+from support_agent_app.worker.agent.evidence import verify_decision
+from support_agent_app.worker.agent.pricing import estimate_run_cost, load_price_configuration
+from support_agent_app.worker.agent.schemas import AgentDecision
+from support_agent_app.worker.agent.tools import (
+    MAX_LOADED_DOCUMENTS,
+    WorkflowDependencies,
+    get_support_document,
+)
+from support_agent_app.worker.model_provider import create_google_cloud_model
 
 
 class SupportWorkflowTests(unittest.TestCase):

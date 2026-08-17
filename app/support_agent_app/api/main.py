@@ -28,23 +28,22 @@ from typing import Any, Protocol
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 
-from ..application.accept_request import (
+from ..application.lifecycle import IncomingSupportRequest
+from ..application.protocols import TASK_IDENTITY_HEADER, SupportRequestIntake, TaskQueue
+from ..database.repositories.support_request_repository import PostgresSupportRepository
+from ..settings import ApiSettings
+from .accept_request import (
     AcceptedForProcessing,
     RequestNotQueuedError,
     accept_and_queue,
 )
-from ..application.lifecycle import IncomingSupportRequest
-from ..application.protocols import SupportRequestIntake, TaskQueue
-from ..database.repositories.support_request_repository import PostgresSupportRepository
-from ..integrations.task_queue import LocalTaskQueue
-from ..settings import ApiSettings
-from ..worker.auth import TASK_IDENTITY_HEADER
 from .auth import (
     SIGNATURE_HEADER,
     TIMESTAMP_HEADER,
     InvalidSlackSignatureError,
     SlackSignatureVerifier,
 )
+from .task_queue import LocalTaskQueue
 
 logger = logging.getLogger(__name__)
 

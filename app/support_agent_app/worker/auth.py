@@ -10,9 +10,15 @@ from __future__ import annotations
 import secrets
 from typing import Protocol
 
+from ..application.protocols import TASK_IDENTITY_HEADER
 from ..settings import LOCAL_TASK_IDENTITY
 
-TASK_IDENTITY_HEADER = "X-Worker-Task-Identity"
+__all__ = [
+    "TASK_IDENTITY_HEADER",
+    "InvalidTaskIdentityError",
+    "StaticTaskAuthenticator",
+    "TaskAuthenticator",
+]
 
 
 class InvalidTaskIdentityError(PermissionError):

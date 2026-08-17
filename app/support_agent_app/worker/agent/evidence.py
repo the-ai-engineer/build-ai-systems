@@ -7,7 +7,7 @@ actually loaded.
 
 from __future__ import annotations
 
-from ..application.domain import (
+from ...application.domain import (
     AnswerDecision,
     HumanReviewDecision,
     SupportDocument,
