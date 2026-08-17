@@ -1,6 +1,6 @@
 """Run one stored synthetic request through the complete local worker.
 
-DATABASE_URL=... uv run python -m examples.demos.run_worker --fixture documented
+DATABASE_URL=... uv run demo-worker --fixture documented
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """Run the local policy workflow with synthetic fixtures.
 
-uv run python -m examples.demos.run_workflow --fixture documented
+uv run demo-workflow --fixture documented
 """
 
 from __future__ import annotations

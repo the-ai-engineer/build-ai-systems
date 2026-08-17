@@ -130,7 +130,7 @@ Send failures are split three ways, because the correct recovery differs:
 - **Uncertain**: the send began and the outcome is unknown. Never blindly retried, because the employee may already have a reply.
 - **Success**: recorded with the Slack message timestamp.
 
-A claim is a fencing token. A worker whose lease has expired and been taken over cannot change durable state; it gets `StaleClaimError`. `examples/demos/run_state_machine.py` demonstrates this.
+A claim is a fencing token. A worker whose lease has expired and been taken over cannot change durable state; it gets `StaleClaimError`. `app/support_agent_app/demos/run_state_machine.py` demonstrates this.
 
 Retryable outcomes surface as HTTP 503 so the queue retries. Permanent failures do not.
 

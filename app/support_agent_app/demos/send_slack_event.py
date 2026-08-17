@@ -1,6 +1,6 @@
 """Send a signed Slack mention to a running webhook and show what happened.
 
-    DATABASE_URL=... uv run python -m examples.demos.send_slack_event \
+    DATABASE_URL=... uv run demo-slack-event \
         --question "Can unused annual leave be carried into next year?"
 
 Use this with the webhook and worker running as separate processes, which is the
@@ -22,6 +22,7 @@ from uuid import uuid4
 import httpx
 from psycopg import connect
 from psycopg.rows import dict_row
+
 from support_agent_app.api.auth import (
     SIGNATURE_HEADER,
     TIMESTAMP_HEADER,
@@ -49,6 +50,11 @@ def main() -> None:
         help="Reply into an existing thread instead of starting a new one.",
     )
     parser.add_argument("--timeout-seconds", type=float, default=90.0)
+    parser.add_argument(
+        "--print-curl",
+        action="store_true",
+        help="Print the equivalent curl command and exit, instead of sending it.",
+    )
     args = parser.parse_args()
 
     try:
@@ -57,6 +63,11 @@ def main() -> None:
         raise SystemExit("DATABASE_URL is required") from error
 
     event_id = f"Ev-demo-{uuid4()}"
+
+    if args.print_curl:
+        print(_curl_for(args, event_id))
+        return
+
     status = _post_event(args, event_id)
     print(f"webhook responded {status}")
     if status != 200:
@@ -85,9 +96,16 @@ def main() -> None:
     print(row["outbound_text"])
 
 
-def _post_event(args: argparse.Namespace, event_id: str) -> int:
+def _signed_request(args: argparse.Namespace, event_id: str) -> tuple[bytes, dict[str, str]]:
+    """Build exactly what Slack would send, body and headers.
+
+    The only reason this script exists is the signature: it is an HMAC over the
+    raw body and a timestamp, which is awkward to produce by hand. Everything
+    else is an ordinary HTTP POST, and `--print-curl` shows it as one.
+    """
+
     message_ts = f"{int(time.time())}.000100"
-    event = {
+    event: dict[str, str] = {
         "type": "app_mention",
         "channel": args.channel_id,
         "user": "U-employee",
@@ -108,14 +126,30 @@ def _post_event(args: argparse.Namespace, event_id: str) -> int:
 
     verifier = SlackSignatureVerifier(args.signing_secret)
     timestamp = str(int(time.time()))
+    headers = {
+        SIGNATURE_HEADER: verifier.signature_for(raw_body=body, timestamp=timestamp),
+        TIMESTAMP_HEADER: timestamp,
+        "Content-Type": "application/json",
+    }
+    return body, headers
+
+
+def _curl_for(args: argparse.Namespace, event_id: str) -> str:
+    body, headers = _signed_request(args, event_id)
+    header_lines = "".join(f"  -H '{name}: {value}' \\\n" for name, value in headers.items())
+    return (
+        f"curl -i -X POST {args.webhook_url.rstrip('/')}/slack/events \\\n"
+        f"{header_lines}"
+        f"  -d '{body.decode('utf-8')}'"
+    )
+
+
+def _post_event(args: argparse.Namespace, event_id: str) -> int:
+    body, headers = _signed_request(args, event_id)
     response = httpx.post(
         f"{args.webhook_url.rstrip('/')}/slack/events",
         content=body,
-        headers={
-            SIGNATURE_HEADER: verifier.signature_for(raw_body=body, timestamp=timestamp),
-            TIMESTAMP_HEADER: timestamp,
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         timeout=10.0,
     )
     return response.status_code

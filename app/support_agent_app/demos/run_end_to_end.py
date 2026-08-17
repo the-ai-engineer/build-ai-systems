@@ -1,6 +1,6 @@
 """Drive the whole system locally, from a Slack event to a Slack reply.
 
-    DATABASE_URL=... uv run python -m examples.demos.run_end_to_end
+    DATABASE_URL=... uv run demo-end-to-end
 
 This runs the webhook, the local queue, and the worker in one process so you can
 watch a single mention move through every stage. The model and Slack are the
@@ -20,6 +20,8 @@ import time
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from uvicorn import Config, Server
+
 from support_agent_app.api.auth import (
     SIGNATURE_HEADER,
     TIMESTAMP_HEADER,
@@ -39,7 +41,6 @@ from support_agent_app.worker.agent.agent import run_support_workflow
 from support_agent_app.worker.auth import LOCAL_TASK_IDENTITY, TASK_IDENTITY_HEADER
 from support_agent_app.worker.main import create_app as create_worker
 from support_agent_app.worker.process_request import WorkerService
-from uvicorn import Config, Server
 
 SIGNING_SECRET = "synthetic-signing-secret"
 TEAM_ID = "T-local"

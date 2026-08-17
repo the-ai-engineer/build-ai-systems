@@ -38,9 +38,9 @@ It needs no Slack, Google Cloud, database, model credentials, or network access.
 ```bash
 uv sync
 uv run python -m unittest discover -s tests/unit -t .
-uv run python -m examples.demos.run_workflow --fixture documented
-uv run python -m examples.demos.run_workflow --fixture unsupported
-uv run python -m examples.demos.run_workflow --fixture prompt-injection
+uv run demo-workflow --fixture documented
+uv run demo-workflow --fixture unsupported
+uv run demo-workflow --fixture prompt-injection
 ```
 
 See [docs/local-policy-agent.md](docs/local-policy-agent.md) for the optional Postgres and Google Cloud model paths.
@@ -66,9 +66,9 @@ make no Google Cloud or Slack call:
 
 ```bash
 uv run python -m unittest discover -s tests/integration -t .
-uv run python -m examples.demos.run_worker --fixture documented
-uv run python -m examples.demos.run_worker --fixture human-review
-uv run python -m examples.demos.run_worker --fixture uncertain-send
+uv run demo-worker --fixture documented
+uv run demo-worker --fixture human-review
+uv run demo-worker --fixture uncertain-send
 ```
 
 The worker service itself defaults to the real adapters. Ask for the fixture
@@ -88,7 +88,7 @@ employee would see. The model and Slack are deterministic fakes, so it needs no
 credentials and sends nothing:
 
 ```bash
-uv run python -m examples.demos.run_end_to_end
+uv run demo-end-to-end
 ```
 
 ### The demo worth showing
@@ -129,7 +129,7 @@ the outcome from Postgres:
 
 ```bash
 DATABASE_URL="postgresql:///support_agent" \
-  uv run python -m examples.demos.send_slack_event \
+  uv run demo-slack-event \
     --question "Can unused annual leave be carried into next year?"
 ```
 
@@ -158,7 +158,7 @@ and the demos say so if you forget.
 Straight at the agent, no database, fastest loop:
 
 ```bash
-uv run python -m examples.demos.run_workflow \
+uv run demo-workflow \
   --question "How much annual leave can I carry over?" --live-model
 ```
 
@@ -167,7 +167,7 @@ and the outbound action:
 
 ```bash
 DATABASE_URL="postgresql:///support_agent" \
-  uv run python -m examples.demos.run_worker \
+  uv run demo-worker \
     --question "How much annual leave can I carry over?" --live-model
 ```
 
@@ -183,7 +183,7 @@ Application Default Credentials.
 | A refused prompt injection | restart the worker with `WORKER_FAKE_FIXTURE=prompt-injection` |
 | A forged request is rejected | add `--signing-secret wrong-secret`, and the webhook answers 401 with nothing stored |
 | Another channel is ignored | add `--channel-id C-other`, and the webhook answers 200 but creates no work |
-| A stale worker cannot reply twice | `uv run python -m examples.demos.run_state_machine` |
+| A stale worker cannot reply twice | `uv run demo-state-machine` |
 
 `WORKER_FAKE_FIXTURE` chooses which canned decision the fake model returns, so
 the question you type does not change the answer in fixture mode. Swap to
