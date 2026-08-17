@@ -15,7 +15,7 @@ from ..database.repositories.policy_repository import (
     DEFAULT_POLICY_DIRECTORY,
     load_policy_directory,
 )
-from ..settings import WorkerSettings
+from ..settings import MissingConfiguration, WorkerSettings
 
 
 def main() -> None:
@@ -23,7 +23,11 @@ def main() -> None:
     parser.add_argument("--database-url", default=None)
     args = parser.parse_args()
 
-    database_url = args.database_url or WorkerSettings.load().database_url
+    try:
+        database_url = args.database_url or WorkerSettings.load().database_url
+    except MissingConfiguration as error:
+        # An operator command should say what is missing, not print a stack trace.
+        raise SystemExit(str(error)) from error
     count = seed_policy_documents(database_url)
     print(f"Loaded {count} active support documents.")
 

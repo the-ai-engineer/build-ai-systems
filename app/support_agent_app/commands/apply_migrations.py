@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 
 from ..database.migrations import apply_migrations
-from ..settings import WorkerSettings
+from ..settings import MissingConfiguration, WorkerSettings
 
 
 def main() -> None:
@@ -17,7 +17,11 @@ def main() -> None:
     parser.add_argument("--database-url", default=None)
     args = parser.parse_args()
 
-    database_url = args.database_url or WorkerSettings.load().database_url
+    try:
+        database_url = args.database_url or WorkerSettings.load().database_url
+    except MissingConfiguration as error:
+        # An operator command should say what is missing, not print a stack trace.
+        raise SystemExit(str(error)) from error
     apply_migrations(database_url)
     print("Migrations are up to date.")
 
