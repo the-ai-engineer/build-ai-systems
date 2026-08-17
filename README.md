@@ -57,6 +57,10 @@ uv run apply-migrations
 uv run seed-policies
 ```
 
+`apply-migrations` and `seed-policies` are installed commands and find the root
+`.env` from anywhere in the tree. The demos are run with `python -m examples...`,
+so they must be run from the repository root.
+
 The demos build deterministic fake model and Slack adapters directly, so they
 make no Google Cloud or Slack call:
 

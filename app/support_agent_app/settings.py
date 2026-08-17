@@ -7,9 +7,10 @@ model credential at all.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_MODEL = "google-cloud:gemini-3.5-flash"
@@ -17,10 +18,24 @@ LOCAL_TASK_IDENTITY = "local-development-task"
 
 AdapterMode = Literal["configured", "local-fixtures"]
 
+# The repository root, found from this file rather than from the current
+# directory. A relative ".env" is resolved against the process's working
+# directory, so it is only found when a command happens to be run from the root.
+# Anchoring it here means `uv run seed-policies` works from anywhere in the tree.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# The root file first, a directory-local one second. Later files win, so a
+# deliberate .env beside the command still overrides the shared one.
+ENV_FILES = (PROJECT_ROOT / ".env", Path(".env"))
+
+
+class MissingConfiguration(RuntimeError):
+    """Required configuration is absent, named plainly rather than as a stack trace."""
+
 
 class _BaseAppSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ENV_FILES,
         env_file_encoding="utf-8",
         extra="ignore",
         protected_namespaces=(),
@@ -33,7 +48,21 @@ class _BaseAppSettings(BaseSettings):
         Prefer this over calling the class directly: every field is populated
         from the environment, which a type checker cannot see.
         """
-        return cls()  # pyright: ignore[reportCallIssue]
+        try:
+            return cls()  # pyright: ignore[reportCallIssue]
+        except ValidationError as error:
+            missing = sorted(
+                str(item["loc"][0]).upper()
+                for item in error.errors()
+                if item["type"] == "missing" and item["loc"]
+            )
+            if not missing:
+                raise
+            raise MissingConfiguration(
+                f"{cls.__name__} is missing: {', '.join(missing)}.\n"
+                f"Set them in the environment, or copy .env.example to "
+                f"{PROJECT_ROOT / '.env'} and fill them in."
+            ) from error
 
 
 class ModelProviderSettings(_BaseAppSettings):
