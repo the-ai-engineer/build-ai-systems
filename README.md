@@ -203,7 +203,29 @@ uv run python -m unittest discover -s tests
 uv run python examples/06b_sql_rag.py
 ```
 
-Unit tests need no database. Integration tests are skipped unless `DATABASE_URL` is set.
+Tests come in three kinds, and the difference is what each is allowed to touch.
+
+| | Needs | Answers |
+|---|---|---|
+| `tests/unit/` | nothing | Is our own code correct? |
+| `tests/functional/` | Postgres | Does the system hold together under failure and retry? |
+| `tests/evals/` | Gemini, costs money | How does the real model behave? |
+
+```bash
+uv run python -m unittest discover -s tests/unit -t .        # fast, offline, free
+DATABASE_URL=... uv run python -m unittest discover -s tests/functional -t .
+GOOGLE_CLOUD_PROJECT=... uv run python -m unittest discover -s tests/evals -t .
+```
+
+Unit and functional tests never call a model. Where they need a decision, they
+use a stub agent runner from `tests/fakes/`, because a scripted model asserting
+its own script proves nothing. The one legitimate use of a scripted model is as
+an adversary: `test_parallel_model_calls_cannot_bypass_document_limit` scripts a
+model that tries to load four documents, to prove the guardrail holds.
+
+Evals skip unless `GOOGLE_CLOUD_PROJECT` is set. They take about a minute and
+cost a few cents.
+
 `uv run pyright` is configured but not yet clean; see the exceptions in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Repository structure
@@ -228,8 +250,9 @@ examples/            Small standalone AI engineering examples
 slack/               Bootstrap and deployment-stage Slack app manifests
 docs/                Application docs and the implementation contract
 MEMORY.md            Sanitized, non-authoritative coordination log
-tests/unit/          No network, no database
-tests/integration/   Real Postgres and real boundaries
+tests/unit/          No network, no database, no model
+tests/functional/    Real Postgres, stubbed agent
+tests/evals/         Real model, skipped without credentials
 ```
 
 Slack ingress, queues, cloud deployment, and operational checks are added by later linked implementation tasks.

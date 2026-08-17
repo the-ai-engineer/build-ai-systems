@@ -145,6 +145,25 @@ Retryable outcomes surface as HTTP 503 so the queue retries. Permanent failures 
 7. One migration history. No schema applied at startup.
 8. Fixture adapters stay in `testing/` and are never the production default.
 
+## Testing
+
+Three kinds, separated by what each is allowed to touch.
+
+- `tests/unit/` touches nothing external. Our own code only.
+- `tests/functional/` uses real Postgres and a stub agent runner. These are about claims, leases, retries, duplicate delivery, and the webhook-to-worker path, none of which involve a model.
+- `tests/evals/` calls the real model. Refusals, grounding, and budget adherence live here, because they are claims about a model and only a model can answer them.
+
+Unit and functional tests never invoke a model. The rule that decides this:
+
+> A scripted model as an adversary is useful. A scripted model as an oracle is worthless.
+
+`test_parallel_model_calls_cannot_bypass_document_limit` scripts a model that
+attempts four parallel document loads, to prove the guardrail holds. That is an
+adversary, and no real model would do it reliably on demand. A test asserting
+that the agent refuses a sensitive question, backed by a script written to
+return that refusal, is an oracle asserting itself. One of those existed; it was
+deleted, and against the real model two of its assertions were wrong.
+
 ## Recorded exceptions
 
 **No `integrations/` package.**
@@ -168,6 +187,9 @@ The course has students write their own architecture document first. This file i
 
 **`SupportRequestStore` has fifteen methods and one implementation.**
 That is more surface than an interface usually earns. It stays because it is the boundary that keeps `WorkerService` free of Postgres, which is the system's central design claim, and because a type checker verifies the match where `worker/main.py` passes the repository in. Writing it caught nine signature mismatches. `PostgresSupportRepository` deliberately does not inherit from it: a `Protocol` subclass silently inherits `...` bodies for anything it fails to implement, which would turn drift into a `None` return at runtime instead of a type error.
+
+**The model's reason code is not a stable control signal.**
+`format_slack_reply` chooses different user-visible text when `reason_code == "off_topic"`. That code is chosen by the model, and it is not stable: the same prompt-injection attempt came back as `off_topic` on one run and semantically identical refusals came back as `unsupported`. The refusal itself is reliable; the label is not. The evals therefore assert the decision and not the code. Branching user-visible behaviour on the label is a known weakness.
 
 **Pyright is not yet clean.**
 It reports 259 errors, against 261 on the same code before this structure existed.

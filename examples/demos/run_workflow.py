@@ -88,6 +88,13 @@ def _print_outcome(outcome) -> None:
         f"run: duration_ms={run.duration_ms} finish_reason={run.finish_reason} "
         f"tool_calls={run.tool_call_count} model_turns={run.model_turn_count}"
     )
+    # How much of what you paid for was policy text the agent chose to load.
+    # The rest is instructions, tool schemas, and the document index.
+    share = (run.retrieved_context_tokens / run.input_tokens) if run.input_tokens else 0.0
+    print(
+        f"retrieved_context: {run.retrieved_context_tokens}/{run.input_tokens} "
+        f"input tokens ({share:.0%}) were policy text"
+    )
     print(f"estimated_cost_usd: {estimate_run_cost(run, load_price_configuration()):.8f}")
 
 

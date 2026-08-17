@@ -234,17 +234,24 @@ class WorkerService:
         outbound_text: str,
         deadline: WorkerDeadline,
     ) -> WorkerResult:
+        """Attempt the one outbound action, and record which of three ways it went.
+
+        A send has three outcomes, not two, and that is the reason this whole
+        lifecycle exists:
+
+        - refused, so a retry is safe
+        - uncertain, so a retry might reply to the employee twice
+        - succeeded
+
+        Anything before the send is "not sent", which is always safe to retry.
+        Anything after it is "we tried", which is not.
+        """
+
+        # Not sent yet: no budget left, or the database would not let us start.
         try:
             deadline.slack_timeout_seconds()
         except WorkerDeadlineExceeded:
-            outcome = self._requests.mark_unsent_action_failed(
-                claim,
-                action_id,
-                "worker_deadline",
-                retryable=True,
-                timeout_seconds=deadline.finalization_timeout_seconds(),
-            )
-            return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
+            return self._unsent(claim, action_id, "worker_deadline", deadline)
 
         try:
             self._requests.mark_action_sending(
@@ -255,29 +262,17 @@ class WorkerService:
         except StaleClaimError:
             raise
         except Exception:
-            try:
-                outcome = self._requests.mark_unsent_action_failed(
-                    claim,
-                    action_id,
-                    "database_pre_send_failure",
-                    retryable=True,
-                    timeout_seconds=deadline.finalization_timeout_seconds(),
-                )
-            except Exception as failure_error:
-                raise WorkerTemporaryError("pre-send state update failed") from failure_error
-            return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
+            return self._unsent(claim, action_id, "database_pre_send_failure", deadline)
+
+        # Re-check. Marking the action as sending is a database write, and it
+        # can consume the remaining budget. Calling Slack with what is left of a
+        # spent budget is how a send becomes uncertain for no reason.
         try:
             timeout_seconds = deadline.slack_timeout_seconds()
         except WorkerDeadlineExceeded:
-            outcome = self._requests.mark_unsent_action_failed(
-                claim,
-                action_id,
-                "worker_deadline",
-                retryable=True,
-                timeout_seconds=deadline.finalization_timeout_seconds(),
-            )
-            return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
+            return self._unsent(claim, action_id, "worker_deadline", deadline)
 
+        # The send itself. From here on, the employee may already have a reply.
         try:
             slack_message_ts = self._slack.post_thread_reply(
                 channel_id=channel_id,
@@ -286,6 +281,7 @@ class WorkerService:
                 timeout_seconds=timeout_seconds,
             )
         except SlackSendError as error:
+            # Refused. Slack did not accept it, so a retry is safe.
             outcome = self._requests.mark_action_failed(
                 claim,
                 action_id,
@@ -293,36 +289,19 @@ class WorkerService:
                 retryable=error.retryable,
                 timeout_seconds=deadline.finalization_timeout_seconds(),
             )
-            return WorkerResult(
-                request_id=claim.request_id,
-                outcome=outcome.value,
-                send_attempted=True,
-            )
+            return self._attempted(claim, outcome)
         except SlackSendUncertainError as error:
-            outcome = self._requests.mark_action_uncertain(
-                claim,
-                action_id,
-                error.category,
-                timeout_seconds=deadline.finalization_timeout_seconds(),
-            )
-            return WorkerResult(
-                request_id=claim.request_id,
-                outcome=outcome.value,
-                send_attempted=True,
+            return self._attempted(
+                claim, self._uncertain(claim, action_id, error.category, deadline)
             )
         except Exception:
-            outcome = self._requests.mark_action_uncertain(
-                claim,
-                action_id,
-                "send_uncertain",
-                timeout_seconds=deadline.finalization_timeout_seconds(),
-            )
-            return WorkerResult(
-                request_id=claim.request_id,
-                outcome=outcome.value,
-                send_attempted=True,
+            # An unexpected error after the send began is still uncertain.
+            return self._attempted(
+                claim, self._uncertain(claim, action_id, "send_uncertain", deadline)
             )
 
+        # Sent. If we cannot record that, the reply exists but our record does
+        # not, which is uncertain rather than successful.
         try:
             self._requests.complete_reply(
                 claim,
@@ -331,25 +310,59 @@ class WorkerService:
                 timeout_seconds=deadline.finalization_timeout_seconds(),
             )
         except Exception:
-            try:
-                outcome = self._requests.mark_action_uncertain(
-                    claim,
-                    action_id,
-                    "send_result_not_recorded",
-                    timeout_seconds=deadline.finalization_timeout_seconds(),
-                )
-            except Exception as reconciliation_error:
-                raise WorkerTemporaryError("Slack result persistence failed") from (
-                    reconciliation_error
-                )
-            return WorkerResult(
-                request_id=claim.request_id,
-                outcome=outcome.value,
-                send_attempted=True,
-            )
+            outcome = self._uncertain(claim, action_id, "send_result_not_recorded", deadline)
+            return self._attempted(claim, outcome)
         return WorkerResult(
             request_id=claim.request_id,
             outcome="completed",
+            send_attempted=True,
+        )
+
+    def _unsent(
+        self,
+        claim: Claim,
+        action_id: UUID,
+        category: str,
+        deadline: WorkerDeadline,
+    ) -> WorkerResult:
+        """Record a failure that happened before anything reached Slack."""
+
+        try:
+            outcome = self._requests.mark_unsent_action_failed(
+                claim,
+                action_id,
+                category,
+                retryable=True,
+                timeout_seconds=deadline.finalization_timeout_seconds(),
+            )
+        except Exception as error:
+            raise WorkerTemporaryError("pre-send state update failed") from error
+        return WorkerResult(request_id=claim.request_id, outcome=outcome.value)
+
+    def _uncertain(
+        self,
+        claim: Claim,
+        action_id: UUID,
+        category: str,
+        deadline: WorkerDeadline,
+    ) -> LifecycleOutcome:
+        """Record that we cannot know whether the employee received the reply."""
+
+        try:
+            return self._requests.mark_action_uncertain(
+                claim,
+                action_id,
+                category,
+                timeout_seconds=deadline.finalization_timeout_seconds(),
+            )
+        except Exception as error:
+            raise WorkerTemporaryError("Slack result persistence failed") from error
+
+    @staticmethod
+    def _attempted(claim: Claim, outcome: LifecycleOutcome) -> WorkerResult:
+        return WorkerResult(
+            request_id=claim.request_id,
+            outcome=outcome.value,
             send_attempted=True,
         )
 

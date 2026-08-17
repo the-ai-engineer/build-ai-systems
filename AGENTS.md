@@ -110,7 +110,9 @@ uv run ruff format --check .
 uv run python -m unittest discover -s tests
 ```
 
-Unit tests need no database. Integration tests skip unless `DATABASE_URL` is set.
+Tests are `unit/` (nothing external), `functional/` (Postgres, stubbed agent), and `evals/` (real model).
+Unit and functional tests must never call a model. A scripted model is allowed only as an adversary, to prove a guardrail holds, never as an oracle asserting its own script.
+Functional tests skip without `DATABASE_URL`; evals skip without `GOOGLE_CLOUD_PROJECT`.
 `uv run pyright` is configured but not yet clean; see the exceptions in `ARCHITECTURE.md`.
 
 Run a changed model example with the required provider credentials.
