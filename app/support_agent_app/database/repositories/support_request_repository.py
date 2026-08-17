@@ -39,7 +39,14 @@ from ..connection import connect_with_timeout
 
 
 class PostgresSupportRepository:
-    """A small transactional API for accepted work and worker-owned changes."""
+    """A small transactional API for accepted work and worker-owned changes.
+
+    Implements `application.protocols.SupportRequestStore` structurally. It does
+    not inherit from it on purpose: a `Protocol` subclass silently inherits `...`
+    bodies for anything it fails to implement, so drift would return `None` at
+    runtime instead of failing. Structural checking at the composition root
+    reports the mismatch instead.
+    """
 
     def __init__(self, database_url: str) -> None:
         if not database_url:

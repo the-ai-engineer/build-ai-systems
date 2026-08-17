@@ -1,8 +1,11 @@
-"""Composition root for the private worker process.
+"""The private worker runtime: one route, and the wiring behind it.
 
-This is the one module allowed to name concrete adapters. It reads settings,
-picks a Postgres store, a Slack client, and a model, and hands them to the use
-case. Everything below it depends only on protocols.
+The worker has a single job, so it is a single file. It holds the wire schemas,
+the route, and the composition root together because reading them in order is
+how you understand what the worker does.
+
+This is the only module here allowed to name concrete adapters. Everything it
+hands to `WorkerService` is a protocol from `application/protocols.py`.
 
 Run it with:
 
@@ -11,20 +14,58 @@ Run it with:
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import cast
+from typing import Protocol, cast
+from uuid import UUID
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
+from pydantic import BaseModel, ConfigDict
 
 from ..agent.agent import run_support_workflow
+from ..application.deadlines import WorkerDeadline, WorkerDeadlineExceeded
 from ..application.failures import WorkerTemporaryError
-from ..application.process_request import WorkerService
+from ..application.lifecycle import LifecycleOutcome, RequestNotFoundError
+from ..application.process_request import WorkerResult, WorkerService
 from ..database.repositories.policy_repository import PostgresPolicyRepository
 from ..database.repositories.support_request_repository import PostgresSupportRepository
 from ..integrations.messaging import SlackWebApiClient
 from ..settings import WorkerBoundarySettings, WorkerSettings
-from .auth import StaticTaskAuthenticator, TaskAuthenticator
-from .routes import RequestProcessor, create_router
+from .auth import (
+    TASK_IDENTITY_HEADER,
+    InvalidTaskIdentityError,
+    StaticTaskAuthenticator,
+    TaskAuthenticator,
+)
+
+RETRYABLE_OUTCOMES = frozenset(
+    {
+        LifecycleOutcome.ACTIVE_LEASE.value,
+        LifecycleOutcome.RETRYABLE.value,
+    }
+)
+
+
+class ProcessRequest(BaseModel):
+    """The task payload: a request ID and nothing else.
+
+    The employee's question stays in the database, so the queue never carries
+    sensitive content.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    request_id: UUID
+
+
+class ProcessResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    request_id: UUID
+    outcome: str
+    send_attempted: bool
+
+
+class RequestProcessor(Protocol):
+    def process(self, request_id: UUID, deadline: WorkerDeadline) -> WorkerResult: ...
 
 
 def create_app(
@@ -38,19 +79,37 @@ def create_app(
     selected_authenticator = authenticator or StaticTaskAuthenticator(
         settings.worker_expected_task_identity
     )
-    build_processor: Callable[[], RequestProcessor]
-    build_processor = (lambda: service) if service is not None else build_default_service
+    budget = settings.worker_deadline_seconds if deadline_seconds is None else deadline_seconds
 
     app = FastAPI(title="HR policy support worker")
-    app.include_router(
-        create_router(
-            authenticator=selected_authenticator,
-            build_processor=build_processor,
-            deadline_seconds=(
-                settings.worker_deadline_seconds if deadline_seconds is None else deadline_seconds
-            ),
+
+    @app.post("/tasks/process-support-request", response_model=ProcessResponse)
+    def process_support_request(
+        payload: ProcessRequest,
+        task_identity: str | None = Header(default=None, alias=TASK_IDENTITY_HEADER),
+    ) -> ProcessResponse:
+        try:
+            selected_authenticator.authenticate(task_identity)
+        except InvalidTaskIdentityError as error:
+            raise HTTPException(status_code=401, detail="invalid task identity") from error
+
+        try:
+            processor = service if service is not None else build_default_service()
+            result = processor.process(payload.request_id, WorkerDeadline.after(budget))
+        except RequestNotFoundError as error:
+            raise HTTPException(status_code=404, detail="request not found") from error
+        except (WorkerTemporaryError, WorkerDeadlineExceeded) as error:
+            raise HTTPException(status_code=503, detail="worker retry required") from error
+
+        # A retryable outcome becomes a 503 so the queue delivers the task again.
+        if result.outcome in RETRYABLE_OUTCOMES:
+            raise HTTPException(status_code=503, detail=result.outcome)
+        return ProcessResponse(
+            request_id=result.request_id,
+            outcome=result.outcome,
+            send_attempted=result.send_attempted,
         )
-    )
+
     return app
 
 

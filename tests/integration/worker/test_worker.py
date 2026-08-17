@@ -10,8 +10,7 @@ from support_agent_app.agent.agent import run_support_workflow
 from support_agent_app.application.deadlines import WorkerDeadline
 from support_agent_app.application.failures import SlackSendError, WorkerTemporaryError
 from support_agent_app.application.lifecycle import IncomingSupportRequest, LifecycleOutcome
-from support_agent_app.application.process_request import WorkerService
-from support_agent_app.application.reply_format import HUMAN_REVIEW_REPLY
+from support_agent_app.application.process_request import HUMAN_REVIEW_REPLY, WorkerService
 from support_agent_app.commands.seed_policies import seed_policy_documents
 from support_agent_app.database.connection import connect_with_timeout
 from support_agent_app.database.repositories.policy_repository import PostgresPolicyRepository
