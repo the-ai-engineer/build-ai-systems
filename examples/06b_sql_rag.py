@@ -10,6 +10,7 @@ import argparse
 import sqlite3
 from typing import Any
 
+
 POLICY_FACTS = [
     ("annual_leave", "allowance_days", "25", "days", "annual-leave-policy"),
     ("annual_leave", "carry_over_days", "5", "days", "annual-leave-policy"),

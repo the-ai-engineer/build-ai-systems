@@ -75,9 +75,105 @@ WORKER_ADAPTER_MODE=local-fixtures \
   uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 ```
 
-The local HTTP endpoint is `POST /tasks/process-support-request`.
-Its JSON body contains only `request_id`, and local calls provide `X-Worker-Task-Identity: local-development-task`.
-The identity check is an explicit local seam that a later task replaces with Google OIDC verification.
+## Run the whole thing locally
+
+### The fastest look
+
+One command drives every stage, from a signed Slack event to the reply text the
+employee would see. The model and Slack are deterministic fakes, so it needs no
+credentials and sends nothing:
+
+```bash
+uv run python -m examples.demos.run_end_to_end
+```
+
+### The demo worth showing
+
+Run the webhook and the worker as two processes, which is the shape the deployed
+system actually has, then drive it with signed events.
+
+First, set up the database once:
+
+```bash
+cp .env.example .env          # set DATABASE_URL
+uv run apply-migrations
+uv run seed-policies
+```
+
+Terminal 1, the private worker:
+
+```bash
+DATABASE_URL="postgresql:///support_agent" \
+WORKER_ADAPTER_MODE=local-fixtures \
+  uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
+```
+
+Terminal 2, the public webhook. It owns the local queue that delivers to the
+worker:
+
+```bash
+DATABASE_URL="postgresql:///support_agent" \
+SLACK_SIGNING_SECRET=demo-secret \
+SLACK_ALLOWED_TEAM_IDS=T-demo \
+SLACK_ALLOWED_CHANNEL_IDS=C-demo \
+WORKER_BASE_URL=http://127.0.0.1:8081 \
+  uv run uvicorn support_agent_app.api.main:create_app --factory --port 8080
+```
+
+Terminal 3, send a mention. It signs the request the way Slack does, then reads
+the outcome from Postgres:
+
+```bash
+DATABASE_URL="postgresql:///support_agent" \
+  uv run python -m examples.demos.send_slack_event \
+    --question "Can unused annual leave be carried into next year?"
+```
+
+```text
+webhook responded 200
+watching Postgres for the worker to finish...
+status: completed
+business attempts: 1
+action: succeeded
+--- the reply in the Slack thread ---
+You may carry up to five unused days into the next holiday year with manager approval.
+
+Sources
+- annual-leave-policy.md
+```
+
+The reply is read from the durable record, not from a log, because the complete
+message text is deliberately never logged. Postgres is the source of truth.
+
+### Things worth demonstrating
+
+| What to show | How |
+|---|---|
+| A cited answer | the command above |
+| The fixed human-review reply | restart the worker with `WORKER_FAKE_FIXTURE=sensitive` |
+| A refused prompt injection | restart the worker with `WORKER_FAKE_FIXTURE=prompt-injection` |
+| A forged request is rejected | add `--signing-secret wrong-secret`, and the webhook answers 401 with nothing stored |
+| Another channel is ignored | add `--channel-id C-other`, and the webhook answers 200 but creates no work |
+| A stale worker cannot reply twice | `uv run python -m examples.demos.run_state_machine` |
+
+`WORKER_FAKE_FIXTURE` chooses which canned decision the fake model returns, so
+the question you type does not change the answer in fixture mode. Swap to
+`WORKER_ADAPTER_MODE=configured` with Google Cloud credentials and a Slack bot
+token to make the model and the reply real.
+
+### Notes
+
+The webhook is `POST /slack/events`. It verifies the Slack signature over the raw
+body, stores the request, hands the queue a request ID, and acknowledges. It
+never calls a model, which is what keeps it inside Slack's three second window.
+
+Google Cloud has no supported Cloud Tasks emulator and the course does not add a
+third-party one, so `LocalTaskQueue` is the explicit local stand-in. Cloud Tasks
+replaces that one class and nothing else. Tasks live in memory, so a restart
+loses anything undelivered.
+
+Real Slack needs a public HTTPS URL, so put a temporary tunnel in front of port
+8080 and use the real signing secret. See [docs/slack-setup.md](docs/slack-setup.md).
 
 ## Run the examples
 
@@ -117,7 +213,7 @@ ARCHITECTURE.md      How the system is put together today
 PYTHON_STANDARDS.md  Coding and project structure standard
 brief.md             Customer problem and first-release requirements
 app/support_agent_app/
-  api/               Public Slack webhook boundary (planned)
+  api/               Public Slack webhook boundary
   worker/            Private worker boundary
   commands/          Operator actions
   application/       Use cases, domain vocabulary, protocols
