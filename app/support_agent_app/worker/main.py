@@ -21,6 +21,7 @@ from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from ..application.lifecycle import LifecycleOutcome, RequestNotFoundError
+from ..application.protocols import SlackClient
 from ..database.repositories.policy_repository import PostgresPolicyRepository
 from ..database.repositories.support_request_repository import PostgresSupportRepository
 from ..settings import WorkerBoundarySettings, WorkerSettings
@@ -33,7 +34,7 @@ from .auth import (
 )
 from .deadlines import WorkerDeadline, WorkerDeadlineExceeded
 from .failures import WorkerTemporaryError
-from .messaging import SlackWebApiClient
+from .messaging import RecordingSlackClient, SlackWebApiClient
 from .process_request import WorkerResult, WorkerService
 
 RETRYABLE_OUTCOMES = frozenset(
@@ -114,11 +115,14 @@ def create_app(
 
 
 def build_default_service(settings: WorkerSettings | None = None) -> WorkerService:
-    """Assemble the real worker from configuration.
+    """Assemble the worker from configuration.
 
-    Fixture adapters are opt-in. `WORKER_ADAPTER_MODE` defaults to `configured`,
-    so a misconfigured deployment fails loudly instead of quietly answering
-    employees from a canned model and swallowing the Slack reply.
+    The model and Slack are chosen independently, because they are two separate
+    external systems. Running against real Gemini with no Slack workspace is the
+    most common local setup, and a single switch made it impossible.
+
+    Both default to the real thing, so a misconfigured deployment fails loudly
+    rather than quietly answering from a canned model or dropping the reply.
     """
 
     try:
@@ -126,20 +130,25 @@ def build_default_service(settings: WorkerSettings | None = None) -> WorkerServi
     except Exception as error:
         raise WorkerTemporaryError("worker configuration is incomplete") from error
 
-    if resolved.worker_adapter_mode == "local-fixtures":
+    model: object | None = None
+    if resolved.worker_model_source == "fixture":
         from ..testing.fake_model import FixtureName, fixture_model
-        from ..testing.fake_slack import FakeSlackClient
         from ..testing.fixtures import FIXTURE_NAMES
 
         if resolved.worker_fake_fixture not in FIXTURE_NAMES:
             raise WorkerTemporaryError("WORKER_FAKE_FIXTURE is invalid")
-        model: object | None = fixture_model(cast(FixtureName, resolved.worker_fake_fixture))
-        slack = FakeSlackClient()
+        model = fixture_model(cast(FixtureName, resolved.worker_fake_fixture))
+
+    slack: SlackClient
+    if resolved.worker_slack_sink == "record":
+        slack = RecordingSlackClient()
     else:
-        model = None
         bot_token = resolved.slack_bot_token.get_secret_value()
         if not bot_token:
-            raise WorkerTemporaryError("SLACK_BOT_TOKEN is required")
+            raise WorkerTemporaryError(
+                "SLACK_BOT_TOKEN is required, or set WORKER_SLACK_SINK=record to "
+                "run without a Slack workspace"
+            )
         slack = SlackWebApiClient(bot_token)
 
     return WorkerService(

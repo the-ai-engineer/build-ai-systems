@@ -16,7 +16,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DEFAULT_MODEL = "google-cloud:gemini-3.5-flash"
 LOCAL_TASK_IDENTITY = "local-development-task"
 
-AdapterMode = Literal["configured", "local-fixtures"]
+# Two independent switches, because the model and Slack are two separate
+# external systems. Coupling them meant "real model, no Slack workspace" was
+# impossible, which is the most common local setup there is.
+ModelSource = Literal["configured", "fixture"]
+SlackSink = Literal["slack", "record"]
 
 # The repository root, found from this file rather than from the current
 # directory. A relative ".env" is resolved against the process's working
@@ -91,7 +95,10 @@ class WorkerSettings(_BaseAppSettings):
 
     database_url: str
 
-    worker_adapter_mode: AdapterMode = "configured"
+    # Both default to the real thing, so a misconfigured deployment fails loudly
+    # instead of quietly answering from a canned model or dropping the reply.
+    worker_model_source: ModelSource = "configured"
+    worker_slack_sink: SlackSink = "slack"
     worker_fake_fixture: str = "documented"
 
     slack_bot_token: SecretStr = SecretStr("")

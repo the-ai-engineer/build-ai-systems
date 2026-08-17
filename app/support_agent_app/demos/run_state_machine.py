@@ -1,6 +1,6 @@
 """Show an expired worker being rejected after a newer Postgres claim.
 
-DATABASE_URL=... uv run python -m examples.demos.run_state_machine
+DATABASE_URL=... uv run demo-state-machine
 """
 
 from __future__ import annotations

@@ -38,9 +38,9 @@ It needs no Slack, Google Cloud, database, model credentials, or network access.
 ```bash
 uv sync
 uv run python -m unittest discover -s tests/unit -t .
-uv run python -m examples.demos.run_workflow --fixture documented
-uv run python -m examples.demos.run_workflow --fixture unsupported
-uv run python -m examples.demos.run_workflow --fixture prompt-injection
+uv run demo-workflow --fixture documented
+uv run demo-workflow --fixture unsupported
+uv run demo-workflow --fixture prompt-injection
 ```
 
 See [docs/local-policy-agent.md](docs/local-policy-agent.md) for the optional Postgres and Google Cloud model paths.
@@ -66,16 +66,16 @@ make no Google Cloud or Slack call:
 
 ```bash
 uv run python -m unittest discover -s tests/integration -t .
-uv run python -m examples.demos.run_worker --fixture documented
-uv run python -m examples.demos.run_worker --fixture human-review
-uv run python -m examples.demos.run_worker --fixture uncertain-send
+uv run demo-worker --fixture documented
+uv run demo-worker --fixture human-review
+uv run demo-worker --fixture uncertain-send
 ```
 
 The worker service itself defaults to the real adapters. Ask for the fixture
 adapters explicitly when running it without Slack credentials:
 
 ```bash
-WORKER_ADAPTER_MODE=local-fixtures \
+WORKER_MODEL_SOURCE=fixture WORKER_SLACK_SINK=record \
   uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 ```
 
@@ -88,8 +88,20 @@ employee would see. The model and Slack are deterministic fakes, so it needs no
 credentials and sends nothing:
 
 ```bash
-uv run python -m examples.demos.run_end_to_end
+uv run demo-end-to-end
 ```
+
+### One script, every call shown
+
+```bash
+./demo.sh                 # canned model, nothing external needed but Postgres
+./demo.sh --live-model    # real Gemini
+```
+
+It starts both services and drives them with plain curl, printing every command
+before running it: a direct worker call, a rejected unauthenticated call, a
+signed Slack event, a rejected forged signature, and the stored reply. Nothing in
+it is a trick you could not type yourself.
 
 ### The demo worth showing
 
@@ -108,7 +120,7 @@ Terminal 1, the private worker:
 
 ```bash
 DATABASE_URL="postgresql:///support_agent" \
-WORKER_ADAPTER_MODE=local-fixtures \
+WORKER_MODEL_SOURCE=fixture WORKER_SLACK_SINK=record \
   uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 ```
 
@@ -129,7 +141,7 @@ the outcome from Postgres:
 
 ```bash
 DATABASE_URL="postgresql:///support_agent" \
-  uv run python -m examples.demos.send_slack_event \
+  uv run demo-slack-event \
     --question "Can unused annual leave be carried into next year?"
 ```
 
@@ -158,7 +170,7 @@ and the demos say so if you forget.
 Straight at the agent, no database, fastest loop:
 
 ```bash
-uv run python -m examples.demos.run_workflow \
+uv run demo-workflow \
   --question "How much annual leave can I carry over?" --live-model
 ```
 
@@ -167,12 +179,47 @@ and the outbound action:
 
 ```bash
 DATABASE_URL="postgresql:///support_agent" \
-  uv run python -m examples.demos.run_worker \
+  uv run demo-worker \
     --question "How much annual leave can I carry over?" --live-model
 ```
 
 `--live-model` needs `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and
 Application Default Credentials.
+
+### What is real when you run it locally
+
+The system talks to four things outside itself. Locally each is chosen
+independently, which is the whole reason the local setup is workable at all.
+
+| Boundary | Locally | In production |
+|---|---|---|
+| Postgres | real, on your machine | Cloud SQL |
+| Model | real Gemini via Vertex AI, or a canned decision | Vertex AI |
+| Task queue | `LocalTaskQueue`, a background thread **inside the webhook process** | Cloud Tasks |
+| Slack outbound | recorded to Postgres, or really sent | Slack Web API |
+
+Two questions this always raises:
+
+**Where is the task runner?** There isn't a separate one. `LocalTaskQueue` lives
+inside the webhook process. When the webhook accepts an event it puts the request
+ID on an in-memory queue, and a background thread POSTs it to the worker's real
+HTTP endpoint. So the worker really is called over HTTP, by a thread in the other
+process. Cloud Tasks replaces that one class and nothing else. If you POST to the
+worker yourself with curl, no queue is involved at all.
+
+**Where does the reply go without Slack?** With `WORKER_SLACK_SINK=record`,
+nowhere on the network. This matters less than it sounds: the reply text is
+written to `outbound_actions.outbound_text` in Postgres *before* any send is
+attempted, so the employee-visible text exists either way. The sink only decides
+whether the network is involved. That is why `demo.sh` reads the reply out of the
+database rather than out of a log.
+
+```bash
+WORKER_MODEL_SOURCE=configured   # real Gemini, needs GOOGLE_CLOUD_PROJECT + ADC
+WORKER_SLACK_SINK=record         # no Slack workspace needed
+```
+
+That combination is the normal way to develop: real AI, no Slack.
 
 ### Things worth demonstrating
 
@@ -183,12 +230,13 @@ Application Default Credentials.
 | A refused prompt injection | restart the worker with `WORKER_FAKE_FIXTURE=prompt-injection` |
 | A forged request is rejected | add `--signing-secret wrong-secret`, and the webhook answers 401 with nothing stored |
 | Another channel is ignored | add `--channel-id C-other`, and the webhook answers 200 but creates no work |
-| A stale worker cannot reply twice | `uv run python -m examples.demos.run_state_machine` |
+| A stale worker cannot reply twice | `uv run demo-state-machine` |
 
 `WORKER_FAKE_FIXTURE` chooses which canned decision the fake model returns, so
 the question you type does not change the answer in fixture mode. Swap to
-`WORKER_ADAPTER_MODE=configured` with Google Cloud credentials and a Slack bot
-token to make the model and the reply real.
+`WORKER_MODEL_SOURCE=configured` with Google Cloud credentials to make the model
+real, and `WORKER_SLACK_SINK=slack` with a bot token to make the reply real. They
+are independent, so real model plus recorded reply is a supported combination.
 
 ### Notes
 
