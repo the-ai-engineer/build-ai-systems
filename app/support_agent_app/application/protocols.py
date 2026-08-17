@@ -212,15 +212,24 @@ class AgentRunner(Protocol):
 
 
 class SupportRequestIntake(Protocol):
-    """The ingress capability the public Slack webhook will use.
-
-    Implemented today by the Postgres repository and exercised by the demos and
-    integration tests. `api/` becomes its second caller.
-    """
+    """The ingress capability the public Slack webhook uses."""
 
     def accept_request(self, incoming: IncomingSupportRequest) -> AcceptedRequest: ...
 
-    def mark_queued(self, request_id: UUID) -> None: ...
+    def mark_queued(self, request_id: UUID, *, confirmed_task_name: str | None = None) -> None: ...
+
+
+class TaskQueue(Protocol):
+    """Hand one request ID to a queue for later delivery to the worker.
+
+    Enqueueing is expected to return quickly and say only whether the queue
+    accepted the task. Delivery, retries, and backoff belong to the queue.
+
+    Raise `TaskAlreadyQueuedError` when the name already exists, which is the
+    queue rejecting a duplicate rather than a failure.
+    """
+
+    def enqueue_support_request(self, *, request_id: UUID, task_name: str) -> None: ...
 
 
 __all__ = [
@@ -229,5 +238,6 @@ __all__ = [
     "SlackClient",
     "SupportRequestIntake",
     "SupportRequestStore",
+    "TaskQueue",
     "TimeoutAwarePolicyRepository",
 ]

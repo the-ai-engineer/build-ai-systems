@@ -96,20 +96,45 @@ class PostgresSupportRepository:
             assert existing is not None
             return AcceptedRequest(request_id=existing["request_id"], created=False)
 
-    def mark_queued(self, request_id: UUID) -> None:
-        """Make accepted work ready for a future internal delivery adapter."""
+    def mark_queued(self, request_id: UUID, *, confirmed_task_name: str | None = None) -> None:
+        """Record that the queue accepted this request.
+
+        Keeps the first confirmed task name. A Slack retry re-derives the same
+        name, so overwriting it would hide which delivery actually created the
+        work.
+
+        A fast queue can deliver the task, and a worker can claim it, before
+        this write lands. That is a race the system is expected to win, not an
+        error: the request has already moved past `queued` under a claim, so
+        this becomes a no-op rather than a conflict.
+        """
 
         with self._connect() as connection:
             row = connection.execute(
                 """
                 update support_requests
-                set status = 'queued', queued_at = coalesce(queued_at, now())
+                set status = 'queued',
+                    queued_at = coalesce(queued_at, now()),
+                    confirmed_task_name = coalesce(confirmed_task_name, %s)
                 where request_id = %s and status in ('accepted', 'queued')
                 returning request_id
                 """,
-                (request_id,),
+                (confirmed_task_name, request_id),
             ).fetchone()
             if row is not None:
+                return
+
+            already_started = connection.execute(
+                """
+                update support_requests
+                set confirmed_task_name = coalesce(confirmed_task_name, %s)
+                where request_id = %s
+                  and status in ('processing', 'completed', 'failed', 'reconciliation')
+                returning request_id
+                """,
+                (confirmed_task_name, request_id),
+            ).fetchone()
+            if already_started is not None:
                 return
             self._raise_request_state(connection, request_id, "cannot queue request")
 

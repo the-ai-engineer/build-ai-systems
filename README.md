@@ -75,6 +75,36 @@ WORKER_ADAPTER_MODE=local-fixtures \
   uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 ```
 
+## Run the whole thing locally
+
+One command drives every stage, from a signed Slack event to the reply text the
+employee would see. The model and Slack are deterministic fakes, so it needs no
+credentials and sends nothing:
+
+```bash
+uv run python -m examples.demos.run_end_to_end
+```
+
+To watch the two services run apart, start the worker in one terminal and the
+webhook in another. The webhook owns the local queue that delivers to the worker:
+
+```bash
+# terminal 1
+WORKER_ADAPTER_MODE=local-fixtures \
+  uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
+
+# terminal 2
+uv run uvicorn support_agent_app.api.main:create_app --factory --port 8080
+```
+
+The webhook is `POST /slack/events`. It verifies the Slack signature over the raw
+body, stores the request, hands the queue a request ID, and acknowledges. It
+never calls a model, which is what keeps it inside Slack's three second window.
+
+Google Cloud has no supported Cloud Tasks emulator and the course does not add a
+third-party one, so `LocalTaskQueue` is the explicit local stand-in. Cloud Tasks
+replaces that one class and nothing else.
+
 The local HTTP endpoint is `POST /tasks/process-support-request`.
 Its JSON body contains only `request_id`, and local calls provide `X-Worker-Task-Identity: local-development-task`.
 The identity check is an explicit local seam that a later task replaces with Google OIDC verification.
@@ -117,7 +147,7 @@ ARCHITECTURE.md      How the system is put together today
 PYTHON_STANDARDS.md  Coding and project structure standard
 brief.md             Customer problem and first-release requirements
 app/support_agent_app/
-  api/               Public Slack webhook boundary (planned)
+  api/               Public Slack webhook boundary
   worker/            Private worker boundary
   commands/          Operator actions
   application/       Use cases, domain vocabulary, protocols

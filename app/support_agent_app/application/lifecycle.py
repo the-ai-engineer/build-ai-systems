@@ -7,12 +7,30 @@ lease has superseded, which is what stops two workers replying to one employee.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
 MAX_BUSINESS_ATTEMPTS = 5
+FIRST_TASK_GENERATION = 1
+
+
+def task_name_for(slack_event_id: str, task_generation: int = FIRST_TASK_GENERATION) -> str:
+    """Return the stable task name for one Slack event and task generation.
+
+    The name is derived, not random, so a Slack retry of the same event asks the
+    queue to create the same task. The queue then rejects the duplicate, which
+    is how one mention stays one unit of work even when the webhook runs twice.
+    """
+
+    if not slack_event_id:
+        raise ValueError("slack_event_id is required")
+    if task_generation < 1:
+        raise ValueError("task_generation starts at 1")
+    digest = hashlib.sha256(f"{slack_event_id}:{task_generation}".encode()).hexdigest()
+    return f"support-{digest}"
 
 
 class LifecycleOutcome(StrEnum):
@@ -42,6 +60,14 @@ class StateConflictError(RequestLifecycleError):
 
 class ActionConflictError(RequestLifecycleError):
     pass
+
+
+class TaskAlreadyQueuedError(RequestLifecycleError):
+    """The queue already holds a task with this name.
+
+    Not a failure. It means an earlier delivery of the same Slack event already
+    created the work, so the request is queued and there is nothing more to do.
+    """
 
 
 @dataclass(frozen=True)

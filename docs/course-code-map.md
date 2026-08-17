@@ -17,6 +17,7 @@ This file only maps high-level lesson names to code in this repository.
 | Optional hybrid RAG | `examples/07b_hybrid_rag.py` |
 | Local policy application | `app/support_agent_app/agent/`, `policies/`, `tests/unit/agent/test_support_workflow.py` |
 | Worker | `app/support_agent_app/worker/`, `app/support_agent_app/application/process_request.py`, `examples/demos/run_worker.py` |
-| Queue and Slack ingress | Planned Cloud Tasks adapter and public Slack webhook |
+| Local queue and Slack ingress | `app/support_agent_app/integrations/task_queue.py`, `app/support_agent_app/api/`, `examples/demos/run_end_to_end.py` |
+| Cloud Tasks integration | Planned Cloud Tasks adapter behind the same `TaskQueue` protocol |
 | Reliability and evaluation | Planned integration tests, scheduled jobs, and evals |
 | Production deployment | Planned Google Cloud deployment configuration and operational checks |
