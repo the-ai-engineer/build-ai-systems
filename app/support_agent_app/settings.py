@@ -71,10 +71,35 @@ class WorkerSettings(_BaseAppSettings):
 class ApiSettings(_BaseAppSettings):
     """Configuration for the public Slack webhook runtime.
 
-    Defined now because the ingress lesson adds `api/` against this contract.
-    The webhook verifies Slack signatures and writes to the database; it never
-    holds a model credential.
+    It verifies Slack signatures, writes to the database, and enqueues work. It
+    holds no model credential and no Slack bot token, because it neither calls a
+    model nor posts a reply. Only the worker does those.
     """
 
     database_url: str
-    slack_signing_secret: SecretStr = SecretStr("")
+    slack_signing_secret: SecretStr
+
+    # Comma separated. A valid Slack signature does not prove the event came
+    # from the workspace or channel this deployment serves, so both are checked.
+    slack_allowed_team_ids: str = ""
+    slack_allowed_channel_ids: str = ""
+
+    # Where the local queue adapter delivers. Cloud Tasks replaces this.
+    worker_base_url: str = "http://127.0.0.1:8081"
+    worker_task_identity: str = LOCAL_TASK_IDENTITY
+
+    def allowed_team_ids(self) -> frozenset[str]:
+        return _split_ids(self.slack_allowed_team_ids)
+
+    def allowed_channel_ids(self) -> frozenset[str]:
+        return _split_ids(self.slack_allowed_channel_ids)
+
+
+def _split_ids(value: str) -> frozenset[str]:
+    """Parse a comma separated allowlist.
+
+    Kept as a plain string field rather than a list so a stray space or a
+    trailing comma in a deployment variable cannot fail a process at startup.
+    """
+
+    return frozenset(item.strip() for item in value.split(",") if item.strip())

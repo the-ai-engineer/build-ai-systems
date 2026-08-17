@@ -32,10 +32,16 @@ line-length = 100
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "UP"]
 
+[tool.ruff.format]
+# The numbered lesson examples are pinned to recorded lessons. Their layout is
+# part of the teaching material, so formatting must not rewrite them.
+exclude = ["examples/0*.py"]
+
 [tool.ruff.lint.per-file-ignores]
-# The early lesson examples show the explicit `str, Enum` form on purpose,
-# before `StrEnum` is introduced.
-"examples/0*.py" = ["UP042"]
+# Same reason: these files keep their written import order and show the explicit
+# `str, Enum` form on purpose, before `StrEnum` is introduced. Real error checks
+# (E, F, B) still apply.
+"examples/0*.py" = ["E501", "I001", "UP042"]
 
 [tool.pyright]
 extraPaths = ["app"]
