@@ -9,9 +9,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from .domain import AgentRunRecord
+from ...application.domain import AgentRunRecord
 
-DEFAULT_PRICING_PATH = Path(__file__).parents[1] / "prices" / "2026-08-14.json"
+DEFAULT_PRICING_PATH = Path(__file__).with_name("prices") / "2026-08-14.json"
 
 
 class ModelPrice(BaseModel):

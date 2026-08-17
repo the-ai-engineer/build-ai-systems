@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from support_agent_app.application.accept_request import (
+from support_agent_app.api.accept_request import (
     RequestNotQueuedError,
     accept_and_queue,
 )

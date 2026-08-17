@@ -20,21 +20,21 @@ from uuid import UUID
 from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, ConfigDict
 
-from ..agent.agent import run_support_workflow
-from ..application.deadlines import WorkerDeadline, WorkerDeadlineExceeded
-from ..application.failures import WorkerTemporaryError
 from ..application.lifecycle import LifecycleOutcome, RequestNotFoundError
-from ..application.process_request import WorkerResult, WorkerService
 from ..database.repositories.policy_repository import PostgresPolicyRepository
 from ..database.repositories.support_request_repository import PostgresSupportRepository
-from ..integrations.messaging import SlackWebApiClient
 from ..settings import WorkerBoundarySettings, WorkerSettings
+from .agent.agent import run_support_workflow
 from .auth import (
     TASK_IDENTITY_HEADER,
     InvalidTaskIdentityError,
     StaticTaskAuthenticator,
     TaskAuthenticator,
 )
+from .deadlines import WorkerDeadline, WorkerDeadlineExceeded
+from .failures import WorkerTemporaryError
+from .messaging import SlackWebApiClient
+from .process_request import WorkerResult, WorkerService
 
 RETRYABLE_OUTCOMES = frozenset(
     {

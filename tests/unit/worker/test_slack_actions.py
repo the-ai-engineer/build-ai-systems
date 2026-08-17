@@ -9,9 +9,9 @@ from support_agent_app.application.domain import (
     SourceCitation,
 )
 from support_agent_app.application.failures import SlackSendError, SlackSendUncertainError
-from support_agent_app.application.process_request import HUMAN_REVIEW_REPLY, format_slack_reply
-from support_agent_app.integrations.messaging import SlackWebApiClient
 from support_agent_app.testing.fake_slack import FakeSlackClient
+from support_agent_app.worker.messaging import SlackWebApiClient
+from support_agent_app.worker.process_request import HUMAN_REVIEW_REPLY, format_slack_reply
 
 
 class SlackActionTests(unittest.TestCase):

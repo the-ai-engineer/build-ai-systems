@@ -26,31 +26,46 @@ Postgres is the durable source of truth. Nothing else holds state.
 
 ```
 app/support_agent_app/
-  api/            Public HTTP boundary for Slack events
-  worker/         Private HTTP boundary for queued tasks
-  commands/       Deliberate operator actions
-  application/    Use cases, domain vocabulary, protocols
-  agent/          Prompts, tools, model schemas, evidence checks
+  api/            The public Slack webhook, whole
+    main.py auth.py accept_request.py task_queue.py
+  worker/         The private worker, whole
+    main.py auth.py process_request.py deadlines.py failures.py
+    messaging.py model_provider.py
+    agent/        prompts.py tools.py schemas.py evidence.py agent.py pricing.py
+  application/    The contract the two services share, and nothing else
+    domain.py lifecycle.py protocols.py failures.py
   database/       Connections, migrations, repositories
-  integrations/   Slack, model provider, task queue
+  commands/       Deliberate operator actions
   testing/        Deterministic adapters, excluded from production
   settings.py     All configuration
 ```
 
-- `application/` owns the vocabulary (`domain.py`, `lifecycle.py`), the boundaries (`protocols.py`), the time budget (`deadlines.py`), failure classification (`failures.py`), and the single use case (`process_request.py`). Reply formatting lives in `process_request.py` because it is one small function with one caller.
-- `api/` is `main.py` and `auth.py`. Slack's wire shapes stop at `normalize_app_mention`; nothing downstream knows what Slack is. `auth.py` is separate because signature verification is the security boundary and is tested on its own.
-- `worker/` is `main.py` and `auth.py`. One route does not need a router module, a schemas module, and a composition root as three files. `auth.py` stays separate because swapping the static identity check for Google OIDC is a real, isolated change.
-- `agent/` owns everything the model touches: `prompts.py`, `tools.py`, the untrusted output schema in `schemas.py`, and the deterministic checks in `evidence.py`.
+The layout is organised by **service**, not by technical role. Each runtime is one
+folder you can read top to bottom, because each is deployed, scaled, and taught
+separately. `agent/` sits inside `worker/` because the worker is its only caller.
+
+`application/` holds only what both services must agree on: the vocabulary, the
+lifecycle, the protocols, and the two send-failure types an integration raises
+and a runtime catches. Anything used by one service lives in that service.
+
+- `api/` owns the public boundary end to end: signature verification, event normalization, the accept use case, and the queue client that produces the task. Slack's wire shapes stop at `normalize_app_mention`.
+- `worker/` owns the private boundary end to end: task identity, the process use case, the time budget, provider failure classification, the Slack client, the model provider, and the agent.
+- `application/` is the seam between them. If a module here is only used by one service, it is in the wrong place.
+- `agent/` owns everything the model touches, and lives under `worker/` because nothing else calls it. One route does not need a router module, a schemas module, and a composition root as three files. `auth.py` stays separate because swapping the static identity check for Google OIDC is a real, isolated change.
 - `database/` owns SQL, transactions, and row mapping. Migrations live in root `migrations/`.
-- `integrations/` owns provider detail. Slack error codes and httpx exceptions do not escape `messaging.py`.
-- `testing/` owns the fake model, fake Slack client, in-memory repositories, and fixtures.
+- Provider detail stays inside its adapter. Slack error codes and httpx exceptions do not escape `worker/messaging.py`.
+- `testing/` owns the deterministic adapters, in-memory repositories, and fixtures.
 
 ## Which way dependencies point
 
 ```
-worker/ , api/ , commands/     ->  application/
-agent/ , database/ , integrations/  ->  application/
+api/  ->  application/ , database/
+worker/  ->  application/ , database/
+worker/agent/  ->  application/
 ```
+
+`api/` and `worker/` never import each other. That is checkable in one grep, and
+it is what makes independent deployment true rather than aspirational.
 
 `application/` imports nothing from the layers above or beside it, with one recorded exception below.
 `worker/main.py` and `api/main.py` are composition roots and are the only modules that name concrete adapters.
@@ -132,8 +147,13 @@ Retryable outcomes surface as HTTP 503 so the queue retries. Permanent failures 
 
 ## Recorded exceptions
 
-**`application/failures.py` imports provider exception types.**
-`classify_workflow_failure` maps `pydantic_ai` and `psycopg` exceptions to durable categories, so the application layer imports two provider packages.
+**No `integrations/` package.**
+`PYTHON_STANDARDS.md` puts external clients in `integrations/`. Every client here has exactly one caller, so each lives with the service that owns it: `api/task_queue.py`, `worker/messaging.py`, `worker/model_provider.py`. A shared `integrations/` would spread each service across one more directory for no reader benefit. Introduce it if a client ever gains a second caller.
+
+**`worker/failures.py` imports provider exception types.**
+`classify_workflow_failure` maps `pydantic_ai` and `psycopg` exceptions to durable categories.
+
+This is no longer a layering violation now that it lives inside the worker, which already knows both. It is recorded because the mapping is the one place provider error semantics are interpreted, and it should stay that way.
 
 This is a decision, not a deferral. Inverting it means adding a classifier parameter to `WorkerService` and threading it through every call site and test, so that one thirteen-line function can move one directory. The mapping is small, tested, and in one place, and the rule it breaks exists to stop provider details leaking into orchestration, which is not happening here. It stays until a second provider makes the abstraction real.
 
@@ -144,7 +164,7 @@ The course has students write their own architecture document first. This file i
 `brief.md`, `MEMORY.md`, and `docs/` are teaching artifacts, not application structure.
 
 **No `CloudTasksQueue` yet.**
-`integrations/task_queue.py` holds only the local adapter. The Cloud Tasks client belongs to the queue-integration lesson, needs a Google Cloud project to verify, and would otherwise be untested code shipped on the strength of a docstring. `TaskQueue` in `protocols.py` is the seam it drops into, and `task_name_for` already implements the deterministic naming rule both adapters need.
+`api/task_queue.py` holds only the local adapter. The Cloud Tasks client belongs to the queue-integration lesson, needs a Google Cloud project to verify, and would otherwise be untested code shipped on the strength of a docstring. `TaskQueue` in `protocols.py` is the seam it drops into, and `task_name_for` already implements the deterministic naming rule both adapters need.
 
 **`SupportRequestStore` has fifteen methods and one implementation.**
 That is more surface than an interface usually earns. It stays because it is the boundary that keeps `WorkerService` free of Postgres, which is the system's central design claim, and because a type checker verifies the match where `worker/main.py` passes the repository in. Writing it caught nine signature mismatches. `PostgresSupportRepository` deliberately does not inherit from it: a `Protocol` subclass silently inherits `...` bodies for anything it fails to implement, which would turn drift into a `None` return at runtime instead of a type error.

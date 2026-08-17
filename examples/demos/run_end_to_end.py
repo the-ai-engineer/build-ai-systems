@@ -20,25 +20,25 @@ import time
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from support_agent_app.agent.agent import run_support_workflow
 from support_agent_app.api.auth import (
     SIGNATURE_HEADER,
     TIMESTAMP_HEADER,
     SlackSignatureVerifier,
 )
 from support_agent_app.api.main import create_app as create_webhook
-from support_agent_app.application.process_request import WorkerService
+from support_agent_app.api.task_queue import LocalTaskQueue
 from support_agent_app.commands.seed_policies import seed_policy_documents
 from support_agent_app.database.repositories.policy_repository import PostgresPolicyRepository
 from support_agent_app.database.repositories.support_request_repository import (
     PostgresSupportRepository,
 )
-from support_agent_app.integrations.task_queue import LocalTaskQueue
 from support_agent_app.settings import ApiSettings, WorkerSettings
 from support_agent_app.testing.fake_model import fixture_model
 from support_agent_app.testing.fake_slack import FakeSlackClient
+from support_agent_app.worker.agent.agent import run_support_workflow
 from support_agent_app.worker.auth import LOCAL_TASK_IDENTITY, TASK_IDENTITY_HEADER
 from support_agent_app.worker.main import create_app as create_worker
+from support_agent_app.worker.process_request import WorkerService
 from uvicorn import Config, Server
 
 SIGNING_SECRET = "synthetic-signing-secret"

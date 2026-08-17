@@ -219,6 +219,11 @@ class SupportRequestIntake(Protocol):
     def mark_queued(self, request_id: UUID, *, confirmed_task_name: str | None = None) -> None: ...
 
 
+# The header the queue puts an identity in and the worker checks. It is the
+# contract between the two services, so neither owns it.
+TASK_IDENTITY_HEADER = "X-Worker-Task-Identity"
+
+
 class TaskQueue(Protocol):
     """Hand one request ID to a queue for later delivery to the worker.
 
@@ -233,6 +238,7 @@ class TaskQueue(Protocol):
 
 
 __all__ = [
+    "TASK_IDENTITY_HEADER",
     "AgentRunner",
     "PolicyRepository",
     "SlackClient",
