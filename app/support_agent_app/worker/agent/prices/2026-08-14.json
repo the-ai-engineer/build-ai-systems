@@ -7,14 +7,14 @@
     {
       "model_id": "google-cloud:gemini-3.5-flash",
       "location_class": "global",
-      "service_tier": "standard",
+      "service_tier": "on_demand",
       "input_usd_per_million_tokens": "1.50",
       "output_usd_per_million_tokens": "9.00"
     },
     {
       "model_id": "google-cloud:gemini-3.5-flash",
       "location_class": "non-global",
-      "service_tier": "standard",
+      "service_tier": "on_demand",
       "input_usd_per_million_tokens": "1.65",
       "output_usd_per_million_tokens": "9.90"
     },

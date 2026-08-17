@@ -37,16 +37,28 @@ from support_agent_app.worker.agent.agent import (
 )
 from support_agent_app.worker.agent.evidence import verify_decision
 from support_agent_app.worker.agent.pricing import estimate_run_cost, load_price_configuration
+from support_agent_app.worker.agent.prompts import INSTRUCTIONS, build_instructions
 from support_agent_app.worker.agent.schemas import AgentDecision
 from support_agent_app.worker.agent.tools import (
     MAX_LOADED_DOCUMENTS,
     WorkflowDependencies,
     get_support_document,
 )
-from support_agent_app.worker.model_provider import create_google_cloud_model
+from support_agent_app.worker.model_provider import (
+    GOOGLE_CLOUD_SERVICE_TIER,
+    ModelSelection,
+    create_google_cloud_model,
+)
 
 
 class SupportWorkflowTests(unittest.TestCase):
+    """Wiring, limits, and the deterministic checks around the model.
+
+    A scripted model here proves the plumbing holds and that our guardrails
+    survive a model that misbehaves. It proves nothing about how a real model
+    behaves; that belongs in tests/evals/.
+    """
+
     def setUp(self) -> None:
         self.repository = DirectoryPolicyRepository(POLICY_DIRECTORY)
 
@@ -102,19 +114,11 @@ class SupportWorkflowTests(unittest.TestCase):
         self.assertEqual(outcome.result.sources, ())
         self.assertEqual(outcome.result.reason_code, "unsupported")
 
-    def test_sensitive_conflicting_and_prompt_injection_fixtures_are_referred(self) -> None:
-        expected_codes = {
-            "sensitive": "sensitive",
-            "conflicting": "conflict",
-            "prompt-injection": "unsupported",
-        }
-        for fixture, expected_code in expected_codes.items():
-            with self.subTest(fixture=fixture):
-                outcome = self.run_fixture(fixture)
-                self.assertEqual(outcome.result.decision, "human_review")
-                self.assertIsNone(outcome.result.answer)
-                self.assertEqual(outcome.result.sources, ())
-                self.assertEqual(outcome.result.reason_code, expected_code)
+    # The safety behaviour that used to be "tested" here now lives in
+    # tests/evals/test_safety_eval.py. A scripted model cannot answer whether
+    # the agent refuses a sensitive question: the script returns the refusal it
+    # was written to return. Against the real model, two of the reason codes
+    # this test asserted turned out to be wrong.
 
     def test_invalid_excerpt_is_converted_to_human_review(self) -> None:
         outcome = self.run_fixture("invalid-evidence")
@@ -317,7 +321,7 @@ class SupportWorkflowTests(unittest.TestCase):
         run = AgentRunRecord(
             model_id=DEFAULT_MODEL,
             model_location="global",
-            service_tier="standard",
+            service_tier=GOOGLE_CLOUD_SERVICE_TIER,
             selected_documents=(),
             input_tokens=1_000_000,
             retrieved_context_tokens=0,
@@ -357,13 +361,43 @@ class SupportWorkflowTests(unittest.TestCase):
         self.assertEqual(MAX_TOOL_CALLS, 5)
         self.assertEqual(MAX_OUTPUT_TOKENS, 500)
         self.assertEqual(MODEL_TIMEOUT_SECONDS, 20.0)
+        # A scripted model gets no provider settings, because there is no provider.
         agent = build_agent(fixture_model("unsupported"))
-        self.assertEqual(agent.model_settings["google_cloud_service_tier"], "on_demand")
+        self.assertNotIn("google_cloud_service_tier", agent.model_settings)
         deadline_agent = build_agent(
             fixture_model("unsupported"),
             model_timeout_seconds=3.0,
         )
         self.assertEqual(deadline_agent.model_settings["timeout"], 3.0)
+
+    def test_requested_service_tier_matches_the_recorded_and_priced_one(self) -> None:
+        """The tier sent to the provider, recorded, and priced must be one value.
+
+        They disagreed once: the request asked for on_demand while the run
+        record said standard, so the cost estimate confidently priced a request
+        that never happened.
+        """
+        selection = ModelSelection(
+            model="google-cloud:gemini-3.5-flash",
+            model_id="google-cloud:gemini-3.5-flash",
+            location="global",
+            service_tier=GOOGLE_CLOUD_SERVICE_TIER,
+            provider_settings={"google_cloud_service_tier": GOOGLE_CLOUD_SERVICE_TIER},
+        )
+        agent = build_agent(
+            "google-cloud:gemini-3.5-flash", provider_settings=selection.provider_settings
+        )
+
+        sent = agent.model_settings["google_cloud_service_tier"]
+        self.assertEqual(sent, selection.service_tier)
+
+        priced = {price.service_tier for price in load_price_configuration().prices}
+        self.assertIn(selection.service_tier, priced)
+
+    def test_the_prompt_states_the_limit_the_tool_enforces(self) -> None:
+        """A limit written as prose is a duplicate definition, and drifts."""
+        self.assertIn(f"no more than {MAX_LOADED_DOCUMENTS} documents", INSTRUCTIONS)
+        self.assertIn("no more than 7 documents", build_instructions(7))
 
     def test_workflow_timeout_bounds_the_complete_agent_run(self) -> None:
         async def slow_model(messages, info):
