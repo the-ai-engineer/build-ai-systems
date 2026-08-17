@@ -22,9 +22,8 @@ seed-policies = "support_agent_app.commands.seed_policies:main"
 # way the operator commands do. `python -m examples...` only worked from the
 # repository root, because Python resolved `examples` against the cwd.
 demo-workflow = "support_agent_app.demos.run_workflow:main"
-demo-worker = "support_agent_app.demos.run_worker:main"
 demo-state-machine = "support_agent_app.demos.run_state_machine:main"
-demo-end-to-end = "support_agent_app.demos.run_end_to_end:main"
+demo-seed-request = "support_agent_app.demos.seed_request:main"
 demo-slack-event = "support_agent_app.demos.send_slack_event:main"
 
 [build-system]
