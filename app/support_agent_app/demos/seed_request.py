@@ -31,6 +31,19 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Store a support request and print its curl.")
     parser.add_argument("--question", default=DEFAULT_QUESTION)
     parser.add_argument("--worker-url", default="http://127.0.0.1:8081")
+    parser.add_argument(
+        "--channel-id",
+        default="C-demo",
+        help="A real Slack channel ID to reply into. The bot must be a member.",
+    )
+    parser.add_argument(
+        "--thread-ts",
+        default="700.001",
+        help=(
+            "The parent message to reply under. In Slack, copy a message link: "
+            "the .../p1699999999000100 part is 1699999999.000100."
+        ),
+    )
     parser.add_argument("--task-identity", default=LOCAL_TASK_IDENTITY)
     parser.add_argument(
         "--request-id-only",
@@ -50,9 +63,9 @@ def main() -> None:
         IncomingSupportRequest(
             slack_event_id=f"Ev-seed-{uuid4()}",
             slack_team_id="T-demo",
-            slack_channel_id="C-demo",
-            slack_message_ts="700.001",
-            slack_thread_ts="700.001",
+            slack_channel_id=args.channel_id,
+            slack_message_ts=args.thread_ts,
+            slack_thread_ts=args.thread_ts,
             slack_user_id="U-demo",
             question_text=args.question,
         )

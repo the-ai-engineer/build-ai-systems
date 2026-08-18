@@ -221,6 +221,73 @@ WORKER_SLACK_SINK=record         # no Slack workspace needed
 
 That combination is the normal way to develop: real AI, no Slack.
 
+### Demo A: real Slack reply, no tunnel
+
+The worker posts *outbound* to Slack, so it needs no inbound reachability. This
+runs entirely on your laptop and a real employee sees a real answer.
+
+You need: a bot token, the bot invited to a channel, and a message to reply under.
+In Slack, copy a message link. The `.../p1699999999000100` part is the timestamp
+`1699999999.000100`.
+
+```bash
+# terminal 1: the worker, real model, real Slack
+SLACK_BOT_TOKEN=xoxb-... \
+WORKER_MODEL_SOURCE=configured WORKER_SLACK_SINK=slack \
+  uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
+
+# terminal 2
+uv run demo-seed-request \
+  --question "How much annual leave do I get?" \
+  --channel-id C0123456789 \
+  --thread-ts 1699999999.000100
+# then paste the curl it prints
+```
+
+The reply appears in the Slack thread. No webhook, no queue, no tunnel: you are
+driving the worker's HTTP endpoint yourself, exactly as Cloud Tasks will.
+
+### Demo B: the full loop, mention to reply
+
+Here Slack has to reach *you*, so this one needs a tunnel. Only the webhook is
+exposed. The worker stays private, as it is in production.
+
+```bash
+# terminal 1: the private worker
+SLACK_BOT_TOKEN=xoxb-... \
+WORKER_MODEL_SOURCE=configured WORKER_SLACK_SINK=slack \
+  uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
+
+# terminal 2: the public webhook
+SLACK_SIGNING_SECRET=<from the Slack app> \
+SLACK_ALLOWED_TEAM_IDS=T0123456789 \
+SLACK_ALLOWED_CHANNEL_IDS=C0123456789 \
+WORKER_BASE_URL=http://127.0.0.1:8081 \
+  uv run uvicorn support_agent_app.api.main:create_app --factory --port 8080
+
+# terminal 3: expose only the webhook
+ngrok http 8080
+```
+
+Then in the Slack app settings, set Event Subscriptions to
+`https://<your-tunnel>/slack/events`. Slack immediately sends a
+`url_verification` challenge, which the webhook answers, so the URL turns green.
+Subscribe to the `app_mention` bot event and reinstall if prompted.
+
+Now mention the bot in the channel. What happens:
+
+1. Slack POSTs the event to your tunnel
+2. the webhook verifies the signature, stores the request, queues it, answers 200
+3. `LocalTaskQueue` POSTs the request ID to the worker on 8081
+4. the worker claims it, runs the agent against Vertex, posts the reply in-thread
+
+Both allowlists must match your real workspace and channel, or the webhook
+answers 200 and deliberately creates no work. That is the failure to expect if
+nothing happens: check `SLACK_ALLOWED_TEAM_IDS` and `SLACK_ALLOWED_CHANNEL_IDS`.
+
+A free ngrok URL changes every restart, so the Slack Event Subscriptions URL has
+to be re-saved each time.
+
 ### Things worth demonstrating
 
 | What to show | How |
