@@ -331,8 +331,11 @@ cp examples/.env.sample examples/.env
 Run an example:
 
 ```bash
-uv run python examples/01_basic_model_call.py
+uv run python examples/lesson-02/01_basic_model_call.py
 ```
+
+Examples are grouped by the lesson that uses them, so `examples/lesson-05/`
+holds the four retrieval examples.
 
 The model examples require the matching provider credentials.
 The whole-document, vector, and hybrid RAG examples use the OpenAI API.
@@ -344,7 +347,7 @@ The SQL RAG example uses an in-memory SQLite database and needs no setup.
 uv run ruff check .
 uv run ruff format --check .
 uv run python -m unittest discover -s tests
-uv run python examples/06b_sql_rag.py
+uv run python examples/lesson-05/02_sql_rag.py
 ```
 
 Tests come in three kinds, and the difference is what each is allowed to touch.
@@ -389,7 +392,7 @@ app/support_agent_app/
   settings.py        All configuration
 migrations/          One SQL migration history
 policies/            The approved policy set, used by the app and the examples
-examples/            Small standalone AI engineering examples
+examples/            Small standalone examples, one folder per lesson
   demos/             Runnable demos of the application slices
 slack/               Bootstrap and deployment-stage Slack app manifests
 docs/                Application docs and the implementation contract
