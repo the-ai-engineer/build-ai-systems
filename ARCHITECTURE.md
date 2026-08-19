@@ -113,6 +113,38 @@ Postgres owns everything, under one migration history in root `migrations/`.
 
 Migrations are never applied at application startup. An operator runs `apply-migrations`.
 
+## The cloud development environment
+
+Google Cloud project `build-ai-systems-dev`, region `europe-west1`, built by
+`scripts/provision-dev.sh` and removed by `scripts/teardown-dev.sh`. Nothing is
+deployed into it yet. This is the ground the deployment work stands on, not the
+deployment.
+
+| Resource | Name | Holds |
+|---|---|---|
+| Artifact Registry | `support-agent` | Container images |
+| Cloud SQL Postgres 17 | `support-agent-dev`, `db-f1-micro` | The `support_agent` database |
+| Cloud Tasks | `support-requests` | Ten concurrent dispatches, five per second, five attempts |
+| Secret Manager | `slack-bot-token`, `slack-signing-secret`, `database-url` | The three credentials |
+
+Each runtime gets its own identity and only the access it needs:
+
+| Identity | Project roles | Secrets it can read |
+|---|---|---|
+| `support-webhook` | `cloudsql.client`, `cloudtasks.enqueuer` | `slack-signing-secret`, `database-url` |
+| `support-worker` | `cloudsql.client`, `aiplatform.user` | `slack-bot-token`, `database-url` |
+| `support-maintenance` | `cloudsql.client` | `database-url` |
+
+The webhook cannot post to Slack and the worker cannot enqueue tasks, which is
+the same split the code already makes. Cloud Run invoker bindings do not exist
+yet, because no service is deployed.
+
+Secret values are read from a local `.env` and piped into Secret Manager on
+stdin. They are never printed, logged, or placed on a command line. The database
+password is generated once, stored inside the `database-url` secret, and reused
+on every later run, so re-provisioning does not rotate a credential a running
+service is holding.
+
 ## Trust boundaries
 
 - The employee's question is untrusted input.
@@ -175,6 +207,19 @@ deleted, and against the real model two of its assertions were wrong.
 This is no longer a layering violation now that it lives inside the worker, which already knows both. It is recorded because the mapping is the one place provider error semantics are interpreted, and it should stay that way.
 
 This is a decision, not a deferral. Inverting it means adding a classifier parameter to `WorkerService` and threading it through every call site and test, so that one thirteen-line function can move one directory. The mapping is small, tested, and in one place, and the rule it breaks exists to stop provider details leaking into orchestration, which is not happening here. It stays until a second provider makes the abstraction real.
+
+**Provisioning lives in `scripts/`, not `infra/`.**
+`PYTHON_STANDARDS.md` puts versioned infrastructure and deployment configuration
+in `infra/`. There is no infrastructure configuration here, versioned or
+otherwise: there are two bash scripts an operator runs. Naming a directory after
+a category the repository does not yet have would send a reader looking for
+manifests that do not exist. Introduce `infra/` when there is deployment
+configuration to version, and move the scripts under it then.
+
+There is also no Terraform. The course teaches the application, and a second
+tool with its own state, providers, and failure modes would compete with that
+for a student's attention. Two readable scripts show the same resources and the
+same reasons.
 
 **`ARCHITECTURE.md` exists before the design lesson.**
 The course has students write their own architecture document first. This file is the reference they compare against afterwards, not a substitute for that exercise.

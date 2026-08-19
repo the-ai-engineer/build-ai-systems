@@ -204,6 +204,60 @@ loses anything undelivered.
 Real Slack needs a public HTTPS URL, so put a temporary tunnel in front of port
 8080 and use the real signing secret. See [docs/slack-setup.md](docs/slack-setup.md).
 
+## Provision the cloud development environment
+
+Two scripts stand the Google Cloud development environment up and take it down
+again. There is no Terraform: this course teaches the application, not an
+infrastructure tool.
+
+```bash
+scripts/provision-dev.sh
+```
+
+It enables the required APIs, then creates an Artifact Registry repository, a
+Cloud Tasks queue, the smallest Cloud SQL Postgres instance, the three runtime
+service accounts (`support-webhook`, `support-worker`, `support-maintenance`),
+and the Secret Manager secrets each one is allowed to read.
+
+The script is re-runnable. Every step checks for the resource first, so a second
+run reports what already exists and changes nothing. Defaults are overridable:
+
+```bash
+PROJECT_ID=... REGION=... ENV_FILE=... scripts/provision-dev.sh
+```
+
+`SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET` are read from `ENV_FILE` (`.env` by
+default) and piped into Secret Manager on stdin. The script never prints a
+secret and never puts one on a command line. The database password is generated
+once, stored inside the `database-url` secret, and reused on later runs, so
+re-running the script does not rotate a credential a deployed service is holding.
+
+### What it costs
+
+Cloud Run scales to zero. Cloud SQL does not, so it is effectively the whole
+bill: a `db-f1-micro` instance with 10 GB of SSD, left running, is roughly **$10
+to $15 a month**. Artifact Registry, Cloud Tasks, Secret Manager, and the
+service accounts are pennies or free at development volume. Treat that as an
+estimate and check the real number against the
+[Cloud SQL pricing page](https://cloud.google.com/sql/pricing) and your billing
+account.
+
+Delete the billable resources when you are done for the day:
+
+```bash
+scripts/teardown-dev.sh
+```
+
+Cloud SQL goes first, then Artifact Registry and the secrets. The Cloud Tasks
+queue is purged and paused rather than deleted, because Cloud Tasks reserves a
+deleted queue name for about a week and an idle queue costs nothing. Service
+accounts and enabled APIs stay for the same reason: they are free, and deleting
+a service account leaves stale IAM bindings behind it.
+
+`--dry-run` shows what would go without deleting anything. Cloud SQL also
+reserves a deleted instance name for about a week, so if you tear down and want
+to rebuild sooner than that, provision with a different `SQL_INSTANCE`.
+
 ## Run the examples
 
 Install the Python dependencies:
@@ -277,6 +331,7 @@ policies/            The approved policy set, used by the app and the examples
 examples/            Small standalone AI engineering examples
   demos/             Runnable demos of the application slices
 slack/               Bootstrap and deployment-stage Slack app manifests
+scripts/             Provision and tear down the cloud development environment
 docs/                Application docs and the implementation contract
 MEMORY.md            Sanitized, non-authoritative coordination log
 tests/unit/          No network, no database, no model
