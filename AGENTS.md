@@ -59,7 +59,7 @@ Start with the design and linked tasks, then build the local policy agent, Postg
 Test that handler directly before adding a webhook.
 Deploy the same private worker to a development Cloud Run service, invoke it through the supported Cloud Run proxy or another authenticated request, then add Cloud Tasks with OIDC.
 Connect the public Slack webhook only after the worker and queue work independently.
-The webhook, local queue, and worker now run end to end locally; `examples/demos/run_end_to_end.py` drives all three.
+The webhook, local queue, and worker now run end to end locally; `app/support_agent_app/demos/run_end_to_end.py` drives all three.
 A temporary HTTPS tunnel may expose a local webhook to real Slack.
 Google Cloud does not provide a supported Cloud Tasks emulator, so do not introduce a third-party emulator.
 Keep this early development deployment separate from the later production hardening lesson.
@@ -85,7 +85,7 @@ Students must still understand the contracts, authority boundaries, failure beha
 - `app/support_agent_app/` is the deployable application, split by component ownership.
 - `migrations/` holds the single SQL migration history.
 - `examples/` contains standalone teaching examples for the AI foundations.
-- `examples/demos/` contains runnable demos of the application slices.
+- `app/support_agent_app/demos/` contains runnable demos of the application slices.
 - `policies/` is the single approved policy set, used by the application and the retrieval examples.
 - `docs/course-code-map.md` contains only lesson names and their runnable or planned code.
 - `docs/final-agent-spec.md` defines the finished application contract.

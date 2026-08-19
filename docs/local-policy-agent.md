@@ -8,9 +8,9 @@ They need no model credentials, database credentials, or network access.
 
 ```bash
 uv run python -m unittest tests.test_support_workflow
-uv run python -m examples.demos.run_workflow --fixture documented
-uv run python -m examples.demos.run_workflow --fixture unsupported
-uv run python -m examples.demos.run_workflow --fixture prompt-injection
+uv run demo-workflow --fixture documented
+uv run demo-workflow --fixture unsupported
+uv run demo-workflow --fixture prompt-injection
 ```
 
 The documented fixture prints an answer, verified filename, exact excerpt, and content revision.
@@ -22,7 +22,7 @@ Set `DATABASE_URL` outside the repository, then create and seed the active polic
 
 ```bash
 uv run python -m support_agent_app.seed_policies
-uv run python -m examples.demos.run_workflow --fixture documented --repository postgres
+uv run demo-workflow --fixture documented --repository postgres
 ```
 
 The Postgres adapter exposes only the active document index and single-document lookup.
@@ -37,7 +37,7 @@ No Gemini API key is required or stored by this application.
 After configuring Application Default Credentials outside the repository, run:
 
 ```bash
-uv run python -m examples.demos.run_workflow --fixture documented --live-model
+uv run demo-workflow --fixture documented --live-model
 ```
 
 Set `SUPPORT_AGENT_MODEL` or pass `--model` to evaluate another compatible model without changing the workflow.

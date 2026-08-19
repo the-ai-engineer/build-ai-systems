@@ -18,6 +18,13 @@ dependencies = [
 [project.scripts]
 apply-migrations = "support_agent_app.commands.apply_migrations:main"
 seed-policies = "support_agent_app.commands.seed_policies:main"
+# Demos are installed commands so they run from anywhere in the tree, the same
+# way the operator commands do. `python -m examples...` only worked from the
+# repository root, because Python resolved `examples` against the cwd.
+demo-workflow = "support_agent_app.demos.run_workflow:main"
+demo-state-machine = "support_agent_app.demos.run_state_machine:main"
+demo-seed-request = "support_agent_app.demos.seed_request:main"
+demo-slack-event = "support_agent_app.demos.send_slack_event:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -35,13 +42,13 @@ select = ["B", "E", "F", "I", "UP"]
 [tool.ruff.format]
 # The numbered lesson examples are pinned to recorded lessons. Their layout is
 # part of the teaching material, so formatting must not rewrite them.
-exclude = ["examples/0*.py"]
+exclude = ["examples/lesson-*/*.py"]
 
 [tool.ruff.lint.per-file-ignores]
 # Same reason: these files keep their written import order and show the explicit
 # `str, Enum` form on purpose, before `StrEnum` is introduced. Real error checks
 # (E, F, B) still apply.
-"examples/0*.py" = ["E501", "I001", "UP042"]
+"examples/lesson-*/*.py" = ["E501", "I001", "UP042"]
 
 [tool.pyright]
 extraPaths = ["app"]

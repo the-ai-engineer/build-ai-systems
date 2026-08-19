@@ -11,7 +11,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
 
-load_dotenv(Path(__file__).with_name(".env"))
+load_dotenv(Path(__file__).parents[1] / ".env")
 
 
 if not os.getenv("OPENAI_API_KEY"):
