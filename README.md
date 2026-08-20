@@ -28,7 +28,8 @@ Deterministic fake-model tests remain required.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for how the system is put together today, [docs/final-agent-spec.md](docs/final-agent-spec.md) for the complete implementation contract, and [docs/course-code-map.md](docs/course-code-map.md) for the short lesson-to-code map.
 [PYTHON_STANDARDS.md](PYTHON_STANDARDS.md) is the coding and structure standard for this repository.
-Use [docs/slack-setup.md](docs/slack-setup.md) and the versioned manifests in `slack/` to configure the course Slack app without enabling event delivery before the webhook exists.
+Use [docs/slack-setup.md](docs/slack-setup.md) and the versioned manifests in `slack/` to configure the course Slack app.
+Event delivery stays off until the public webhook exists, and then points at the deployed one rather than a tunnel.
 
 ## Run the local policy agent
 
@@ -253,7 +254,13 @@ driving the worker's HTTP endpoint yourself, exactly as Cloud Tasks will.
 
 ### Demo B: the full loop, mention to reply
 
-Here Slack has to reach *you*, so this one needs a tunnel. Only the webhook is
+This is the local development version of the loop, and it is no longer the
+recommended way to connect Slack. The app's Event Subscriptions now point at the
+deployed webhook, so a real mention is answered with nothing running on a laptop.
+See [docs/slack-setup.md](docs/slack-setup.md) for that route.
+
+Use this one when you want to change webhook code and see a real mention hit your
+own process. Slack has to reach *you*, so it needs a tunnel. Only the webhook is
 exposed. The worker stays private, as it is in production.
 
 ```bash
@@ -291,7 +298,10 @@ answers 200 and deliberately creates no work. That is the failure to expect if
 nothing happens: check `SLACK_ALLOWED_TEAM_IDS` and `SLACK_ALLOWED_CHANNEL_IDS`.
 
 A free ngrok URL changes every restart, so the Slack Event Subscriptions URL has
-to be re-saved each time.
+to be re-saved each time. That re-saving is exactly the cost the deployment
+removes, and it is why the tunnel is a development tool rather than the route
+the app is configured to use. Pointing Slack at a tunnel also points it away
+from the deployed webhook, so put the deployed URL back when you are done.
 
 ### Things worth demonstrating
 
@@ -346,8 +356,11 @@ wrong-identity token is a 401 before the worker touches the request.
 the worker with the deployed check against a real Google-minted token, and what
 each unauthorized call answers.
 
-Real Slack needs a public HTTPS URL, so put a temporary tunnel in front of port
-8080 and use the real signing secret. See [docs/slack-setup.md](docs/slack-setup.md).
+Real Slack needs a public HTTPS URL. In the deployed system that is the public
+Cloud Run webhook, which is what the Slack app is configured against; a tunnel in
+front of port 8080 is the local development substitute. See
+[docs/slack-setup.md](docs/slack-setup.md) for connecting Slack to the deployment
+and for the recorded proof that a real mention produces a cited reply.
 
 ## Provision the cloud development environment
 
@@ -492,6 +505,11 @@ to read. Nothing downloads a service-account key.
 order, the OIDC audience, and the one organization policy the script cannot
 change for you, and holds the recorded proof of a task running from a signed
 Slack event to a cited reply with nothing running locally.
+
+The last step is a console setting no script can make true: pointing the Slack
+app's Event Subscriptions at the deployed webhook. That, and the recorded
+failure cases checked against the deployed system, are in
+[docs/slack-setup.md](docs/slack-setup.md).
 
 ## Run the examples
 
