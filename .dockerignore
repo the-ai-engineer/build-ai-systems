@@ -1,0 +1,8 @@
+# Deny everything, then name what the build needs. The Dockerfile copies only
+# these paths anyway; this makes the guarantee structural, so no .env, no
+# credential, and no local artifact is ever inside the build context.
+*
+!pyproject.toml
+!uv.lock
+!app
+app/**/__pycache__

@@ -100,6 +100,11 @@ class PostgresPolicyRepository:
 
 
 def load_policy_directory(policy_directory: Path) -> list[SupportDocument]:
+    # Same reason as the migrations directory: seeding nothing is a failure to
+    # find the policies, not an approved policy set of size zero.
+    if not policy_directory.is_dir():
+        raise FileNotFoundError(f"no policy directory at {policy_directory}")
+
     documents = []
     for path in sorted(policy_directory.glob("*.md")):
         body = path.read_text(encoding="utf-8").strip()

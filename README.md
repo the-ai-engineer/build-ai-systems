@@ -204,6 +204,64 @@ loses anything undelivered.
 Real Slack needs a public HTTPS URL, so put a temporary tunnel in front of port
 8080 and use the real signing secret. See [docs/slack-setup.md](docs/slack-setup.md).
 
+## Build the container image
+
+One image holds both runtimes. Which one starts is the container command, so the
+webhook and the worker deploy the same digest and cannot drift apart.
+
+```bash
+scripts/build-and-push.sh              # build for linux/amd64 and push
+scripts/build-and-push.sh --no-push    # build only
+PROJECT_ID=... REGION=... TAG=... scripts/build-and-push.sh
+```
+
+It pushes to the Artifact Registry repository the provisioning script created,
+`europe-west1-docker.pkg.dev/build-ai-systems-dev/support-agent/support-agent`,
+tagged with the short commit and with `latest`. Deploy the commit tag: it names
+the code that is running. Cloud Run runs x86-64, so the build is `linux/amd64`
+even on an Apple Silicon machine.
+
+The image holds the application and its dependencies, and nothing else. No
+`.env`, no credential, and no `support_agent_app/testing`: the fixture adapters
+are deleted from the image, so a deployment cannot answer an employee from a
+canned model even if `WORKER_ADAPTER_MODE` is set by mistake. It also carries no
+`migrations/` and no `policies/`, because neither runtime reads them, so
+`apply-migrations` and `seed-policies` do not run inside it. They fail saying
+where they looked. Run them from a checkout.
+
+### Run the two runtimes locally
+
+Build it, then start each runtime with its own command. Postgres here is the
+local one, reached over the host loopback:
+
+```bash
+docker build -t support-agent:local .
+
+docker run --rm -p 8081:8080 \
+  -e DATABASE_URL="postgresql://user:password@host.docker.internal:5432/support_agent" \
+  -e SLACK_BOT_TOKEN="xoxb-..." \
+  support-agent:local \
+  uvicorn support_agent_app.worker.main:create_app --factory --host 0.0.0.0 --port 8080
+
+docker run --rm -p 8080:8080 \
+  -e DATABASE_URL="postgresql://user:password@host.docker.internal:5432/support_agent" \
+  -e SLACK_SIGNING_SECRET=demo-secret \
+  -e SLACK_ALLOWED_TEAM_IDS=T-demo -e SLACK_ALLOWED_CHANNEL_IDS=C-demo \
+  -e WORKER_BASE_URL=http://host.docker.internal:8081 \
+  support-agent:local
+```
+
+The webhook is the default command, so it needs none. `host.docker.internal`
+only works when Postgres accepts connections from outside loopback; a Postgres
+that listens on `localhost` alone is not reachable from a container, and the
+simplest answer there is to run Postgres in a container on the same Docker
+network and point both runtimes at it by name.
+
+The worker uses the real model and Slack adapters by default. Without cloud
+credentials in the container it will accept a request, claim it, and record
+`model_configuration` as the failure, which is the correct loud answer rather
+than a canned reply.
+
 ## Run the examples
 
 Install the Python dependencies:
@@ -277,6 +335,8 @@ policies/            The approved policy set, used by the app and the examples
 examples/            Small standalone AI engineering examples
   demos/             Runnable demos of the application slices
 slack/               Bootstrap and deployment-stage Slack app manifests
+Dockerfile           One image, both runtimes, selected by the command
+scripts/             Operator scripts, including the image build and push
 docs/                Application docs and the implementation contract
 MEMORY.md            Sanitized, non-authoritative coordination log
 tests/unit/          No network, no database, no model
