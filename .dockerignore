@@ -6,3 +6,7 @@
 !uv.lock
 !app
 app/**/__pycache__
+# The operator commands run from this image as Cloud Run jobs, so the schema
+# and the approved policy set travel with it. Neither runtime reads them.
+!migrations
+!policies
