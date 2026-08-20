@@ -59,15 +59,9 @@ SECRET_DATABASE_URL="database-url"
 IMAGE_MIGRATIONS_DIR=/srv/migrations
 IMAGE_POLICIES_DIR=/srv/policies
 
-# Model configuration. No API key: the worker's runtime identity holds
-# roles/aiplatform.user and Vertex AI authenticates it as that account.
-SUPPORT_AGENT_MODEL="${SUPPORT_AGENT_MODEL:-google-cloud:gemini-3.5-flash}"
-GOOGLE_CLOUD_LOCATION="${GOOGLE_CLOUD_LOCATION:-global}"
-
-# The worker's own budget, and the platform request timeout outside it. The
-# worker reserves time to record what happened, so Cloud Run must not cut the
-# request off first.
-WORKER_DEADLINE_SECONDS="${WORKER_DEADLINE_SECONDS:-55}"
+# The worker's own budget comes from config.toml. This is the platform request
+# timeout outside it. Cloud Run must not cut the request off before the worker
+# has reserved time to record what happened.
 WORKER_REQUEST_TIMEOUT="${WORKER_REQUEST_TIMEOUT:-120s}"
 
 # A development environment. Bounded so a runaway retry loop cannot bill for a
@@ -254,7 +248,7 @@ deploy_worker() {
     --args="support_agent_app.worker.main:create_app,--factory,--host,0.0.0.0,--port,8080" \
     --set-cloudsql-instances "$SQL_CONNECTION_NAME" \
     --set-secrets "DATABASE_URL=${SECRET_DATABASE_URL}:latest,SLACK_BOT_TOKEN=${SECRET_SLACK_BOT_TOKEN}:latest" \
-    --set-env-vars "^;^WORKER_TASK_AUTH=google-oidc;WORKER_BASE_URL=${url};TASK_OIDC_SERVICE_ACCOUNT=$(sa_email "$WEBHOOK_SA");WORKER_MODEL_SOURCE=configured;WORKER_SLACK_SINK=slack;WORKER_DEADLINE_SECONDS=${WORKER_DEADLINE_SECONDS};SUPPORT_AGENT_MODEL=${SUPPORT_AGENT_MODEL};GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}" \
+    --set-env-vars "^;^WORKER_BASE_URL=${url};TASK_OIDC_SERVICE_ACCOUNT=$(sa_email "$WEBHOOK_SA");GOOGLE_CLOUD_PROJECT=${PROJECT_ID}" \
     --timeout "$WORKER_REQUEST_TIMEOUT" \
     --max-instances "$MAX_INSTANCES" \
     --min-instances 0 >/dev/null

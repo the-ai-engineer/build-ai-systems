@@ -53,10 +53,14 @@ RUN useradd --system --create-home --uid 10001 support
 
 COPY --from=build --chown=root:root /srv/.venv /srv/.venv
 
+# Pydantic Settings reads safe application defaults from this file. Cloud Run
+# environment variables and Secret Manager values override it at runtime.
+COPY --chown=root:root config.toml /srv/config.toml
+
 # ARCHITECTURE rule 8: fixture adapters are never the production default.
-# WORKER_MODEL_SOURCE already defaults to "configured", so this is the second
-# lock rather than the first. Deleting them means a deployment cannot answer an
-# employee from a canned model even if someone asks for the fixture by mistake.
+# config.toml already selects "configured", so this is the second lock rather
+# than the first. Deleting them means a deployment cannot answer an employee
+# from a canned model even if someone asks for the fixture by mistake.
 #
 # The second half is the part that matters: if a base image moves to another
 # Python version the path changes, the delete quietly removes nothing, and the

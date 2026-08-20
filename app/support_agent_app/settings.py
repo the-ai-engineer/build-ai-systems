@@ -1,8 +1,8 @@
-"""Every environment value the application reads, declared in one place.
+"""Every application setting, declared and validated in one place.
 
-Separate classes so each runtime validates only what it needs. The worker needs
-a database and a model; the future webhook needs a Slack signing secret and no
-model credential at all.
+Safe defaults come from the root config.toml. Environment variables and local
+.env files override them. Separate classes ensure each runtime validates only
+what it needs and holds only the secrets it owns.
 """
 
 from __future__ import annotations
@@ -11,9 +11,13 @@ from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import Field, SecretStr, ValidationError, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    TomlConfigSettingsSource,
+)
 
-DEFAULT_MODEL = "google-cloud:gemini-3.5-flash"
 LOCAL_TASK_IDENTITY = "local-development-task"
 
 # Two independent switches, because the model and Slack are two separate
@@ -36,7 +40,11 @@ TaskAuthMode = Literal["google-oidc", "static"]
 # directory. A relative ".env" is resolved against the process's working
 # directory, so it is only found when a command happens to be run from the root.
 # Anchoring it here means `uv run seed-policies` works from anywhere in the tree.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SOURCE_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = (
+    SOURCE_PROJECT_ROOT if (SOURCE_PROJECT_ROOT / "pyproject.toml").is_file() else Path.cwd()
+)
+CONFIG_FILE = PROJECT_ROOT / "config.toml"
 
 # The root file first, a directory-local one second. Later files win, so a
 # deliberate .env beside the command still overrides the shared one.
@@ -52,8 +60,29 @@ class _BaseAppSettings(BaseSettings):
         env_file=ENV_FILES,
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
         protected_namespaces=(),
+        toml_file=CONFIG_FILE,
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Load explicit overrides before the committed safe defaults."""
+
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            file_secret_settings,
+            TomlConfigSettingsSource(settings_cls),
+        )
 
     @classmethod
     def load(cls) -> Self:
@@ -74,17 +103,18 @@ class _BaseAppSettings(BaseSettings):
                 raise
             raise MissingConfiguration(
                 f"{cls.__name__} is missing: {', '.join(missing)}.\n"
-                f"Set them in the environment, or copy .env.example to "
-                f"{PROJECT_ROOT / '.env'} and fill them in."
+                f"Set deployment values in the environment, or copy .env.example to "
+                f"{PROJECT_ROOT / '.env'} and fill them in. Safe defaults live in "
+                f"{CONFIG_FILE}."
             ) from error
 
 
 class ModelProviderSettings(_BaseAppSettings):
     """Model provider selection, resolved through Application Default Credentials."""
 
-    model_name: str = Field(default=DEFAULT_MODEL, validation_alias="SUPPORT_AGENT_MODEL")
+    model_name: str = Field(validation_alias="SUPPORT_AGENT_MODEL")
     google_cloud_project: str = ""
-    google_cloud_location: str = ""
+    google_cloud_location: str
 
 
 class WorkerBoundarySettings(_BaseAppSettings):
@@ -97,20 +127,20 @@ class WorkerBoundarySettings(_BaseAppSettings):
     # Defaults to the real check, like the worker's other switches, so a
     # deployment that forgets to configure identity refuses to start rather
     # than quietly accepting a shared string from anyone who guesses it.
-    worker_task_auth: TaskAuthMode = "google-oidc"
+    worker_task_auth: TaskAuthMode
 
     # The OIDC audience the worker accepts. It is the worker's own base URL,
     # because that is what `api/task_queue.py` puts in the token it mints.
-    worker_base_url: str = ""
+    worker_base_url: str
 
     # The one identity allowed to enqueue work: the webhook's service account,
     # named by the same variable the webhook itself reads.
     task_oidc_service_account: str = ""
 
     # Only used when worker_task_auth is "static".
-    worker_expected_task_identity: str = LOCAL_TASK_IDENTITY
+    worker_expected_task_identity: str
 
-    worker_deadline_seconds: float = 55.0
+    worker_deadline_seconds: float
 
     @model_validator(mode="after")
     def _require_oidc_settings(self) -> Self:
@@ -138,9 +168,9 @@ class WorkerSettings(_BaseAppSettings):
 
     # Both default to the real thing, so a misconfigured deployment fails loudly
     # instead of quietly answering from a canned model or dropping the reply.
-    worker_model_source: ModelSource = "configured"
-    worker_slack_sink: SlackSink = "slack"
-    worker_fake_fixture: str = "documented"
+    worker_model_source: ModelSource
+    worker_slack_sink: SlackSink
+    worker_fake_fixture: str
 
     slack_bot_token: SecretStr = SecretStr("")
 
@@ -163,19 +193,19 @@ class ApiSettings(_BaseAppSettings):
 
     # Where the queue delivers: the local worker, or the private Cloud Run
     # service. With Cloud Tasks this is also the OIDC audience.
-    worker_base_url: str = "http://127.0.0.1:8081"
+    worker_base_url: str
 
     # The static identity the local queue sends. Cloud Tasks sends an OIDC
     # token instead, so this is unused once the backend is "cloud-tasks".
-    worker_task_identity: str = LOCAL_TASK_IDENTITY
+    worker_task_identity: str
 
     # Defaults to the local queue, unlike the worker's switches, because the
     # rest of this class already defaults to a worker on localhost. Cloud Tasks
     # has no sensible default project, region, or identity, so a deployment
     # sets all four or the process refuses to start.
-    task_queue_backend: TaskQueueBackend = "local"
+    task_queue_backend: TaskQueueBackend
     task_queue_location: str = ""
-    task_queue_name: str = "support-requests"
+    task_queue_name: str
     google_cloud_project: str = ""
 
     # The identity Cloud Tasks mints the OIDC token for. It is the webhook's own

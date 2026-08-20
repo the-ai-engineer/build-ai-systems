@@ -40,7 +40,7 @@ app/support_agent_app/
   database/       Connections, migrations, repositories
   commands/       Deliberate operator actions
   testing/        Deterministic adapters, excluded from production
-  settings.py     All configuration
+  settings.py     Typed configuration loading and runtime-specific validation
 ```
 
 The layout is organised by **service**, not by technical role. Each runtime is one
@@ -147,6 +147,22 @@ Postgres owns everything, under one migration history in root `migrations/`.
 - `support_schema_migrations` records which migrations have run.
 
 Migrations are never applied at application startup. An operator runs `apply-migrations`.
+
+## Configuration
+
+Root `config.toml` is the canonical source for safe application defaults.
+`settings.py` loads it through Pydantic Settings and keeps separate models for
+the worker boundary, worker application, model provider, and webhook. Each
+runtime therefore validates only the values it needs and receives only the
+secrets it owns.
+
+Source priority is constructor values, environment variables, `.env`, file
+secrets, then `config.toml`. The committed TOML file contains no credential or
+deployment identity. Local secrets and machine-specific overrides live in the
+ignored `.env`; Cloud Run injects production secrets from Secret Manager as
+environment variables. The container image copies `config.toml` to `/srv`, its
+working directory, so local processes and deployed processes use the same safe
+defaults.
 
 ## The cloud development environment
 

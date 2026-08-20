@@ -1,0 +1,26 @@
+# Safe application defaults.
+#
+# Environment variables override these values in every runtime. Keep secrets,
+# deployment identifiers, and credentials out of this file. Local secrets and
+# machine-specific values belong in .env; production secrets come from Secret
+# Manager and arrive as normal environment variables.
+
+# Model provider
+model_name = "google-cloud:gemini-3.5-flash"
+google_cloud_location = "global"
+
+# Worker
+worker_model_source = "configured"
+worker_slack_sink = "slack"
+worker_fake_fixture = "documented"
+worker_deadline_seconds = 55.0
+
+# Worker HTTP boundary
+worker_task_auth = "google-oidc"
+worker_base_url = "http://127.0.0.1:8081"
+worker_expected_task_identity = "local-development-task"
+
+# Queue
+task_queue_backend = "local"
+worker_task_identity = "local-development-task"
+task_queue_name = "support-requests"

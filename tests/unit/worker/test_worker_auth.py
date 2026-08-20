@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import unittest
 from typing import Any
+from unittest import mock
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -28,7 +30,12 @@ WEBHOOK_SA = "support-webhook@build-ai-systems-dev.iam.gserviceaccount.com"
 def static_settings() -> WorkerBoundarySettings:
     """Boundary configuration for a local run, built without any environment."""
 
-    return WorkerBoundarySettings(worker_task_auth="static")
+    return WorkerBoundarySettings(
+        worker_task_auth="static",
+        worker_base_url="http://127.0.0.1:8081",
+        worker_expected_task_identity=LOCAL_TASK_IDENTITY,
+        worker_deadline_seconds=55.0,
+    )
 
 
 def oidc_settings() -> WorkerBoundarySettings:
@@ -36,6 +43,8 @@ def oidc_settings() -> WorkerBoundarySettings:
         worker_task_auth="google-oidc",
         worker_base_url=AUDIENCE,
         task_oidc_service_account=WEBHOOK_SA,
+        worker_expected_task_identity=LOCAL_TASK_IDENTITY,
+        worker_deadline_seconds=55.0,
     )
 
 
@@ -260,16 +269,24 @@ class GoogleOidcAuthenticatorTests(unittest.TestCase):
 
 class TaskAuthConfigurationTests(unittest.TestCase):
     def test_google_oidc_is_the_default_and_static_must_be_asked_for(self) -> None:
-        self.assertEqual(
-            WorkerBoundarySettings.model_fields["worker_task_auth"].default, "google-oidc"
-        )
+        with mock.patch.dict(
+            os.environ,
+            {"TASK_OIDC_SERVICE_ACCOUNT": WEBHOOK_SA},
+            clear=True,
+        ):
+            configured = WorkerBoundarySettings.load()
+        self.assertEqual(configured.worker_task_auth, "google-oidc")
         self.assertIsInstance(build_authenticator(oidc_settings()), GoogleOidcTaskAuthenticator)
         self.assertIsInstance(build_authenticator(static_settings()), StaticTaskAuthenticator)
 
     def test_oidc_without_an_audience_or_identity_refuses_to_start(self) -> None:
         with self.assertRaises(MissingConfiguration) as raised:
             WorkerBoundarySettings(
-                worker_task_auth="google-oidc", worker_base_url="", task_oidc_service_account=""
+                worker_task_auth="google-oidc",
+                worker_base_url="",
+                task_oidc_service_account="",
+                worker_expected_task_identity=LOCAL_TASK_IDENTITY,
+                worker_deadline_seconds=55.0,
             )
 
         self.assertIn("WORKER_BASE_URL", str(raised.exception))

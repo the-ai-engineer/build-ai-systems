@@ -12,6 +12,7 @@ import json
 import threading
 
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from support_agent_app.api.auth import (
     SIGNATURE_HEADER,
     TIMESTAMP_HEADER,
@@ -61,7 +62,12 @@ class EndToEndTests(PostgresTestCase):
                 service=service,
                 # The local identity check, chosen explicitly: the deployed
                 # default is Google OIDC and there is no Google identity here.
-                boundary_settings=WorkerBoundarySettings(worker_task_auth="static"),
+                boundary_settings=WorkerBoundarySettings(
+                    worker_task_auth="static",
+                    worker_base_url="http://127.0.0.1:8081",
+                    worker_expected_task_identity=LOCAL_TASK_IDENTITY,
+                    worker_deadline_seconds=DEFAULT_WORKER_DEADLINE_SECONDS,
+                ),
                 deadline_seconds=DEFAULT_WORKER_DEADLINE_SECONDS,
             ),
             host="127.0.0.1",
@@ -90,9 +96,13 @@ class EndToEndTests(PostgresTestCase):
                 create_webhook(
                     settings=ApiSettings(
                         database_url=self.database_url,
-                        slack_signing_secret=SECRET,
+                        slack_signing_secret=SecretStr(SECRET),
                         slack_allowed_team_ids=TEAM,
                         slack_allowed_channel_ids=CHANNEL,
+                        worker_base_url=worker_url,
+                        worker_task_identity=LOCAL_TASK_IDENTITY,
+                        task_queue_backend="local",
+                        task_queue_name="support-requests",
                     ),
                     verifier=verifier,
                     requests=PostgresSupportRepository(self.database_url),

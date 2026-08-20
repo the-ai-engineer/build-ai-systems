@@ -4,6 +4,7 @@
 *
 !pyproject.toml
 !uv.lock
+!config.toml
 !app
 app/**/__pycache__
 # The operator commands run from this image as Cloud Run jobs, so the schema
