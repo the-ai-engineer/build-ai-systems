@@ -13,6 +13,9 @@ Two runtimes share one Python package, `app/support_agent_app`, and deploy indep
 | Webhook | `api/main.py` | Public. Accepts Slack events. | Built |
 | Commands | `commands/` | Operator only. | Built |
 
+Both runtimes ship as one container image, selected by the command. See
+**The container image** below.
+
 The worker is a FastAPI application with one route, `POST /tasks/process-support-request`.
 Run it locally with:
 
@@ -150,6 +153,54 @@ stdin. They are never printed, logged, or placed on a command line. The database
 password is generated once, stored inside the `database-url` secret, and reused
 on every later run, so re-provisioning does not rotate a credential a running
 service is holding.
+
+## The container image
+
+One root `Dockerfile` builds one image, and the container command decides which
+runtime starts:
+
+```
+uvicorn support_agent_app.api.main:create_app    --factory --host 0.0.0.0 --port 8080
+uvicorn support_agent_app.worker.main:create_app --factory --host 0.0.0.0 --port 8080
+```
+
+Nothing else differs. The webhook and the worker are the same code with
+different composition roots, so making them different images would mean two
+builds that can drift and two digests to reason about when one of them
+misbehaves. The later maintenance jobs override the command the same way.
+
+`scripts/build-and-push.sh` builds it for `linux/amd64`, which is what Cloud Run
+runs, and pushes it to `europe-west1-docker.pkg.dev/build-ai-systems-dev/support-agent/support-agent`.
+The tag is the short commit, so a deployment names the code it is running.
+
+The build has two stages. The first resolves dependencies from `uv.lock` with
+`uv sync --frozen`, then installs the application with `--no-editable` so the
+virtual environment holds a real copy. The second stage carries that virtual
+environment onto a plain Python base and runs as an unprivileged user that does
+not own it.
+
+What is deliberately not in the image:
+
+- No `.env` and no credential. The build context is denied by default and the
+  Dockerfile copies `pyproject.toml`, `uv.lock`, and `app/` only. Configuration
+  arrives as environment variables and secrets at deploy time.
+- No `support_agent_app/testing`. `WORKER_MODEL_SOURCE` already defaults to
+  `configured` and `WORKER_SLACK_SINK` to `slack` (rule 8), and deleting the
+  package makes that structural: a deployment cannot answer an employee from a
+  canned model even if someone sets `WORKER_MODEL_SOURCE=fixture` by mistake. It
+  fails with `ModuleNotFoundError` instead. `demo-workflow` is in the image and
+  fails the same way, which is correct: a demo is not something a deployment
+  runs.
+- No `migrations/` and no `policies/`. Neither runtime reads them, because
+  migrations are an operator action and policies come from the database.
+
+That last one has a consequence. `apply-migrations` and `seed-policies` resolve
+those directories relative to their own module, so inside the image they resolve
+to a path that does not exist. `apply_migrations` used to glob an absent
+directory, find nothing, and print "Migrations are up to date" over an empty
+schema. Both now fail with the path they looked in. Running the operator
+commands from this image is a separate piece of work, and it belongs with the
+maintenance job that needs it.
 
 ## Trust boundaries
 

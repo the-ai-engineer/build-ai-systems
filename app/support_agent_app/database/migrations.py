@@ -15,6 +15,11 @@ def apply_migrations(
 
     if not database_url:
         raise ValueError("database_url is required")
+    # An absent directory used to glob to nothing and report success, so a
+    # command run where the repository files are not present, such as inside
+    # the container image, said "up to date" over an empty schema.
+    if not migrations_directory.is_dir():
+        raise FileNotFoundError(f"no migrations directory at {migrations_directory}")
 
     from psycopg import connect
 
