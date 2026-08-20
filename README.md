@@ -30,6 +30,23 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for how the system is put together today,
 [PYTHON_STANDARDS.md](PYTHON_STANDARDS.md) is the coding and structure standard for this repository.
 Use [docs/slack-setup.md](docs/slack-setup.md) and the versioned manifests in `slack/` to configure the course Slack app without enabling event delivery before the webhook exists.
 
+## Configuration
+
+[`config.toml`](config.toml) is the canonical source for safe application
+defaults such as the model, worker deadline, authentication mode, and local
+queue settings. The Pydantic Settings classes in
+`app/support_agent_app/settings.py` load and validate it separately for the
+worker and webhook runtimes.
+
+Configuration precedence is explicit: constructor values, environment
+variables, `.env`, then `config.toml`. Copy `.env.example` to `.env` for local
+secrets, deployment identifiers, and machine-specific overrides. Cloud Run
+receives production secrets from Secret Manager as environment variables.
+The Google Cloud project and location also remain environment-owned because
+they select the deployment and its data-residency boundary.
+Never put a database URL, Slack token, signing secret, or credential in
+`config.toml`.
+
 ## Run the local policy agent
 
 The first application slice runs with synthetic fixtures and a deterministic Pydantic AI model.
@@ -554,6 +571,7 @@ cost a few cents.
 ```text
 ARCHITECTURE.md      How the system is put together today
 PYTHON_STANDARDS.md  Coding and project structure standard
+config.toml          Safe application defaults loaded by Pydantic Settings
 brief.md             Customer problem and first-release requirements
 app/support_agent_app/
   api/               The public Slack webhook, whole

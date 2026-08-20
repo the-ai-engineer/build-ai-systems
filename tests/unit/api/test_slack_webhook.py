@@ -4,6 +4,7 @@ import json
 import unittest
 
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from support_agent_app.api.auth import (
     SIGNATURE_HEADER,
     TIMESTAMP_HEADER,
@@ -21,9 +22,13 @@ NOW = 1_700_000_000
 def settings() -> ApiSettings:
     return ApiSettings(
         database_url="postgresql://unused",
-        slack_signing_secret=SECRET,
+        slack_signing_secret=SecretStr(SECRET),
         slack_allowed_team_ids="T-allowed",
         slack_allowed_channel_ids="C-allowed",
+        worker_base_url="http://127.0.0.1:8081",
+        worker_task_identity="local-development-task",
+        task_queue_backend="local",
+        task_queue_name="support-requests",
     )
 
 
