@@ -101,7 +101,11 @@ Then, in the worker:
 
 ### The queue between them
 
-`LocalTaskQueue` is the explicit local stand-in for Cloud Tasks, because Google Cloud has no supported emulator and the course does not add a third-party one. It keeps the shape that matters: enqueue returns immediately, delivery happens later on another thread, a duplicate task name is rejected, and a 503 is retried with backoff. Tasks live in memory and do not survive a restart. Cloud Tasks replaces that one class.
+`TaskQueue` has two implementations and `api/main.py` chooses between them by configuration. `TASK_QUEUE_BACKEND=cloud-tasks` selects `CloudTasksQueue`; anything else selects the local stand-in. No other module names either class.
+
+`CloudTasksQueue` creates one HTTP task per accepted request. The task name is the full resource path ending in `task_name_for(...)`, so a Slack retry asks for a name the queue already holds and the API answers `AlreadyExists`. The adapter turns that into `TaskAlreadyQueuedError`, which `accept_and_queue` already treats as queued rather than failed. Google's deduplication only lasts about an hour after a task finishes; the request row, keyed by Slack event ID, is the durable guard. The task body carries the request ID and nothing else, and the worker is private, so each task carries an OIDC token Cloud Tasks mints for the webhook's own service account. Verifying that token on the worker, and the `run.invoker` binding that lets the token through, are not built yet.
+
+`LocalTaskQueue` is the explicit local stand-in, because Google Cloud has no supported emulator and the course does not add a third-party one. It keeps the shape that matters: enqueue returns immediately, delivery happens later on another thread, a duplicate task name is rejected, and a 503 is retried with backoff. Tasks live in memory and do not survive a restart. It is the one class Cloud Tasks replaces, and swapping them changes nothing above the `TaskQueue` protocol.
 
 Because delivery is genuinely concurrent, the worker can claim a request and move it to `processing` before the webhook finishes writing `queued`. That is the system winning a race, not an error, so `mark_queued` becomes a no-op once the request has moved on under a claim.
 
@@ -115,6 +119,40 @@ Postgres owns everything, under one migration history in root `migrations/`.
 - `support_schema_migrations` records which migrations have run.
 
 Migrations are never applied at application startup. An operator runs `apply-migrations`.
+
+## The cloud development environment
+
+Google Cloud project `build-ai-systems-dev`, region `europe-west1`, built by
+`scripts/provision-dev.sh` and removed by `scripts/teardown-dev.sh`. Nothing is
+deployed into it yet. This is the ground the deployment work stands on, not the
+deployment.
+
+| Resource | Name | Holds |
+|---|---|---|
+| Artifact Registry | `support-agent` | Container images |
+| Cloud SQL Postgres 17 | `support-agent-dev`, `db-f1-micro` | The `support_agent` database |
+| Cloud Tasks | `support-requests` | Ten concurrent dispatches, five per second, five attempts |
+| Secret Manager | `slack-bot-token`, `slack-signing-secret`, `database-url` | The three credentials |
+
+Each runtime gets its own identity and only the access it needs:
+
+| Identity | Project roles | Secrets it can read |
+|---|---|---|
+| `support-webhook` | `cloudsql.client`, `cloudtasks.enqueuer` | `slack-signing-secret`, `database-url` |
+| `support-worker` | `cloudsql.client`, `aiplatform.user` | `slack-bot-token`, `database-url` |
+| `support-maintenance` | `cloudsql.client` | `database-url` |
+
+The webhook cannot post to Slack and the worker cannot enqueue tasks, which is
+the same split the code already makes. Cloud Run invoker bindings do not exist
+yet, because no service is deployed. `CloudTasksQueue` targets this queue and
+mints its OIDC token for `support-webhook`, so that is the identity the invoker
+binding and the worker's token check will have to accept.
+
+Secret values are read from a local `.env` and piped into Secret Manager on
+stdin. They are never printed, logged, or placed on a command line. The database
+password is generated once, stored inside the `database-url` secret, and reused
+on every later run, so re-provisioning does not rotate a credential a running
+service is holding.
 
 ## The container image
 
@@ -146,10 +184,13 @@ What is deliberately not in the image:
 - No `.env` and no credential. The build context is denied by default and the
   Dockerfile copies `pyproject.toml`, `uv.lock`, and `app/` only. Configuration
   arrives as environment variables and secrets at deploy time.
-- No `support_agent_app/testing`. `WORKER_ADAPTER_MODE` already defaults to
-  `configured` (rule 8), and deleting the package makes that structural: a
-  deployment cannot answer an employee from a canned model even if someone sets
-  the variable by mistake. It fails with `ModuleNotFoundError` instead.
+- No `support_agent_app/testing`. `WORKER_MODEL_SOURCE` already defaults to
+  `configured` and `WORKER_SLACK_SINK` to `slack` (rule 8), and deleting the
+  package makes that structural: a deployment cannot answer an employee from a
+  canned model even if someone sets `WORKER_MODEL_SOURCE=fixture` by mistake. It
+  fails with `ModuleNotFoundError` instead. `demo-workflow` is in the image and
+  fails the same way, which is correct: a demo is not something a deployment
+  runs.
 - No `migrations/` and no `policies/`. Neither runtime reads them, because
   migrations are an operator action and policies come from the database.
 
@@ -178,7 +219,7 @@ Send failures are split three ways, because the correct recovery differs:
 - **Uncertain**: the send began and the outcome is unknown. Never blindly retried, because the employee may already have a reply.
 - **Success**: recorded with the Slack message timestamp.
 
-A claim is a fencing token. A worker whose lease has expired and been taken over cannot change durable state; it gets `StaleClaimError`. `examples/demos/run_state_machine.py` demonstrates this.
+A claim is a fencing token. A worker whose lease has expired and been taken over cannot change durable state; it gets `StaleClaimError`. `app/support_agent_app/demos/run_state_machine.py` demonstrates this.
 
 Retryable outcomes surface as HTTP 503 so the queue retries. Permanent failures do not.
 
@@ -224,14 +265,24 @@ This is no longer a layering violation now that it lives inside the worker, whic
 
 This is a decision, not a deferral. Inverting it means adding a classifier parameter to `WorkerService` and threading it through every call site and test, so that one thirteen-line function can move one directory. The mapping is small, tested, and in one place, and the rule it breaks exists to stop provider details leaking into orchestration, which is not happening here. It stays until a second provider makes the abstraction real.
 
+**Provisioning lives in `scripts/`, not `infra/`.**
+`PYTHON_STANDARDS.md` puts versioned infrastructure and deployment configuration
+in `infra/`. There is no infrastructure configuration here, versioned or
+otherwise: there are two bash scripts an operator runs. Naming a directory after
+a category the repository does not yet have would send a reader looking for
+manifests that do not exist. Introduce `infra/` when there is deployment
+configuration to version, and move the scripts under it then.
+
+There is also no Terraform. The course teaches the application, and a second
+tool with its own state, providers, and failure modes would compete with that
+for a student's attention. Two readable scripts show the same resources and the
+same reasons.
+
 **`ARCHITECTURE.md` exists before the design lesson.**
 The course has students write their own architecture document first. This file is the reference they compare against afterwards, not a substitute for that exercise.
 
 **Root holds course documents.**
 `brief.md`, `MEMORY.md`, and `docs/` are teaching artifacts, not application structure.
-
-**No `CloudTasksQueue` yet.**
-`api/task_queue.py` holds only the local adapter. The Cloud Tasks client belongs to the queue-integration lesson, needs a Google Cloud project to verify, and would otherwise be untested code shipped on the strength of a docstring. `TaskQueue` in `protocols.py` is the seam it drops into, and `task_name_for` already implements the deterministic naming rule both adapters need.
 
 **`SupportRequestStore` has fifteen methods and one implementation.**
 That is more surface than an interface usually earns. It stays because it is the boundary that keeps `WorkerService` free of Postgres, which is the system's central design claim, and because a type checker verifies the match where `worker/main.py` passes the repository in. Writing it caught nine signature mismatches. `PostgresSupportRepository` deliberately does not inherit from it: a `Protocol` subclass silently inherits `...` bodies for anything it fails to implement, which would turn drift into a `None` return at runtime instead of a type error.

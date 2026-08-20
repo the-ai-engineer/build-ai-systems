@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 
 
-POLICY_DIR = Path(__file__).parents[1] / "policies"
+POLICY_DIR = Path(__file__).parents[2] / "policies"
 MODEL_NAME = "openai:gpt-5.6"
 
 
@@ -73,7 +73,7 @@ policy_agent = Agent(
 
 
 def main() -> None:
-    load_dotenv(Path(__file__).with_name(".env"))
+    load_dotenv(Path(__file__).parents[1] / ".env")
 
     parser = argparse.ArgumentParser(description="Whole-document RAG with two tools.")
     parser.add_argument(

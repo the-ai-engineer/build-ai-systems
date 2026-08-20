@@ -17,7 +17,7 @@ from openai import OpenAI
 from pydantic import BaseModel
 
 
-POLICY_DIR = Path(__file__).parents[1] / "policies"
+POLICY_DIR = Path(__file__).parents[2] / "policies"
 EMBEDDING_MODEL = "text-embedding-3-small"
 
 
@@ -140,7 +140,7 @@ def extract_title(markdown: str, fallback: str) -> str:
 
 
 def main() -> None:
-    load_dotenv(Path(__file__).with_name(".env"))
+    load_dotenv(Path(__file__).parents[1] / ".env")
 
     parser = argparse.ArgumentParser(description="Combine exact and semantic retrieval.")
     parser.add_argument(

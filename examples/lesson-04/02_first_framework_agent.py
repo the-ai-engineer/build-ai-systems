@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
-load_dotenv(Path(__file__).with_name(".env"))
+load_dotenv(Path(__file__).parents[1] / ".env")
 
 
 OPENAI_MODEL = "openai:gpt-5.6"

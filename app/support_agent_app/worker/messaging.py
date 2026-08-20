@@ -7,10 +7,13 @@ errors that tell them whether a retry is safe.
 from __future__ import annotations
 
 import json
+import logging
 
 import httpx
 
 from ..application.failures import SlackSendError, SlackSendUncertainError
+
+logger = logging.getLogger(__name__)
 
 SLACK_API_BASE_URL = "https://slack.com/api"
 
@@ -21,6 +24,40 @@ RETRYABLE_SLACK_ERROR_CODES = frozenset(
         "service_unavailable",
     }
 )
+
+
+class RecordingSlackClient:
+    """Accept a reply without sending it anywhere.
+
+    For running the system without a Slack workspace. It is not a test double:
+    the reply text is already durable in `outbound_actions` before any send is
+    attempted, so the employee-visible text is in Postgres either way. This only
+    decides whether the network is involved.
+
+    It returns a synthetic message timestamp so the lifecycle completes exactly
+    as it would after a real send.
+    """
+
+    def __init__(self) -> None:
+        self.sent = 0
+
+    def post_thread_reply(
+        self,
+        *,
+        channel_id: str,
+        thread_ts: str,
+        text: str,
+        timeout_seconds: float,
+    ) -> str:
+        self.sent += 1
+        # Length only. The complete message text never reaches a log (INV-9).
+        logger.info(
+            "recorded a %s character reply for channel %s thread %s instead of sending it",
+            len(text),
+            channel_id,
+            thread_ts,
+        )
+        return f"recorded.{self.sent:06d}"
 
 
 class SlackWebApiClient:

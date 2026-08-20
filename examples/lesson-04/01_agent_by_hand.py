@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import BaseModel
 
-load_dotenv(Path(__file__).with_name(".env"))
+load_dotenv(Path(__file__).parents[1] / ".env")
 
 
 if not os.getenv("OPENAI_API_KEY"):
