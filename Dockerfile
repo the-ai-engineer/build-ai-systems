@@ -64,6 +64,18 @@ COPY --from=build --chown=root:root /srv/.venv /srv/.venv
 RUN rm -rf /srv/.venv/lib/python*/site-packages/support_agent_app/testing \
     && ! python -c "import support_agent_app.testing" 2>/dev/null
 
+# The schema and the approved policy set, for the operator commands only.
+# Neither runtime reads them: the webhook and the worker read the database, and
+# ARCHITECTURE rule 7 keeps schema out of startup. They are here because
+# `apply-migrations` and `seed-policies` run as Cloud Run jobs from this same
+# image, and a job cannot apply a migration it does not carry.
+#
+# A fixed path, not one relative to the installed package. Both commands take
+# the directory as an argument, so the path the job passes is the path the
+# image holds and nothing resolves it by guesswork.
+COPY --chown=root:root migrations /srv/migrations
+COPY --chown=root:root policies /srv/policies
+
 WORKDIR /srv
 USER support
 

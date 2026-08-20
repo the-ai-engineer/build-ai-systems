@@ -21,7 +21,7 @@ that link and this table have to agree.
 | 9 | Add the Queue and Background Worker | `app/support_agent_app/api/task_queue.py`, `app/support_agent_app/worker/`, `app/support_agent_app/demos/run_state_machine.py` |
 | 10 | Complete the Production Behaviour | `app/support_agent_app/application/lifecycle.py`, `app/support_agent_app/database/repositories/`, `tests/functional/database/` |
 | 11 | Test and Evaluate the AI System | `app/support_agent_app/testing/fixtures.py`, `tests/unit/worker/agent/test_support_workflow.py`, `tests/evals/` |
-| 12 | Deploy and Operate on Google Cloud | Planned: deployment configuration, Cloud Tasks adapter behind the existing `TaskQueue` protocol, operational checks |
+| 12 | Deploy and Operate on Google Cloud | `Dockerfile`, `scripts/provision-dev.sh`, `scripts/build-and-push.sh`, `scripts/deploy-dev.sh`, `docs/deploying-to-cloud-run.md`, `docs/worker-authentication.md`. Planned: recovery and retention jobs, their schedules, operational checks |
 
 ## Commands the lessons tell students to run
 

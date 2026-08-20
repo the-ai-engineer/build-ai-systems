@@ -420,15 +420,20 @@ tagged with the short commit and with `latest`. Deploy the commit tag: it names
 the code that is running. Cloud Run runs x86-64, so the build is `linux/amd64`
 even on an Apple Silicon machine.
 
-The image holds the application and its dependencies, and nothing else. No
-`.env`, no credential, and no `support_agent_app/testing`: the fixture adapters
-are deleted from the image, so a deployment cannot answer an employee from a
-canned model even if `WORKER_MODEL_SOURCE=fixture` is set by mistake. The demo
-commands are in the image and fail the same way, which is the point. It also
-carries no
-`migrations/` and no `policies/`, because neither runtime reads them, so
-`apply-migrations` and `seed-policies` do not run inside it. They fail saying
-where they looked. Run them from a checkout.
+The image holds the application, its dependencies, and the operator files, and
+nothing else. No `.env`, no credential, and no `support_agent_app/testing`: the
+fixture adapters are deleted from the image, so a deployment cannot answer an
+employee from a canned model even if `WORKER_MODEL_SOURCE=fixture` is set by
+mistake. The demo commands are in the image and fail the same way, which is the
+point.
+
+`migrations/` and `policies/` are in the image at `/srv/migrations` and
+`/srv/policies`, and no runtime reads either. They are there because
+`apply-migrations` and `seed-policies` run from this same image as Cloud Run
+jobs, and a job cannot apply a migration it does not carry. Both commands take
+`--migrations-dir` and `--policies-dir`, so the job names the path rather than
+relying on a relative resolution that inside the image lands in the virtual
+environment.
 
 ### Run the two runtimes locally
 
@@ -464,6 +469,29 @@ credentials in the container it will accept a request, claim it, and record
 `model_configuration` as the failure, which is the correct loud answer rather
 than a canned reply. Add `-e WORKER_SLACK_SINK=record` to keep the reply in
 Postgres instead of sending it.
+
+## Deploy to Cloud Run
+
+Two services and two jobs, all from the image above:
+
+```bash
+SLACK_ALLOWED_TEAM_IDS=T... SLACK_ALLOWED_CHANNEL_IDS=C... \
+  scripts/deploy-dev.sh
+
+TAG=abc1234 scripts/deploy-dev.sh          # deploy a specific build
+scripts/deploy-dev.sh --skip-migrations    # services only, schema unchanged
+```
+
+It applies the schema and seeds the policy set as two Cloud Run jobs **before**
+either service exists, then deploys the private worker, grants the one identity
+that may invoke it, and deploys the public webhook last. Each of the four runs
+as its own service account and reads only the secrets that identity is allowed
+to read. Nothing downloads a service-account key.
+
+[docs/deploying-to-cloud-run.md](docs/deploying-to-cloud-run.md) explains the
+order, the OIDC audience, and the one organization policy the script cannot
+change for you, and holds the recorded proof of a task running from a signed
+Slack event to a cited reply with nothing running locally.
 
 ## Run the examples
 
@@ -542,7 +570,7 @@ examples/            Small standalone examples, one folder per lesson
   demos/             Runnable demos of the application slices
 slack/               Bootstrap and deployment-stage Slack app manifests
 Dockerfile           One image, both runtimes, selected by the command
-scripts/             Provision the cloud environment, build and push the image
+scripts/             Provision the cloud environment, build the image, deploy it
 docs/                Application docs and the implementation contract
 MEMORY.md            Sanitized, non-authoritative coordination log
 tests/unit/          No network, no database, no model
@@ -550,4 +578,4 @@ tests/functional/    Real Postgres, stubbed agent
 tests/evals/         Real model, skipped without credentials
 ```
 
-Slack ingress, queues, cloud deployment, and operational checks are added by later linked implementation tasks.
+The recovery and retention jobs, their schedules, and the operational checks are added by later linked implementation tasks.

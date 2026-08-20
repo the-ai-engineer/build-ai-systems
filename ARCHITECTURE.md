@@ -151,9 +151,9 @@ Migrations are never applied at application startup. An operator runs `apply-mig
 ## The cloud development environment
 
 Google Cloud project `build-ai-systems-dev`, region `europe-west1`, built by
-`scripts/provision-dev.sh` and removed by `scripts/teardown-dev.sh`. Nothing is
-deployed into it yet. This is the ground the deployment work stands on, not the
-deployment.
+`scripts/provision-dev.sh` and removed by `scripts/teardown-dev.sh`. This is the
+ground the deployment stands on; **Deployment topology** below is what runs on
+it.
 
 | Resource | Name | Holds |
 |---|---|---|
@@ -180,10 +180,11 @@ Asking Cloud Tasks to mint a token as an account means acting as it, so the
 webhook holds `iam.serviceAccountUser` on its own identity and on nothing else.
 `run.invoker` is granted on the worker's Cloud Run service, which the
 provisioning script does not create: until the first deploy it reports that the
-service is missing and grants nothing, and the binding lands on the next run.
-The same step removes `allUsers` and `allAuthenticatedUsers` if either ever
-appears on the worker, because the worker is private and a public invoker is not
-a configuration choice it offers.
+service is missing and grants nothing. `scripts/deploy-dev.sh` grants the same
+binding immediately after it deploys the worker, so provisioning does not have
+to be run a second time. Both steps remove `allUsers` and
+`allAuthenticatedUsers` if either ever appears on the worker, because the worker
+is private and a public invoker is not a configuration choice it offers.
 
 Secret values are read from a local `.env` and piped into Secret Manager on
 stdin. They are never printed, logged, or placed on a command line. The database
@@ -228,16 +229,63 @@ What is deliberately not in the image:
   fails with `ModuleNotFoundError` instead. `demo-workflow` is in the image and
   fails the same way, which is correct: a demo is not something a deployment
   runs.
-- No `migrations/` and no `policies/`. Neither runtime reads them, because
-  migrations are an operator action and policies come from the database.
+What is in the image but no runtime reads: `migrations/` and `policies/`, at
+`/srv/migrations` and `/srv/policies`. The operator commands run from this same
+image as Cloud Run jobs, and a job cannot apply a migration it does not carry.
+The webhook and the worker still never read either one: migrations are an
+operator action and policies come from the database.
 
-That last one has a consequence. `apply-migrations` and `seed-policies` resolve
-those directories relative to their own module, so inside the image they resolve
-to a path that does not exist. `apply_migrations` used to glob an absent
-directory, find nothing, and print "Migrations are up to date" over an empty
-schema. Both now fail with the path they looked in. Running the operator
-commands from this image is a separate piece of work, and it belongs with the
-maintenance job that needs it.
+Both commands take the directory as an argument. They resolve their defaults
+relative to their own module, which is the repository root in a checkout and a
+path inside the virtual environment in the image, so the jobs name
+`/srv/migrations` and `/srv/policies` rather than leaving a fixed path to be
+found by a relative resolution that was never going to reach it. Naming a
+directory an operator command will change is an operator's choice anyway.
+
+Neither command can succeed over an absent directory. `apply_migrations` used to
+glob one, find nothing, and print "Migrations are up to date" over an empty
+schema; both now fail with the path they looked in.
+
+## Deployment topology
+
+`scripts/deploy-dev.sh` puts that one image into four places, and the order it
+uses is the only real safety property it has:
+
+| Order | Cloud Run resource | Runs as | Command |
+|---|---|---|---|
+| 1 | job `support-migrate` | `support-maintenance` | `apply-migrations --migrations-dir /srv/migrations` |
+| 2 | job `support-seed-policies` | `support-maintenance` | `seed-policies --migrations-dir … --policies-dir …` |
+| 3 | service `support-worker` | `support-worker` | `uvicorn support_agent_app.worker.main:create_app` |
+| 4 | service `support-webhook` | `support-webhook` | `uvicorn support_agent_app.api.main:create_app` |
+
+Both jobs finish before either service exists, so there is no window in which a
+request can reach a schema that is not there (rule 7). The `run.invoker` binding
+is granted between 3 and 4, so the private worker has exactly one permitted
+caller before anything can send it work.
+
+Services are deployed by digest, not by tag, because a tag can move between two
+`gcloud run deploy` calls and "both services run the same build" would then be
+something the script hoped for rather than something it did.
+
+`WORKER_BASE_URL` is one value set on both services: the audience Cloud Tasks
+writes into the token, and the audience the worker accepts. A service has no URL
+until it exists, so the first deploy predicts the default Cloud Run hostname from
+the service name and project number, then reads back the URL Cloud Run issued and
+corrects the variable if they differ. They did differ on the first deploy here.
+Cloud Run answers on both hostnames but only one can be the audience, and a
+worker holding the other rejects every task with a 401 that looks like a broken
+IAM binding.
+
+The webhook is public, which the organization's
+`constraints/iam.allowedPolicyMemberDomains` policy forbids by default: `allUsers`
+is not a permitted member. This project holds a deliberate exception, recorded in
+`docs/deploying-to-cloud-run.md`, because Slack presents no Google identity. The
+exception is project-wide, since the constraint has no per-resource form, so the
+worker's privacy rests on its own bindings and its token check rather than on
+that policy.
+
+`docs/deploying-to-cloud-run.md` holds the recorded proof that a task flows from
+a signed Slack event to a cited reply with nothing running locally.
 
 ## Trust boundaries
 
@@ -328,6 +376,6 @@ That is more surface than an interface usually earns. It stays because it is the
 `format_slack_reply` chooses different user-visible text when `reason_code == "off_topic"`. That code is chosen by the model, and it is not stable: the same prompt-injection attempt came back as `off_topic` on one run and semantically identical refusals came back as `unsupported`. The refusal itself is reliable; the label is not. The evals therefore assert the decision and not the code. Branching user-visible behaviour on the label is a known weakness.
 
 **Pyright is not yet clean.**
-It reports 259 errors, against 261 on the same code before this structure existed.
+It reports 289 errors, against 261 on the same code before this structure existed.
 They are dominated by psycopg query-overload typing in the repository modules and by untyped row access in the integration tests, neither of which this change introduced.
 `ruff check` and `ruff format --check` are clean.
