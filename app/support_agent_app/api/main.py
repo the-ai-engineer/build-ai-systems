@@ -43,7 +43,7 @@ from .auth import (
     InvalidSlackSignatureError,
     SlackSignatureVerifier,
 )
-from .task_queue import LocalTaskQueue
+from .task_queue import CloudTasksQueue, LocalTaskQueue
 
 logger = logging.getLogger(__name__)
 
@@ -85,11 +85,7 @@ def create_app(
     allowed_channels = resolved.allowed_channel_ids()
 
     owns_queue = queue is None
-    selected_queue: TaskQueue = queue or LocalTaskQueue(
-        worker_base_url=resolved.worker_base_url,
-        task_identity=resolved.worker_task_identity,
-        identity_header=TASK_IDENTITY_HEADER,
-    )
+    selected_queue: TaskQueue = queue or build_task_queue(resolved)
     selected_requests = requests or PostgresSupportRepository(resolved.database_url)
 
     # The webhook owns the local queue's dispatcher thread only when it built
@@ -170,6 +166,28 @@ def create_app(
         return Response(status_code=200)
 
     return app
+
+
+def build_task_queue(settings: ApiSettings) -> TaskQueue:
+    """Choose the queue this deployment enqueues to.
+
+    This function and `create_app` are the only places that name a concrete
+    adapter. Everything downstream sees `TaskQueue`.
+    """
+
+    if settings.task_queue_backend == "cloud-tasks":
+        return CloudTasksQueue(
+            project_id=settings.google_cloud_project,
+            location=settings.task_queue_location,
+            queue_name=settings.task_queue_name,
+            worker_base_url=settings.worker_base_url,
+            service_account_email=settings.task_oidc_service_account,
+        )
+    return LocalTaskQueue(
+        worker_base_url=settings.worker_base_url,
+        task_identity=settings.worker_task_identity,
+        identity_header=TASK_IDENTITY_HEADER,
+    )
 
 
 def normalize_app_mention(

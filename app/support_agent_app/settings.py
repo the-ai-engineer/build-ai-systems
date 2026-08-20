@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import Field, SecretStr, ValidationError
+from pydantic import Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_MODEL = "google-cloud:gemini-3.5-flash"
@@ -21,6 +21,10 @@ LOCAL_TASK_IDENTITY = "local-development-task"
 # impossible, which is the most common local setup there is.
 ModelSource = Literal["configured", "fixture"]
 SlackSink = Literal["slack", "record"]
+
+# Which queue the webhook hands work to. "local" is the in-process stand-in for
+# development; "cloud-tasks" is the deployed one.
+TaskQueueBackend = Literal["local", "cloud-tasks"]
 
 # The repository root, found from this file rather than from the current
 # directory. A relative ".env" is resolved against the process's working
@@ -120,9 +124,43 @@ class ApiSettings(_BaseAppSettings):
     slack_allowed_team_ids: str = ""
     slack_allowed_channel_ids: str = ""
 
-    # Where the local queue adapter delivers. Cloud Tasks replaces this.
+    # Where the queue delivers: the local worker, or the private Cloud Run
+    # service. With Cloud Tasks this is also the OIDC audience.
     worker_base_url: str = "http://127.0.0.1:8081"
+
+    # The static identity the local queue sends. Cloud Tasks sends an OIDC
+    # token instead, so this is unused once the backend is "cloud-tasks".
     worker_task_identity: str = LOCAL_TASK_IDENTITY
+
+    # Defaults to the local queue, unlike the worker's switches, because the
+    # rest of this class already defaults to a worker on localhost. Cloud Tasks
+    # has no sensible default project, region, or identity, so a deployment
+    # sets all four or the process refuses to start.
+    task_queue_backend: TaskQueueBackend = "local"
+    task_queue_location: str = ""
+    task_queue_name: str = "support-requests"
+    google_cloud_project: str = ""
+
+    # The identity Cloud Tasks mints the OIDC token for. It is the webhook's own
+    # service account, and it is what the private worker must accept.
+    task_oidc_service_account: str = ""
+
+    @model_validator(mode="after")
+    def _require_cloud_task_settings(self) -> Self:
+        """Fail at startup rather than on the first Slack mention."""
+
+        if self.task_queue_backend != "cloud-tasks":
+            return self
+        missing = sorted(
+            name.upper()
+            for name in ("google_cloud_project", "task_queue_location", "task_oidc_service_account")
+            if not getattr(self, name)
+        )
+        if missing:
+            raise MissingConfiguration(
+                f"TASK_QUEUE_BACKEND=cloud-tasks also needs: {', '.join(missing)}."
+            )
+        return self
 
     def allowed_team_ids(self) -> frozenset[str]:
         return _split_ids(self.slack_allowed_team_ids)
