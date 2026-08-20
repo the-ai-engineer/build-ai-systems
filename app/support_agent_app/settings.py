@@ -46,6 +46,25 @@ PROJECT_ROOT = (
 )
 CONFIG_FILE = PROJECT_ROOT / "config.toml"
 
+# Only these safe defaults may come from the committed TOML file. Required
+# deployment identifiers and secrets must arrive through an explicit runtime
+# source, even if someone accidentally adds them to config.toml later.
+SAFE_TOML_SETTINGS = frozenset(
+    {
+        "model_name",
+        "task_queue_backend",
+        "task_queue_name",
+        "worker_base_url",
+        "worker_deadline_seconds",
+        "worker_expected_task_identity",
+        "worker_fake_fixture",
+        "worker_model_source",
+        "worker_slack_sink",
+        "worker_task_auth",
+        "worker_task_identity",
+    }
+)
+
 # The root file first, a directory-local one second. Later files win, so a
 # deliberate .env beside the command still overrides the shared one.
 ENV_FILES = (PROJECT_ROOT / ".env", Path(".env"))
@@ -53,6 +72,23 @@ ENV_FILES = (PROJECT_ROOT / ".env", Path(".env"))
 
 class MissingConfiguration(RuntimeError):
     """Required configuration is absent, named plainly rather than as a stack trace."""
+
+
+class InvalidConfiguration(RuntimeError):
+    """A configuration source contains values it is not allowed to own."""
+
+
+class _SafeTomlSettingsSource(TomlConfigSettingsSource):
+    """Reject secrets, deployment identifiers, and misspelled TOML keys."""
+
+    def __init__(self, settings_cls: type[BaseSettings]) -> None:
+        super().__init__(settings_cls)
+        unexpected = sorted(set(self.toml_data) - SAFE_TOML_SETTINGS)
+        if unexpected:
+            names = ", ".join(name.upper() for name in unexpected)
+            raise InvalidConfiguration(
+                f"{self.toml_file_path} contains environment-only or unknown settings: {names}."
+            )
 
 
 class _BaseAppSettings(BaseSettings):
@@ -81,7 +117,7 @@ class _BaseAppSettings(BaseSettings):
             env_settings,
             dotenv_settings,
             file_secret_settings,
-            TomlConfigSettingsSource(settings_cls),
+            _SafeTomlSettingsSource(settings_cls),
         )
 
     @classmethod
@@ -114,7 +150,7 @@ class ModelProviderSettings(_BaseAppSettings):
 
     model_name: str = Field(validation_alias="SUPPORT_AGENT_MODEL")
     google_cloud_project: str = ""
-    google_cloud_location: str
+    google_cloud_location: str = ""
 
 
 class WorkerBoundarySettings(_BaseAppSettings):

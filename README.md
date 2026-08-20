@@ -42,6 +42,8 @@ Configuration precedence is explicit: constructor values, environment
 variables, `.env`, then `config.toml`. Copy `.env.example` to `.env` for local
 secrets, deployment identifiers, and machine-specific overrides. Cloud Run
 receives production secrets from Secret Manager as environment variables.
+The Google Cloud project and location also remain environment-owned because
+they select the deployment and its data-residency boundary.
 Never put a database URL, Slack token, signing secret, or credential in
 `config.toml`.
 

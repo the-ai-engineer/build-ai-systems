@@ -160,9 +160,10 @@ Source priority is constructor values, environment variables, `.env`, file
 secrets, then `config.toml`. The committed TOML file contains no credential or
 deployment identity. Local secrets and machine-specific overrides live in the
 ignored `.env`; Cloud Run injects production secrets from Secret Manager as
-environment variables. The container image copies `config.toml` to `/srv`, its
-working directory, so local processes and deployed processes use the same safe
-defaults.
+environment variables. Google Cloud project and location are also
+environment-owned because they select the deployment and data-residency
+boundary. The container image copies `config.toml` to `/srv`, its working
+directory, so local processes and deployed processes use the same safe defaults.
 
 ## The cloud development environment
 

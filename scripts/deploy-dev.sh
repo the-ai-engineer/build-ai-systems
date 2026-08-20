@@ -59,9 +59,11 @@ SECRET_DATABASE_URL="database-url"
 IMAGE_MIGRATIONS_DIR=/srv/migrations
 IMAGE_POLICIES_DIR=/srv/policies
 
-# The worker's own budget comes from config.toml. This is the platform request
-# timeout outside it. Cloud Run must not cut the request off before the worker
-# has reserved time to record what happened.
+# Application defaults come from config.toml. Explicit shell overrides for the
+# model, model location, and worker deadline are forwarded in deploy_worker.
+# This is the platform request timeout outside the worker's own budget. Cloud
+# Run must not cut the request off before the worker records what happened.
+GOOGLE_CLOUD_LOCATION="${GOOGLE_CLOUD_LOCATION:-global}"
 WORKER_REQUEST_TIMEOUT="${WORKER_REQUEST_TIMEOUT:-120s}"
 
 # A development environment. Bounded so a runaway retry loop cannot bill for a
@@ -221,7 +223,7 @@ apply_schema() {
 
 deploy_worker() {
   step "Private worker"
-  local url
+  local name value worker_env url
   url="$(service_url "$WORKER_SERVICE")"
   if [[ -n "$url" ]]; then
     ok "existing url ${url}"
@@ -229,6 +231,14 @@ deploy_worker() {
     url="$(predict_worker_url)"
     ok "first deploy, expecting ${url}"
   fi
+
+  worker_env="WORKER_BASE_URL=${url};TASK_OIDC_SERVICE_ACCOUNT=$(sa_email "$WEBHOOK_SA");GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}"
+  for name in SUPPORT_AGENT_MODEL WORKER_DEADLINE_SECONDS; do
+    value="${!name:-}"
+    if [[ -n "$value" ]]; then
+      worker_env="${worker_env};${name}=${value}"
+    fi
+  done
 
   # WORKER_BASE_URL is one value used twice: the audience Cloud Tasks puts in
   # the token, and the audience this worker accepts. One variable, so the two
@@ -248,7 +258,7 @@ deploy_worker() {
     --args="support_agent_app.worker.main:create_app,--factory,--host,0.0.0.0,--port,8080" \
     --set-cloudsql-instances "$SQL_CONNECTION_NAME" \
     --set-secrets "DATABASE_URL=${SECRET_DATABASE_URL}:latest,SLACK_BOT_TOKEN=${SECRET_SLACK_BOT_TOKEN}:latest" \
-    --set-env-vars "^;^WORKER_BASE_URL=${url};TASK_OIDC_SERVICE_ACCOUNT=$(sa_email "$WEBHOOK_SA");GOOGLE_CLOUD_PROJECT=${PROJECT_ID}" \
+    --set-env-vars "^;^${worker_env}" \
     --timeout "$WORKER_REQUEST_TIMEOUT" \
     --max-instances "$MAX_INSTANCES" \
     --min-instances 0 >/dev/null

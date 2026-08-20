@@ -14,6 +14,7 @@ from support_agent_app.settings import (
     CONFIG_FILE,
     ENV_FILES,
     PROJECT_ROOT,
+    InvalidConfiguration,
     MissingConfiguration,
     ModelProviderSettings,
     WorkerSettings,
@@ -52,7 +53,10 @@ class EnvDiscoveryTests(unittest.TestCase):
     def test_constructor_environment_and_dotenv_override_toml_in_that_order(self) -> None:
         with TemporaryDirectory() as directory:
             local_env = Path(directory) / ".env"
-            local_env.write_text("SUPPORT_AGENT_MODEL=from-dotenv\n", encoding="utf-8")
+            local_env.write_text(
+                "SUPPORT_AGENT_MODEL=from-dotenv\nGOOGLE_CLOUD_LOCATION=test-location\n",
+                encoding="utf-8",
+            )
             original_directory = Path.cwd()
             try:
                 os.chdir(directory)
@@ -86,6 +90,37 @@ class EnvDiscoveryTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {}, clear=True):
             configured = TomlOnly.load()
         self.assertEqual(configured.model_name, "google-cloud:gemini-3.5-flash")
+
+    def test_toml_cannot_supply_secrets_or_deployment_identifiers(self) -> None:
+        with TemporaryDirectory() as directory:
+            unsafe_config = Path(directory) / "config.toml"
+            unsafe_config.write_text(
+                'model_name = "safe-model"\n'
+                'database_url = "postgresql://must-not-load"\n'
+                'slack_signing_secret = "must-not-load"\n'
+                'slack_allowed_team_ids = "T-must-not-load"\n'
+                'google_cloud_location = "must-not-load"\n',
+                encoding="utf-8",
+            )
+
+            class UnsafeToml(WorkerSettings):
+                model_config = SettingsConfigDict(
+                    env_file=Path("/nonexistent/.env"),
+                    extra="ignore",
+                    populate_by_name=True,
+                    protected_namespaces=(),
+                    toml_file=unsafe_config,
+                )
+
+            with mock.patch.dict(os.environ, {}, clear=True):
+                with self.assertRaises(InvalidConfiguration) as caught:
+                    UnsafeToml.load()
+
+        message = str(caught.exception)
+        self.assertIn("DATABASE_URL", message)
+        self.assertIn("SLACK_SIGNING_SECRET", message)
+        self.assertIn("SLACK_ALLOWED_TEAM_IDS", message)
+        self.assertIn("GOOGLE_CLOUD_LOCATION", message)
 
     def test_missing_configuration_names_the_variable(self) -> None:
         """A missing value should read as a sentence, not a pydantic stack trace."""

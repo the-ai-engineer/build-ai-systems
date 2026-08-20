@@ -7,7 +7,6 @@
 
 # Model provider
 model_name = "google-cloud:gemini-3.5-flash"
-google_cloud_location = "global"
 
 # Worker
 worker_model_source = "configured"
