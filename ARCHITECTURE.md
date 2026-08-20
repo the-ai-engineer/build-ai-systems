@@ -51,7 +51,7 @@ and a runtime catches. Anything used by one service lives in that service.
 - `api/` owns the public boundary end to end: signature verification, event normalization, the accept use case, and the queue client that produces the task. Slack's wire shapes stop at `normalize_app_mention`.
 - `worker/` owns the private boundary end to end: task identity, the process use case, the time budget, provider failure classification, the Slack client, the model provider, and the agent.
 - `application/` is the seam between them. If a module here is only used by one service, it is in the wrong place.
-- `agent/` owns everything the model touches, and lives under `worker/` because nothing else calls it. One route does not need a router module, a schemas module, and a composition root as three files. `auth.py` stays separate because swapping the static identity check for Google OIDC is a real, isolated change.
+- `agent/` owns everything the model touches, and lives under `worker/` because nothing else calls it. One route does not need a router module, a schemas module, and a composition root as three files. `auth.py` stays separate because swapping the static identity check for Google OIDC was a real, isolated change; it was made there and touched one other line of the route.
 - `database/` owns SQL, transactions, and row mapping. Migrations live in root `migrations/`.
 - Provider detail stays inside its adapter. Slack error codes and httpx exceptions do not escape `worker/messaging.py`.
 - `testing/` owns the deterministic adapters, in-memory repositories, and fixtures.
@@ -86,7 +86,7 @@ An employee mentions the assistant in the HR channel:
 Then, in the worker:
 
 6. A task arrives carrying only `request_id`. The employee's question stays in the database, so the queue never holds sensitive content.
-7. `worker/auth.py` checks the task identity. A failure is a 401 before any work happens.
+7. `worker/auth.py` verifies the Google-signed OIDC token Cloud Tasks attached. A failure is a 401 before any work happens.
 8. `WorkerService.process` claims the request with a fenced lease and receives a `Claim`.
 9. It checks for a previously failed or stranded reply and resumes that path if one exists.
 10. Otherwise it runs the agent, which may list the policy index and load at most three active documents.
@@ -96,11 +96,39 @@ Then, in the worker:
 
 `tests/integration/api/test_end_to_end.py` runs all thirteen steps against a real Postgres, with only the model and Slack faked.
 
+### Who may invoke the worker
+
+The worker is private and proves who called it. `WORKER_TASK_AUTH` chooses the
+check, `google-oidc` is the default, and `worker/main.py` is the only module
+that names either authenticator.
+
+`GoogleOidcTaskAuthenticator` reads the `Authorization: Bearer` header Cloud
+Tasks attaches and requires four things: Google signed the token and it has not
+expired, the audience is this worker, the issuer is Google, and the verified
+email is `TASK_OIDC_SERVICE_ACCOUNT`. The audience is the worker's base URL,
+because that is exactly what `api/task_queue.py` puts in the token it asks for;
+`WORKER_BASE_URL` is that URL on both services, so the contract is one value and
+not two that must be kept in step. Anything else is a 401 raised before the
+route reaches the request, so an unauthorized caller costs a signature check and
+no database work.
+
+`StaticTaskAuthenticator` compares a shared string in `X-Worker-Task-Identity`.
+It proves nothing about who called and exists so the two services can run on a
+laptop with no Google identity to mint. It is never the deployed default: the
+setting defaults to `google-oidc`, a `google-oidc` worker with no audience or
+service account refuses to start, and a local run asks for `static` by name.
+The two use different headers, so a static header presented to a deployed worker
+is not a weaker credential, it is no credential at all.
+
+Two locks, not one. Cloud Run's `run.invoker` binding rejects unknown callers
+before the request reaches the process; the token check is the one that says
+*which* identity, and it keeps holding if a binding is ever widened by mistake.
+
 ### The queue between them
 
 `TaskQueue` has two implementations and `api/main.py` chooses between them by configuration. `TASK_QUEUE_BACKEND=cloud-tasks` selects `CloudTasksQueue`; anything else selects the local stand-in. No other module names either class.
 
-`CloudTasksQueue` creates one HTTP task per accepted request. The task name is the full resource path ending in `task_name_for(...)`, so a Slack retry asks for a name the queue already holds and the API answers `AlreadyExists`. The adapter turns that into `TaskAlreadyQueuedError`, which `accept_and_queue` already treats as queued rather than failed. Google's deduplication only lasts about an hour after a task finishes; the request row, keyed by Slack event ID, is the durable guard. The task body carries the request ID and nothing else, and the worker is private, so each task carries an OIDC token Cloud Tasks mints for the webhook's own service account. Verifying that token on the worker, and the `run.invoker` binding that lets the token through, are not built yet.
+`CloudTasksQueue` creates one HTTP task per accepted request. The task name is the full resource path ending in `task_name_for(...)`, so a Slack retry asks for a name the queue already holds and the API answers `AlreadyExists`. The adapter turns that into `TaskAlreadyQueuedError`, which `accept_and_queue` already treats as queued rather than failed. Google's deduplication only lasts about an hour after a task finishes; the request row, keyed by Slack event ID, is the durable guard. The task body carries the request ID and nothing else, and the worker is private, so each task carries an OIDC token Cloud Tasks mints for the webhook's own service account.
 
 `LocalTaskQueue` is the explicit local stand-in, because Google Cloud has no supported emulator and the course does not add a third-party one. It keeps the shape that matters: enqueue returns immediately, delivery happens later on another thread, a duplicate task name is rejected, and a 503 is retried with backoff. Tasks live in memory and do not survive a restart. It is the one class Cloud Tasks replaces, and swapping them changes nothing above the `TaskQueue` protocol.
 
@@ -135,15 +163,24 @@ Each runtime gets its own identity and only the access it needs:
 
 | Identity | Project roles | Secrets it can read |
 |---|---|---|
-| `support-webhook` | `cloudsql.client`, `cloudtasks.enqueuer` | `slack-signing-secret`, `database-url` |
+| `support-webhook` | `cloudsql.client`, `cloudtasks.enqueuer`, `iam.serviceAccountUser` on itself, `run.invoker` on the worker service | `slack-signing-secret`, `database-url` |
 | `support-worker` | `cloudsql.client`, `aiplatform.user` | `slack-bot-token`, `database-url` |
 | `support-maintenance` | `cloudsql.client` | `database-url` |
 
 The webhook cannot post to Slack and the worker cannot enqueue tasks, which is
-the same split the code already makes. Cloud Run invoker bindings do not exist
-yet, because no service is deployed. `CloudTasksQueue` targets this queue and
-mints its OIDC token for `support-webhook`, so that is the identity the invoker
-binding and the worker's token check will have to accept.
+the same split the code already makes. `CloudTasksQueue` mints its OIDC token
+for `support-webhook`, so that one identity is what both the invoker binding and
+the worker's token check accept.
+
+Two of the webhook's grants are about that token rather than about a resource.
+Asking Cloud Tasks to mint a token as an account means acting as it, so the
+webhook holds `iam.serviceAccountUser` on its own identity and on nothing else.
+`run.invoker` is granted on the worker's Cloud Run service, which the
+provisioning script does not create: until the first deploy it reports that the
+service is missing and grants nothing, and the binding lands on the next run.
+The same step removes `allUsers` and `allAuthenticatedUsers` if either ever
+appears on the worker, because the worker is private and a public invoker is not
+a configuration choice it offers.
 
 Secret values are read from a local `.env` and piped into Secret Manager on
 stdin. They are never printed, logged, or placed on a command line. The database
@@ -156,7 +193,7 @@ service is holding.
 - The employee's question is untrusted input.
 - Model output is untrusted input. `AgentDecision` is a model-facing schema; only `AnswerDecision` and `HumanReviewDecision`, produced by `verify_decision`, reach the database or Slack.
 - Policy documents are treated as content, never as instructions.
-- The worker is private and authenticates every invocation. The webhook will be public and verifies Slack signatures.
+- The worker is private and authenticates every invocation, in the deployed system by verifying a Google-signed OIDC token from one service account. The webhook is public and verifies Slack signatures, because Slack cannot present a Google identity.
 
 ## Failure and recovery
 
@@ -181,7 +218,7 @@ Retryable outcomes surface as HTTP 503 so the queue retries. Permanent failures 
 5. The webhook stores the request before creating a task, and never calls a model.
 6. Run records exclude questions, answers, and policy text.
 7. One migration history. No schema applied at startup.
-8. Fixture adapters stay in `testing/` and are never the production default.
+8. Fixture adapters stay in `testing/` and are never the production default. The static task identity check is held to the same rule.
 
 ## Testing
 

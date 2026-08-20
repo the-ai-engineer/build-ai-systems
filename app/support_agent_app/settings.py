@@ -26,6 +26,12 @@ SlackSink = Literal["slack", "record"]
 # development; "cloud-tasks" is the deployed one.
 TaskQueueBackend = Literal["local", "cloud-tasks"]
 
+# How the worker decides a caller may hand it a task. "google-oidc" verifies a
+# Google-signed token from one service account and is the only one that proves
+# anything; "static" is the local shared string, for a laptop with no Google
+# identity to mint.
+TaskAuthMode = Literal["google-oidc", "static"]
+
 # The repository root, found from this file rather than from the current
 # directory. A relative ".env" is resolved against the process's working
 # directory, so it is only found when a command happens to be run from the root.
@@ -85,13 +91,44 @@ class WorkerBoundarySettings(_BaseAppSettings):
     """What the worker's HTTP boundary needs, and nothing more.
 
     Deliberately separate from `WorkerSettings`: an application can serve and
-    authenticate requests without holding a database or model credential, and
-    keeping this class free of required fields lets route tests build the app
-    without any environment at all.
+    authenticate requests without holding a database or model credential.
     """
 
+    # Defaults to the real check, like the worker's other switches, so a
+    # deployment that forgets to configure identity refuses to start rather
+    # than quietly accepting a shared string from anyone who guesses it.
+    worker_task_auth: TaskAuthMode = "google-oidc"
+
+    # The OIDC audience the worker accepts. It is the worker's own base URL,
+    # because that is what `api/task_queue.py` puts in the token it mints.
+    worker_base_url: str = ""
+
+    # The one identity allowed to enqueue work: the webhook's service account,
+    # named by the same variable the webhook itself reads.
+    task_oidc_service_account: str = ""
+
+    # Only used when worker_task_auth is "static".
     worker_expected_task_identity: str = LOCAL_TASK_IDENTITY
+
     worker_deadline_seconds: float = 55.0
+
+    @model_validator(mode="after")
+    def _require_oidc_settings(self) -> Self:
+        """Fail at startup rather than on the first task."""
+
+        if self.worker_task_auth != "google-oidc":
+            return self
+        missing = sorted(
+            name.upper()
+            for name in ("worker_base_url", "task_oidc_service_account")
+            if not getattr(self, name)
+        )
+        if missing:
+            raise MissingConfiguration(
+                f"WORKER_TASK_AUTH=google-oidc also needs: {', '.join(missing)}.\n"
+                f"Set WORKER_TASK_AUTH=static for a local run without a Google identity."
+            )
+        return self
 
 
 class WorkerSettings(_BaseAppSettings):
