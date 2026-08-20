@@ -24,7 +24,7 @@ from support_agent_app.database.repositories.policy_repository import PostgresPo
 from support_agent_app.database.repositories.support_request_repository import (
     PostgresSupportRepository,
 )
-from support_agent_app.settings import ApiSettings
+from support_agent_app.settings import ApiSettings, WorkerBoundarySettings
 from support_agent_app.testing.fake_model import fixture_model
 from support_agent_app.testing.fake_slack import FakeSlackClient
 from support_agent_app.worker.agent.agent import run_support_workflow
@@ -57,7 +57,13 @@ class EndToEndTests(PostgresTestCase):
             workflow_runner=run_support_workflow,
         )
         config = Config(
-            app=create_worker(service=service, deadline_seconds=DEFAULT_WORKER_DEADLINE_SECONDS),
+            app=create_worker(
+                service=service,
+                # The local identity check, chosen explicitly: the deployed
+                # default is Google OIDC and there is no Google identity here.
+                boundary_settings=WorkerBoundarySettings(worker_task_auth="static"),
+                deadline_seconds=DEFAULT_WORKER_DEADLINE_SECONDS,
+            ),
             host="127.0.0.1",
             port=0,
             log_level="warning",

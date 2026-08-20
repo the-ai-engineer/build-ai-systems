@@ -31,6 +31,10 @@ SQL_DATABASE="support_agent"
 SQL_USER="support_agent_app"
 TASK_QUEUE="${TASK_QUEUE:-support-requests}"
 
+# The private worker's Cloud Run service. It is not deployed by this script;
+# the name is here because the invoker binding below is about that service.
+WORKER_SERVICE="${WORKER_SERVICE:-support-worker}"
+
 WEBHOOK_SA="support-webhook"
 WORKER_SA="support-worker"
 MAINTENANCE_SA="support-maintenance"
@@ -123,9 +127,14 @@ create_service_accounts() {
 
 # add-iam-policy-binding on an existing binding is harmless, but it still writes
 # a new policy. Read first so a second run of this script writes nothing.
+#
+# Everything after the member is the gcloud command that reads the policy,
+# because those commands are not one shape: a project policy is one word and a
+# Cloud Run policy is two words and a region.
 has_binding() {
-  local role="$1" member="$2" group="$3" target="$4"
-  gcloud --quiet "$group" get-iam-policy "$target" --project "$PROJECT_ID" \
+  local role="$1" member="$2"
+  shift 2
+  gcloud --quiet "$@" --project "$PROJECT_ID" \
     --flatten='bindings[].members' \
     --filter="bindings.role=${role} AND bindings.members=${member}" \
     --format='value(bindings.members)' 2>/dev/null | grep -q .
@@ -134,7 +143,7 @@ has_binding() {
 grant_project_role() {
   local account="$1" role="$2" member
   member="serviceAccount:$(sa_email "$account")"
-  if has_binding "$role" "$member" projects "$PROJECT_ID"; then
+  if has_binding "$role" "$member" projects get-iam-policy "$PROJECT_ID"; then
     ok "${account} already has ${role}"
     return
   fi
@@ -148,7 +157,7 @@ grant_project_role() {
 grant_secret_access() {
   local secret="$1" account="$2" member role=roles/secretmanager.secretAccessor
   member="serviceAccount:$(sa_email "$account")"
-  if has_binding "$role" "$member" secrets "$secret"; then
+  if has_binding "$role" "$member" secrets get-iam-policy "$secret"; then
     ok "${account} already reads ${secret}"
     return
   fi
@@ -157,6 +166,68 @@ grant_secret_access() {
     --role "$role" \
     --condition None >/dev/null
   ok "${account} -> read ${secret}"
+}
+
+# Cloud Tasks mints the worker's OIDC token as a service account, and the
+# caller creating the task must be allowed to act as that account. Here the
+# webhook mints tokens for itself, so it is granted this on its own identity.
+grant_service_account_user() {
+  local account="$1" target="$2" member role=roles/iam.serviceAccountUser target_email
+  member="serviceAccount:$(sa_email "$account")"
+  target_email="$(sa_email "$target")"
+  if has_binding "$role" "$member" iam service-accounts get-iam-policy "$target_email"; then
+    ok "${account} can already act as ${target}"
+    return
+  fi
+  gcloud_q iam service-accounts add-iam-policy-binding "$target_email" \
+    --member "$member" \
+    --role "$role" \
+    --condition None >/dev/null
+  ok "${account} -> act as ${target}"
+}
+
+# The worker is private: exactly one identity may invoke it, and the public
+# internet may not. Both halves are checked here, because a service that has
+# lost the first is broken and one that has gained the second is exposed.
+#
+# The service is deployed later than this script, so a missing service is
+# reported rather than treated as a failure. Run the script again after the
+# first deploy and the binding lands then.
+configure_worker_invoker() {
+  step "Cloud Run invoker"
+  if ! gcloud --quiet run services describe "$WORKER_SERVICE" \
+      --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    ok "${WORKER_SERVICE} is not deployed yet, so there is no service to bind"
+    ok "run this script again after the first deploy to grant run.invoker"
+    return
+  fi
+
+  local role=roles/run.invoker member
+  member="serviceAccount:$(sa_email "$WEBHOOK_SA")"
+  if has_binding "$role" "$member" run services get-iam-policy "$WORKER_SERVICE" \
+      --region "$REGION"; then
+    ok "${WEBHOOK_SA} can already invoke ${WORKER_SERVICE}"
+  else
+    gcloud_q run services add-iam-policy-binding "$WORKER_SERVICE" \
+      --region "$REGION" \
+      --member "$member" \
+      --role "$role" \
+      --condition None >/dev/null
+    ok "${WEBHOOK_SA} -> invoke ${WORKER_SERVICE}"
+  fi
+
+  local public
+  for public in allUsers allAuthenticatedUsers; do
+    if has_binding "$role" "$public" run services get-iam-policy "$WORKER_SERVICE" \
+        --region "$REGION"; then
+      gcloud_q run services remove-iam-policy-binding "$WORKER_SERVICE" \
+        --region "$REGION" \
+        --member "$public" \
+        --role "$role" >/dev/null
+      ok "removed ${public} from ${WORKER_SERVICE}, which must stay private"
+    fi
+  done
+  ok "${WORKER_SERVICE} has no unauthenticated invoker"
 }
 
 create_artifact_registry() {
@@ -321,6 +392,12 @@ grant_roles() {
   # Maintenance only touches the database.
   grant_project_role "$MAINTENANCE_SA" roles/cloudsql.client
 
+  # Creating a task with an OIDC token means acting as the account the token is
+  # minted for. That account is the webhook's own, so this is the webhook being
+  # allowed to act as itself, and it is granted on that one identity rather
+  # than across the project.
+  grant_service_account_user "$WEBHOOK_SA" "$WEBHOOK_SA"
+
   # Each identity reads only the secrets it needs. Only the webhook verifies a
   # Slack signature and only the worker posts a reply.
   grant_secret_access "$SECRET_SLACK_SIGNING_SECRET" "$WEBHOOK_SA"
@@ -339,6 +416,7 @@ summary() {
   ok "queue             ${TASK_QUEUE} in ${REGION}"
   ok "identities        ${WEBHOOK_SA}, ${WORKER_SA}, ${MAINTENANCE_SA}"
   ok "secrets           ${SECRET_SLACK_BOT_TOKEN}, ${SECRET_SLACK_SIGNING_SECRET}, ${SECRET_DATABASE_URL}"
+  ok "private worker    ${WORKER_SERVICE}, invoked only by ${WEBHOOK_SA}"
   printf '\nCloud SQL bills whether or not anything is running.\n'
   printf 'Tear it down when you are finished: scripts/teardown-dev.sh\n'
 }
@@ -354,6 +432,7 @@ main() {
   store_slack_secrets
   configure_sql_user_and_url
   grant_roles
+  configure_worker_invoker
   summary
 }
 

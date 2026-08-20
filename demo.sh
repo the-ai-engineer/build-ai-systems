@@ -44,6 +44,10 @@ wait_for() {
 #   queue      LocalTaskQueue, a thread inside the webhook process
 #   Slack      recorded to Postgres, never sent, unless you set SLACK_BOT_TOKEN
 export WORKER_SLACK_SINK=${WORKER_SLACK_SINK:-record}
+# The worker defaults to verifying a Google-signed OIDC token. There is no
+# Google identity on a laptop, so this local run asks for the static check by
+# name. A deployment never does.
+export WORKER_TASK_AUTH=static
 if [[ -n "$LIVE_MODEL" ]]; then
   : "${GOOGLE_CLOUD_PROJECT:?--live-model needs GOOGLE_CLOUD_PROJECT}"
   export WORKER_MODEL_SOURCE=configured

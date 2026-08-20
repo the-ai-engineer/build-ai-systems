@@ -71,11 +71,13 @@ uv run demo-worker --fixture human-review
 uv run demo-worker --fixture uncertain-send
 ```
 
-The worker service itself defaults to the real adapters. Ask for the fixture
-adapters explicitly when running it without Slack credentials:
+The worker service itself defaults to the real adapters, and to the real
+identity check. Ask for the fixture adapters and the local identity check
+explicitly when running it without Slack or Google credentials:
 
 ```bash
 WORKER_MODEL_SOURCE=fixture WORKER_SLACK_SINK=record \
+WORKER_TASK_AUTH=static \
   uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 ```
 
@@ -121,6 +123,7 @@ Terminal 1, the private worker:
 ```bash
 DATABASE_URL="postgresql:///support_agent" \
 WORKER_MODEL_SOURCE=fixture WORKER_SLACK_SINK=record \
+WORKER_TASK_AUTH=static \
   uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 ```
 
@@ -234,6 +237,7 @@ In Slack, copy a message link. The `.../p1699999999000100` part is the timestamp
 # terminal 1: the worker, real model, real Slack
 SLACK_BOT_TOKEN=xoxb-... \
 WORKER_MODEL_SOURCE=configured WORKER_SLACK_SINK=slack \
+WORKER_TASK_AUTH=static \
   uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 
 # terminal 2
@@ -256,6 +260,7 @@ exposed. The worker stays private, as it is in production.
 # terminal 1: the private worker
 SLACK_BOT_TOKEN=xoxb-... \
 WORKER_MODEL_SOURCE=configured WORKER_SLACK_SINK=slack \
+WORKER_TASK_AUTH=static \
   uv run uvicorn support_agent_app.worker.main:create_app --factory --port 8081
 
 # terminal 2: the public webhook
@@ -322,6 +327,24 @@ that names either class. `cloud-tasks` also needs `GOOGLE_CLOUD_PROJECT`,
 pointing at the deployed worker; without them the process refuses to start. The
 worker is private, so each task carries an OIDC token minted for the webhook's
 service account.
+
+The worker checks that token. `WORKER_TASK_AUTH` chooses how:
+
+| Value | What the worker checks | Where it is used |
+|---|---|---|
+| `google-oidc` (default) | A Google-signed OIDC token in `Authorization`: signature, expiry, audience, issuer, and the service account email | Deployed |
+| `static` | A shared string in `X-Worker-Task-Identity` | Local only |
+
+`google-oidc` needs `WORKER_BASE_URL`, which is the audience Cloud Tasks put in
+the token, and `TASK_OIDC_SERVICE_ACCOUNT`, which is the one identity allowed to
+enqueue work. Without them the worker refuses to start. It is the default, so a
+deployment cannot fall back to the shared string by forgetting to set anything;
+a local run asks for `static` on purpose. Either way, a missing, forged, or
+wrong-identity token is a 401 before the worker touches the request.
+
+[docs/worker-authentication.md](docs/worker-authentication.md) shows how to run
+the worker with the deployed check against a real Google-minted token, and what
+each unauthorized call answers.
 
 Real Slack needs a public HTTPS URL, so put a temporary tunnel in front of port
 8080 and use the real signing secret. See [docs/slack-setup.md](docs/slack-setup.md).

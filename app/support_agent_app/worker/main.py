@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import Protocol, cast
 from uuid import UUID
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
 from ..application.lifecycle import LifecycleOutcome, RequestNotFoundError
@@ -27,7 +27,7 @@ from ..database.repositories.support_request_repository import PostgresSupportRe
 from ..settings import WorkerBoundarySettings, WorkerSettings
 from .agent.agent import run_support_workflow
 from .auth import (
-    TASK_IDENTITY_HEADER,
+    GoogleOidcTaskAuthenticator,
     InvalidTaskIdentityError,
     StaticTaskAuthenticator,
     TaskAuthenticator,
@@ -77,20 +77,20 @@ def create_app(
     deadline_seconds: float | None = None,
 ) -> FastAPI:
     settings = boundary_settings or WorkerBoundarySettings.load()
-    selected_authenticator = authenticator or StaticTaskAuthenticator(
-        settings.worker_expected_task_identity
-    )
+    selected_authenticator = authenticator or build_authenticator(settings)
     budget = settings.worker_deadline_seconds if deadline_seconds is None else deadline_seconds
 
     app = FastAPI(title="HR policy support worker")
 
     @app.post("/tasks/process-support-request", response_model=ProcessResponse)
-    def process_support_request(
-        payload: ProcessRequest,
-        task_identity: str | None = Header(default=None, alias=TASK_IDENTITY_HEADER),
-    ) -> ProcessResponse:
+    def process_support_request(request: Request, payload: ProcessRequest) -> ProcessResponse:
+        # The header is the authenticator's choice, not the route's: a Google
+        # OIDC token arrives in `Authorization` and the local shared string in
+        # a header of its own.
         try:
-            selected_authenticator.authenticate(task_identity)
+            selected_authenticator.authenticate(
+                request.headers.get(selected_authenticator.identity_header)
+            )
         except InvalidTaskIdentityError as error:
             raise HTTPException(status_code=401, detail="invalid task identity") from error
 
@@ -112,6 +112,22 @@ def create_app(
         )
 
     return app
+
+
+def build_authenticator(settings: WorkerBoundarySettings) -> TaskAuthenticator:
+    """Choose the identity check from configuration.
+
+    `google-oidc` is the default, so a deployment that says nothing gets the
+    check that actually proves something. A local run opts out with
+    `WORKER_TASK_AUTH=static`, and it is the only thing that can.
+    """
+
+    if settings.worker_task_auth == "static":
+        return StaticTaskAuthenticator(settings.worker_expected_task_identity)
+    return GoogleOidcTaskAuthenticator(
+        expected_audience=settings.worker_base_url,
+        expected_service_account=settings.task_oidc_service_account,
+    )
 
 
 def build_default_service(settings: WorkerSettings | None = None) -> WorkerService:
