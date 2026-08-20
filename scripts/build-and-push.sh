@@ -65,9 +65,14 @@ require_tools() {
 
 require_registry() {
   step "Artifact Registry"
-  gcloud --quiet artifacts repositories describe "$AR_REPOSITORY" \
-    --project "$PROJECT_ID" --location "$REGION" >/dev/null 2>&1 \
-    || fail "no repository ${AR_REPOSITORY} in ${PROJECT_ID}/${REGION}. Run: scripts/provision-dev.sh"
+  local error
+  if ! error="$(gcloud --quiet artifacts repositories describe "$AR_REPOSITORY" \
+      --project "$PROJECT_ID" --location "$REGION" 2>&1 >/dev/null)"; then
+    # Print what gcloud said. "Not found" and "your token expired" need
+    # different fixes, and guessing at one of them sends people the wrong way.
+    printf '%s\n' "$error" >&2
+    fail "cannot read ${AR_REPOSITORY} in ${PROJECT_ID}/${REGION}. Create it with scripts/provision-dev.sh, or fix the credentials the error above names."
+  fi
   ok "${IMAGE_PATH}"
 
   # Registry credentials are a per-machine Docker setting, so only write it
