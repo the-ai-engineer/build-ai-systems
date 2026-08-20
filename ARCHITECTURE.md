@@ -98,7 +98,11 @@ Then, in the worker:
 
 ### The queue between them
 
-`LocalTaskQueue` is the explicit local stand-in for Cloud Tasks, because Google Cloud has no supported emulator and the course does not add a third-party one. It keeps the shape that matters: enqueue returns immediately, delivery happens later on another thread, a duplicate task name is rejected, and a 503 is retried with backoff. Tasks live in memory and do not survive a restart. Cloud Tasks replaces that one class.
+`TaskQueue` has two implementations and `api/main.py` chooses between them by configuration. `TASK_QUEUE_BACKEND=cloud-tasks` selects `CloudTasksQueue`; anything else selects the local stand-in. No other module names either class.
+
+`CloudTasksQueue` creates one HTTP task per accepted request. The task name is the full resource path ending in `task_name_for(...)`, so a Slack retry asks for a name the queue already holds and the API answers `AlreadyExists`. The adapter turns that into `TaskAlreadyQueuedError`, which `accept_and_queue` already treats as queued rather than failed. Google's deduplication only lasts about an hour after a task finishes; the request row, keyed by Slack event ID, is the durable guard. The task body carries the request ID and nothing else, and the worker is private, so each task carries an OIDC token Cloud Tasks mints for the webhook's own service account. Verifying that token on the worker, and the `run.invoker` binding that lets the token through, are not built yet.
+
+`LocalTaskQueue` is the explicit local stand-in, because Google Cloud has no supported emulator and the course does not add a third-party one. It keeps the shape that matters: enqueue returns immediately, delivery happens later on another thread, a duplicate task name is rejected, and a 503 is retried with backoff. Tasks live in memory and do not survive a restart. It is the one class Cloud Tasks replaces, and swapping them changes nothing above the `TaskQueue` protocol.
 
 Because delivery is genuinely concurrent, the worker can claim a request and move it to `processing` before the webhook finishes writing `queued`. That is the system winning a race, not an error, so `mark_queued` becomes a no-op once the request has moved on under a claim.
 
@@ -137,7 +141,9 @@ Each runtime gets its own identity and only the access it needs:
 
 The webhook cannot post to Slack and the worker cannot enqueue tasks, which is
 the same split the code already makes. Cloud Run invoker bindings do not exist
-yet, because no service is deployed.
+yet, because no service is deployed. `CloudTasksQueue` targets this queue and
+mints its OIDC token for `support-webhook`, so that is the identity the invoker
+binding and the worker's token check will have to accept.
 
 Secret values are read from a local `.env` and piped into Secret Manager on
 stdin. They are never printed, logged, or placed on a command line. The database
@@ -226,9 +232,6 @@ The course has students write their own architecture document first. This file i
 
 **Root holds course documents.**
 `brief.md`, `MEMORY.md`, and `docs/` are teaching artifacts, not application structure.
-
-**No `CloudTasksQueue` yet.**
-`api/task_queue.py` holds only the local adapter. The Cloud Tasks client belongs to the queue-integration lesson, needs a Google Cloud project to verify, and would otherwise be untested code shipped on the strength of a docstring. `TaskQueue` in `protocols.py` is the seam it drops into, and `task_name_for` already implements the deterministic naming rule both adapters need.
 
 **`SupportRequestStore` has fifteen methods and one implementation.**
 That is more surface than an interface usually earns. It stays because it is the boundary that keeps `WorkerService` free of Postgres, which is the system's central design claim, and because a type checker verifies the match where `worker/main.py` passes the repository in. Writing it caught nine signature mismatches. `PostgresSupportRepository` deliberately does not inherit from it: a `Protocol` subclass silently inherits `...` bodies for anything it fails to implement, which would turn drift into a `None` return at runtime instead of a type error.

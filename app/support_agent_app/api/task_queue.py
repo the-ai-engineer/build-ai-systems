@@ -1,33 +1,45 @@
 """Queue adapters that carry one request ID to the worker.
 
-Google Cloud has no supported Cloud Tasks emulator, and the course does not add
-a third-party one. `LocalTaskQueue` is the explicit local stand-in instead. It
-is deliberately visible rather than hidden behind a mock, because the thing it
-imitates is the part of the system most likely to surprise you: enqueueing is
-fast and synchronous, delivery is neither.
+Two implementations of `TaskQueue`, one per environment. `api/main.py` picks
+between them and is the only module that names either.
 
-It keeps the shape that matters:
+`CloudTasksQueue` is the deployed one. `LocalTaskQueue` is the local stand-in,
+because Google Cloud has no supported Cloud Tasks emulator and the course does
+not add a third-party one. It is deliberately visible rather than hidden behind
+a mock, because the thing it imitates is the part of the system most likely to
+surprise you: enqueueing is fast and synchronous, delivery is neither.
+
+Both keep the shape that matters:
 
 - enqueue returns as soon as the queue owns the task, so the webhook can answer
   Slack in time
-- delivery happens later, on another thread, against the worker's HTTP boundary
+- delivery happens later, against the worker's HTTP boundary
 - a duplicate task name is rejected, not delivered twice
-- a 503 from the worker is retried with backoff; a 4xx is not
+- a failed delivery is retried with backoff
 
-It is not Cloud Tasks. Tasks live in memory, so they do not survive a restart,
-and there is no shared queue across processes. Cloud Tasks replaces this class
-and nothing else.
+They differ in what counts as a failed delivery. Cloud Tasks retries any
+non-2xx, on the schedule the queue itself was created with. `LocalTaskQueue`
+retries a 503 and gives up on any other 4xx or 5xx, because there is no queue
+configuration to hold that policy.
+
+`LocalTaskQueue` is not Cloud Tasks. Tasks live in memory, so they do not
+survive a restart, and there is no shared queue across processes.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from dataclasses import dataclass
+from datetime import timedelta
 from queue import Empty, Queue
+from typing import Any, Protocol
 from uuid import UUID
 
 import httpx
+from google.api_core.exceptions import AlreadyExists
+from google.cloud import tasks_v2
 
 from ..application.lifecycle import TaskAlreadyQueuedError
 
@@ -37,6 +49,21 @@ WORKER_TASK_PATH = "/tasks/process-support-request"
 MAX_DELIVERY_ATTEMPTS = 5
 INITIAL_BACKOFF_SECONDS = 0.5
 BACKOFF_MULTIPLIER = 2.0
+
+# How long Cloud Tasks waits for the worker before it counts an attempt as
+# failed. It sits just outside the worker's own 55 second budget, so the worker
+# gets to record what happened rather than being cut off mid-run.
+DISPATCH_DEADLINE_SECONDS = 65.0
+
+
+class TaskCreator(Protocol):
+    """The one Cloud Tasks call this adapter makes.
+
+    Narrower than `CloudTasksClient` so a test can supply a double without a
+    Google Cloud project, credentials, or a network.
+    """
+
+    def create_task(self, *, parent: str, task: tasks_v2.Task) -> Any: ...
 
 
 @dataclass(frozen=True)
@@ -205,3 +232,78 @@ class LocalTaskQueue:
                 attempt=delivery.attempt + 1,
             )
         )
+
+
+class CloudTasksQueue:
+    """The production queue: one HTTP task per request, delivered by Cloud Tasks.
+
+    It replaces `LocalTaskQueue` and nothing else. The differences that matter
+    are that the queue is durable, delivery is Google's problem rather than a
+    thread's, and the worker is private, so each task carries an OIDC token
+    Cloud Tasks mints for `service_account_email`.
+
+    Creating a task with a name that already exists is not a failure. It is the
+    queue doing the job the deterministic name asks of it, so it becomes
+    `TaskAlreadyQueuedError` and `accept_and_queue` treats it as queued.
+    """
+
+    def __init__(
+        self,
+        *,
+        project_id: str,
+        location: str,
+        queue_name: str,
+        worker_base_url: str,
+        service_account_email: str,
+        client: TaskCreator | None = None,
+        dispatch_deadline_seconds: float = DISPATCH_DEADLINE_SECONDS,
+    ) -> None:
+        for name, value in (
+            ("project_id", project_id),
+            ("location", location),
+            ("queue_name", queue_name),
+            ("worker_base_url", worker_base_url),
+            ("service_account_email", service_account_email),
+        ):
+            if not value:
+                raise ValueError(f"{name} is required")
+        self._queue_path = f"projects/{project_id}/locations/{location}/queues/{queue_name}"
+        self._worker_base_url = worker_base_url.rstrip("/")
+        self._service_account_email = service_account_email
+        self._dispatch_deadline = timedelta(seconds=dispatch_deadline_seconds)
+        # Built on first use, so constructing this adapter needs no credentials.
+        # The configuration it depends on is validated when the process starts.
+        self._client = client
+
+    def enqueue_support_request(self, *, request_id: UUID, task_name: str) -> None:
+        task = tasks_v2.Task(
+            # A full resource name, so the queue can reject a repeat of it.
+            name=f"{self._queue_path}/tasks/{task_name}",
+            dispatch_deadline=self._dispatch_deadline,
+            http_request=tasks_v2.HttpRequest(
+                url=f"{self._worker_base_url}{WORKER_TASK_PATH}",
+                http_method=tasks_v2.HttpMethod.POST,
+                headers={"Content-Type": "application/json"},
+                # The request ID and nothing else. The question stays in
+                # Postgres, so the queue never holds employee text (INV-4).
+                body=json.dumps({"request_id": str(request_id)}).encode(),
+                oidc_token=tasks_v2.OidcToken(
+                    service_account_email=self._service_account_email,
+                    audience=self._worker_base_url,
+                ),
+            ),
+        )
+        try:
+            self._creator().create_task(parent=self._queue_path, task=task)
+        except AlreadyExists as error:
+            # Slack retried the same event, the same name was derived, and the
+            # queue refused the second copy. Deduplication is only guaranteed
+            # while the queue remembers the name, which is roughly an hour
+            # after the task finishes; the request row is the durable guard.
+            raise TaskAlreadyQueuedError(task_name) from error
+        logger.info("task %s created", task_name)
+
+    def _creator(self) -> TaskCreator:
+        if self._client is None:
+            self._client = tasks_v2.CloudTasksClient()
+        return self._client

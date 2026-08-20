@@ -316,6 +316,13 @@ third-party one, so `LocalTaskQueue` is the explicit local stand-in. Cloud Tasks
 replaces that one class and nothing else. Tasks live in memory, so a restart
 loses anything undelivered.
 
+`TASK_QUEUE_BACKEND` chooses between them, and `api/main.py` is the only module
+that names either class. `cloud-tasks` also needs `GOOGLE_CLOUD_PROJECT`,
+`TASK_QUEUE_LOCATION`, and `TASK_OIDC_SERVICE_ACCOUNT`, and a `WORKER_BASE_URL`
+pointing at the deployed worker; without them the process refuses to start. The
+worker is private, so each task carries an OIDC token minted for the webhook's
+service account.
+
 Real Slack needs a public HTTPS URL, so put a temporary tunnel in front of port
 8080 and use the real signing secret. See [docs/slack-setup.md](docs/slack-setup.md).
 
