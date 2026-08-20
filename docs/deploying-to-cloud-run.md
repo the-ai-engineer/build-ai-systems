@@ -93,7 +93,8 @@ that from being a debugging session.
 ## Proof: one task, end to end
 
 Recorded on 20 August 2026, against
-`support-agent@sha256:2b8ed589…` in `build-ai-systems-dev`.
+`support-agent@sha256:5b76b165…` in `build-ai-systems-dev`, the digest the two
+services are running now.
 
 Nothing ran locally except the thing standing in for Slack. Until this run
 nothing had exercised Cloud Tasks in the deployed system at all: #51 ran the
@@ -108,13 +109,13 @@ One task, created by hand, carrying a request ID that does not exist:
 gcloud tasks create-http-task --queue=support-requests --location=europe-west1 \
   --url="https://support-worker-rus5pevnnq-ew.a.run.app/tasks/process-support-request" \
   --method=POST --header="Content-Type: application/json" \
-  --body-content='{"request_id": "7d4ec1a9-69c6-4aaa-98cf-73416540057b"}' \
+  --body-content='{"request_id": "2934d48e-2197-4175-ac0a-61412f7a9065"}' \
   --oidc-service-account-email=support-webhook@build-ai-systems-dev.iam.gserviceaccount.com \
   --oidc-token-audience="https://support-worker-rus5pevnnq-ew.a.run.app"
 ```
 
 ```
-POST /tasks/process-support-request HTTP/1.1" 404 Not Found
+POST /tasks/process-support-request   404   1.503s
 ```
 
 A 404 is the good answer. It is raised by the route, which means the request
@@ -143,19 +144,27 @@ and demonstrated in `docs/worker-authentication.md`.
 
 Then one signed `app_mention` posted to the public webhook, standing in for
 Slack itself, asking a question the policy set can answer. Team `T0B2CKH25KK`,
-channel `C0BQJ8U1Z5X`:
+channel `C0BQJ8U1Z5X`. A message posted first with the bot token gives the
+worker a real thread to reply into, since Slack rejects a reply to a
+`thread_ts` that was never a message.
+
+`app/support_agent_app/demos/send_slack_event.py` builds exactly this request,
+and `--print-curl` prints it instead of sending it. It wants `DATABASE_URL`
+because it then watches Postgres for the outcome, which a laptop cannot reach
+here: the deployed database is on a Cloud SQL socket. Give it any URL to see the
+curl, and read the outcome from the logs below instead.
 
 ```
-thread root ts 1787223496.710619
-event_id Ev-deploy-d3922d51-c4a6-4972-93ef-0aa44af561a6
+thread root ts 1787226362.810969
+event_id Ev-deploy-1826f924-6a4f-4fd9-9198-59630a2b2882
 webhook responded 200
 ```
 
 The logs, both services:
 
 ```
-support-webhook  POST /slack/events                     200   0.589s
-support-worker   POST /tasks/process-support-request    200  13.023s
+support-webhook  POST /slack/events                     200   0.555s
+support-worker   POST /tasks/process-support-request    200  10.584s
 ```
 
 And in the Slack thread, a reply citing the annual leave policy.
@@ -163,9 +172,9 @@ And in the Slack thread, a reply citing the annual leave policy.
 Six things are proved by those two lines and that reply, and none of them had
 been proved before:
 
-1. The public webhook accepts a Slack-signed request and answers in 0.589
+1. The public webhook accepts a Slack-signed request and answers in 0.555
    seconds, comfortably inside Slack's three second window.
-2. It called no model and read no policy to do it (INV-2): the 13 seconds are
+2. It called no model and read no policy to do it (INV-2): the ten seconds are
    all on the other service.
 3. Cloud Tasks accepted the task and delivered it, minting a token for
    `support-webhook`.
@@ -176,11 +185,15 @@ been proved before:
    `support-worker@…` with no API key, and posted a real reply with the bot
    token only it can read.
 
-An unsigned request to the same public URL is a 401:
+An unsigned request to the same public URL is a 401, raised before the body is
+parsed:
 
 ```
-support-webhook  POST /slack/events   401   0.008s
+support-webhook  POST /slack/events   401   2.749s
 ```
+
+Nearly all of that is a cold start: the service had scaled to zero and this
+request paid for the instance. A warm rejection is single-digit milliseconds.
 
 ### What the proof does not cover
 
