@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 import unittest
 from pathlib import Path
 from types import ModuleType
+from unittest.mock import MagicMock, patch
 
 
 def load_example(filename: str) -> ModuleType:
@@ -12,6 +14,7 @@ def load_example(filename: str) -> ModuleType:
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -23,6 +26,11 @@ class LessonExamplesTest(unittest.TestCase):
             Path("MEMORY.md"),
             Path("docs/course-code-map.md"),
             Path("docs/final-agent-spec.md"),
+            Path("docs/rag/README.md"),
+            Path("docs/rag/postgres-and-pgvector.md"),
+            Path("docs/rag/vector-search.md"),
+            Path("docs/rag/hybrid-search.md"),
+            Path("docs/rag/agentic-search.md"),
             Path("docs/resources/deploy-with-codex-prompt.md"),
         ]:
             self.assertTrue(path.is_file(), msg=str(path))
@@ -41,48 +49,70 @@ class LessonExamplesTest(unittest.TestCase):
 
         self.assertEqual(len(policy_paths), 3)
 
-    def test_whole_document_rag_exposes_an_index_and_read_tool(self) -> None:
-        example = load_example("lesson-05/01_file_rag.py")
+    def test_lesson_five_uses_one_postgres_schema_for_three_strategies(self) -> None:
+        sql = Path("examples/lesson-05/01_setup.sql").read_text(encoding="utf-8")
 
-        index = example.list_policy_documents()
-        document = example.read_policy_document("annual-leave-policy")
+        self.assertIn("create extension if not exists vector", sql.lower())
+        self.assertIn("lesson_05.support_documents", sql)
+        self.assertIn("lesson_05.support_document_chunks", sql)
+        self.assertIn("using gin", sql.lower())
+        self.assertIn("using hnsw", sql.lower())
+        for filename in ["03_agentic_rag.py", "04_vector_search.py", "05_hybrid_search.py"]:
+            source = (Path("examples/lesson-05") / filename).read_text(encoding="utf-8")
+            self.assertIn("lesson_05.support_document", source, msg=filename)
 
-        self.assertEqual(len(index), 3)
-        self.assertTrue(document["found"])
-        self.assertIn("five unused days", document["body"])
+    def test_seed_step_loads_and_chunks_the_canonical_policies(self) -> None:
+        example = load_example("lesson-05/02_seed_documents.py")
 
-    def test_sql_rag_retrieves_an_exact_structured_fact(self) -> None:
-        example = load_example("lesson-05/02_sql_rag.py")
+        documents = example.load_documents()
+        chunks = [chunk for document in documents for chunk in example.split_document(document)]
 
-        with example.create_database() as connection:
-            fact = example.get_policy_fact(
-                connection,
-                category="annual_leave",
-                field="carry_over_days",
+        self.assertEqual(len(documents), 3)
+        self.assertEqual(len(chunks), 9)
+        self.assertEqual(len({chunk.id for chunk in chunks}), 9)
+        self.assertTrue(any("five unused days" in chunk.content for chunk in chunks))
+
+    def test_seed_step_removes_documents_that_are_no_longer_approved(self) -> None:
+        example = load_example("lesson-05/02_seed_documents.py")
+        document = example.load_documents()[0]
+        chunk = example.split_document(document)[0]
+        connection_context = MagicMock()
+        connection = connection_context.__enter__.return_value
+
+        with patch.object(example.psycopg, "connect", return_value=connection_context):
+            example.seed_database(
+                "postgresql://unused",
+                [document],
+                [chunk],
+                [[0.0] * 768],
             )
 
-        self.assertEqual(fact["value"], "5")
-        self.assertEqual(fact["unit"], "days")
-        self.assertEqual(fact["source"], "annual-leave-policy")
+        first_query, first_parameters = connection.execute.call_args_list[0].args
+        self.assertIn("delete from lesson_05.support_documents", first_query)
+        self.assertEqual(first_parameters, ([document.id],))
 
-    def test_vector_rag_uses_cosine_similarity(self) -> None:
-        example = load_example("lesson-05/03_vector_rag.py")
+    def test_vector_examples_require_the_schema_embedding_size(self) -> None:
+        vector = load_example("lesson-05/04_vector_search.py")
 
-        self.assertAlmostEqual(example.cosine_similarity([1.0, 0.0], [1.0, 0.0]), 1.0)
-        self.assertAlmostEqual(example.cosine_similarity([1.0, 0.0], [0.0, 1.0]), 0.0)
+        literal = vector.vector_literal([0.0] * 768)
+
+        self.assertTrue(literal.startswith("["))
+        self.assertTrue(literal.endswith("]"))
+        with self.assertRaises(ValueError):
+            vector.vector_literal([0.0])
 
     def test_hybrid_rag_fuses_keyword_and_vector_rankings(self) -> None:
-        example = load_example("lesson-05/04_hybrid_rag.py")
+        example = load_example("lesson-05/05_hybrid_search.py")
 
         scores = example.reciprocal_rank_fusion(
             [
-                ["annual-leave-policy", "expenses-policy"],
-                ["annual-leave-policy", "remote-working-policy"],
+                ["annual-leave-policy:001", "expenses-policy:001"],
+                ["annual-leave-policy:001", "remote-working-policy:001"],
             ]
         )
 
-        self.assertGreater(scores["annual-leave-policy"], scores["expenses-policy"])
-        self.assertGreater(scores["annual-leave-policy"], scores["remote-working-policy"])
+        self.assertGreater(scores["annual-leave-policy:001"], scores["expenses-policy:001"])
+        self.assertGreater(scores["annual-leave-policy:001"], scores["remote-working-policy:001"])
 
     def test_lesson_four_keeps_hand_built_and_adk_agents(self) -> None:
         hand_built = Path("examples/lesson-04/01_agent_by_hand.py")

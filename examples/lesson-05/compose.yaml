@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg17
+    environment:
+      POSTGRES_DB: rag_lesson
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag -d rag_lesson"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - lesson_05_postgres:/var/lib/postgresql/data
+
+volumes:
+  lesson_05_postgres:

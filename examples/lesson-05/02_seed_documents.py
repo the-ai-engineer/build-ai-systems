@@ -1,0 +1,195 @@
+"""Load the approved policies into Postgres and create their chunk embeddings."""
+
+from __future__ import annotations
+
+import hashlib
+import os
+from dataclasses import dataclass
+from pathlib import Path
+
+import psycopg
+from dotenv import load_dotenv
+from google import genai
+from google.genai import types
+
+
+POLICY_DIR = Path(__file__).parents[2] / "policies"
+EMBEDDING_MODEL = "gemini-embedding-001"
+EMBEDDING_DIMENSIONS = 768
+DEFAULT_DATABASE_URL = "postgresql://rag:rag@localhost:5433/rag_lesson"
+
+POLICY_SUMMARIES = {
+    "annual-leave-policy": "Annual leave allowance, requests, and carrying unused days forward.",
+    "expenses-policy": "Receipts, deadlines, and approval rules for business expenses.",
+    "remote-working-policy": "Remote working limits, manager agreement, and office attendance.",
+}
+
+
+@dataclass(frozen=True)
+class SupportDocument:
+    id: str
+    title: str
+    summary: str
+    body: str
+    content_hash: str
+
+
+@dataclass(frozen=True)
+class DocumentChunk:
+    id: str
+    document_id: str
+    index: int
+    content: str
+
+
+def load_documents() -> list[SupportDocument]:
+    documents = []
+    for path in sorted(POLICY_DIR.glob("*.md")):
+        body = path.read_text(encoding="utf-8").strip()
+        documents.append(
+            SupportDocument(
+                id=path.stem,
+                title=extract_title(body, path.stem),
+                summary=POLICY_SUMMARIES[path.stem],
+                body=body,
+                content_hash=hashlib.sha256(body.encode()).hexdigest(),
+            )
+        )
+    return documents
+
+
+def split_document(document: SupportDocument) -> list[DocumentChunk]:
+    """Split Markdown on paragraph boundaries and omit the title heading."""
+    paragraphs = [
+        paragraph.replace("\n", " ").strip()
+        for paragraph in document.body.split("\n\n")
+        if paragraph.strip() and not paragraph.lstrip().startswith("# ")
+    ]
+    return [
+        DocumentChunk(
+            id=f"{document.id}:{index:03d}",
+            document_id=document.id,
+            index=index,
+            content=paragraph,
+        )
+        for index, paragraph in enumerate(paragraphs)
+    ]
+
+
+def create_embeddings(texts: list[str]) -> list[list[float]]:
+    project = required_environment("GOOGLE_CLOUD_PROJECT")
+    location = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
+    client = genai.Client(vertexai=True, project=project, location=location)
+    response = client.models.embed_content(
+        model=EMBEDDING_MODEL,
+        contents=texts,
+        config=types.EmbedContentConfig(
+            task_type="RETRIEVAL_DOCUMENT",
+            output_dimensionality=EMBEDDING_DIMENSIONS,
+        ),
+    )
+    embeddings = [embedding.values or [] for embedding in response.embeddings or []]
+    if len(embeddings) != len(texts):
+        raise RuntimeError("Gemini returned a different number of embeddings than requested.")
+    return embeddings
+
+
+def seed_database(
+    database_url: str,
+    documents: list[SupportDocument],
+    chunks: list[DocumentChunk],
+    embeddings: list[list[float]],
+) -> None:
+    if len(chunks) != len(embeddings):
+        raise ValueError("Every chunk must have one embedding.")
+
+    with psycopg.connect(database_url) as connection:
+        document_ids = [document.id for document in documents]
+        connection.execute(
+            """
+            delete from lesson_05.support_documents
+            where not (id = any(%s))
+            """,
+            (document_ids,),
+        )
+
+        for document in documents:
+            connection.execute(
+                """
+                insert into lesson_05.support_documents
+                    (id, title, summary, body, content_hash)
+                values (%s, %s, %s, %s, %s)
+                on conflict (id) do update set
+                    title = excluded.title,
+                    summary = excluded.summary,
+                    body = excluded.body,
+                    content_hash = excluded.content_hash,
+                    updated_at = now()
+                """,
+                (
+                    document.id,
+                    document.title,
+                    document.summary,
+                    document.body,
+                    document.content_hash,
+                ),
+            )
+            connection.execute(
+                "delete from lesson_05.support_document_chunks where document_id = %s",
+                (document.id,),
+            )
+
+        for chunk, embedding in zip(chunks, embeddings, strict=True):
+            connection.execute(
+                """
+                insert into lesson_05.support_document_chunks
+                    (id, document_id, chunk_index, content, embedding_model, embedding)
+                values (%s, %s, %s, %s, %s, %s::vector)
+                """,
+                (
+                    chunk.id,
+                    chunk.document_id,
+                    chunk.index,
+                    chunk.content,
+                    EMBEDDING_MODEL,
+                    vector_literal(embedding),
+                ),
+            )
+
+
+def vector_literal(values: list[float]) -> str:
+    if len(values) != EMBEDDING_DIMENSIONS:
+        raise ValueError(f"Expected {EMBEDDING_DIMENSIONS} embedding values.")
+    return "[" + ",".join(str(value) for value in values) + "]"
+
+
+def extract_title(markdown: str, fallback: str) -> str:
+    for line in markdown.splitlines():
+        if line.startswith("# "):
+            return line.removeprefix("# ").strip()
+    return fallback
+
+
+def required_environment(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Set {name} in examples/.env before running this command.")
+    return value
+
+
+def main() -> None:
+    load_dotenv(Path(__file__).parents[1] / ".env")
+    documents = load_documents()
+    chunks = [chunk for document in documents for chunk in split_document(document)]
+    embedding_texts = [
+        f"{next(doc.title for doc in documents if doc.id == chunk.document_id)}\n{chunk.content}"
+        for chunk in chunks
+    ]
+    embeddings = create_embeddings(embedding_texts)
+    database_url = os.getenv("RAG_DATABASE_URL", DEFAULT_DATABASE_URL)
+    seed_database(database_url, documents, chunks, embeddings)
+    print(f"Loaded {len(documents)} documents and {len(chunks)} chunks into Postgres.")
+
+
+if __name__ == "__main__":
+    main()

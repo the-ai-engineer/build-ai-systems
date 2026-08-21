@@ -527,12 +527,11 @@ uv run python examples/lesson-02/01_basic_model_call.py
 ```
 
 Examples are grouped by the lesson that uses them, so `examples/lesson-05/`
-holds the four retrieval examples.
+holds the shared PostgreSQL setup and three retrieval approaches.
 
 The model examples require the matching provider credentials.
-The whole-document RAG example uses Google ADK with Gemini on Google Cloud.
-The vector and hybrid RAG examples use the OpenAI API.
-The SQL RAG example uses an in-memory SQLite database and needs no setup.
+Lesson 05 uses Google ADK, Gemini, Google embeddings, PostgreSQL, and pgvector.
+Start with the public [RAG implementation guides](docs/rag/README.md).
 
 ## Verify the repository
 
@@ -540,7 +539,6 @@ The SQL RAG example uses an in-memory SQLite database and needs no setup.
 uv run ruff check .
 uv run ruff format --check .
 uv run python -m unittest discover -s tests
-uv run python examples/lesson-05/02_sql_rag.py
 ```
 
 Tests come in three kinds, and the difference is what each is allowed to touch.
