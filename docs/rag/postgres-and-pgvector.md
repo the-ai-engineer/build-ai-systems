@@ -1,18 +1,18 @@
 # Set up PostgreSQL and pgvector
 
-This guide creates one local teaching database for every Lesson 05 example.
+This guide creates the standalone Lesson 06 search database.
 The database runs in Docker, while the Python examples run on your machine.
 
 ## What you will create
 
-The raw SQL in [`01_setup.sql`](../../examples/lesson-05/01_setup.sql) creates:
+The raw SQL in [`01_setup.sql`](../../examples/lesson-06/01_setup.sql) creates:
 
-- `lesson_05.support_documents` for complete approved policies
-- `lesson_05.support_document_chunks` for paragraph-sized chunks
+- `lesson_06.support_documents` for complete approved policies
+- `lesson_06.support_document_chunks` for paragraph-sized chunks
 - a GIN index for PostgreSQL full-text search
 - an HNSW index for pgvector cosine search
 
-The `lesson_05` schema keeps this teaching data separate from the production application schema.
+The `lesson_06` schema keeps this teaching data separate from the production application schema.
 
 ## 1. Configure Google Cloud
 
@@ -43,13 +43,13 @@ Do not reuse them for a deployed database.
 ## 2. Start PostgreSQL
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml up -d --wait
+docker compose -f examples/lesson-06/compose.yaml up -d --wait
 ```
 
 Check that it is healthy:
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml ps
+docker compose -f examples/lesson-06/compose.yaml ps
 ```
 
 The `postgres` service should report `healthy`.
@@ -58,8 +58,8 @@ It listens on local port `5433` to avoid clashing with a PostgreSQL server on th
 ## 3. Apply the raw SQL
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml exec -T postgres \
-  psql -U rag -d rag_lesson < examples/lesson-05/01_setup.sql
+docker compose -f examples/lesson-06/compose.yaml exec -T postgres \
+  psql -U rag -d rag_lesson < examples/lesson-06/01_setup.sql
 ```
 
 This command is safe to run again.
@@ -68,14 +68,14 @@ The tables and indexes use `if not exists`.
 Inspect the schema:
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml exec postgres \
-  psql -U rag -d rag_lesson -c '\d lesson_05.support_document_chunks'
+docker compose -f examples/lesson-06/compose.yaml exec postgres \
+  psql -U rag -d rag_lesson -c '\d lesson_06.support_document_chunks'
 ```
 
 ## 4. Seed documents and embeddings
 
 ```bash
-uv run python examples/lesson-05/02_seed_documents.py
+uv run python examples/lesson-06/02_seed_documents.py
 ```
 
 Expected result:
@@ -91,9 +91,9 @@ Running it again updates current documents, replaces their chunks, and removes p
 Inspect the data:
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml exec postgres \
+docker compose -f examples/lesson-06/compose.yaml exec postgres \
   psql -U rag -d rag_lesson -c \
-  'select document_id, count(*) from lesson_05.support_document_chunks group by document_id order by document_id;'
+  'select document_id, count(*) from lesson_06.support_document_chunks group by document_id order by document_id;'
 ```
 
 ## How the ingestion path works
@@ -115,7 +115,7 @@ That distinction gives the embedding model the correct role for each input.
 ## Troubleshooting
 
 `connection refused` means the container is not healthy or the URL uses the wrong port.
-Run `docker compose -f examples/lesson-05/compose.yaml ps` and check for port `5433`.
+Run `docker compose -f examples/lesson-06/compose.yaml ps` and check for port `5433`.
 
 `type "vector" does not exist` means the SQL was applied to a PostgreSQL server without pgvector.
 Use the provided Compose image and re-run `01_setup.sql`.
@@ -126,13 +126,13 @@ Run the two `gcloud auth application-default` commands again.
 To stop the database without deleting it:
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml stop
+docker compose -f examples/lesson-06/compose.yaml stop
 ```
 
 To delete the disposable lesson database and start clean:
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml down --volumes
+docker compose -f examples/lesson-06/compose.yaml down --volumes
 ```
 
 The final command permanently removes the local lesson data.

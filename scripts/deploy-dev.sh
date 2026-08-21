@@ -9,7 +9,9 @@
 #   scripts/deploy-dev.sh
 #   TAG=abc1234 scripts/deploy-dev.sh
 #   PROJECT_ID=... REGION=... scripts/deploy-dev.sh
+#   scripts/deploy-dev.sh --worker-only       stop before the public webhook
 #   scripts/deploy-dev.sh --skip-migrations   services only, schema unchanged
+#   scripts/deploy-dev.sh --worker-only --skip-migrations
 #
 # The order is the point. Migrations and policy seeding finish before either
 # service exists, so no request can ever reach a schema that is not there
@@ -71,11 +73,14 @@ WORKER_REQUEST_TIMEOUT="${WORKER_REQUEST_TIMEOUT:-120s}"
 MAX_INSTANCES="${MAX_INSTANCES:-4}"
 
 skip_migrations=false
-case "${1:-}" in
-  --skip-migrations) skip_migrations=true ;;
-  "") ;;
-  *) printf 'usage: %s [--skip-migrations]\n' "$0" >&2; exit 2 ;;
-esac
+worker_only=false
+for argument in "$@"; do
+  case "$argument" in
+    --skip-migrations) skip_migrations=true ;;
+    --worker-only) worker_only=true ;;
+    *) printf 'usage: %s [--worker-only] [--skip-migrations]\n' "$0" >&2; exit 2 ;;
+  esac
+done
 
 step() { printf '\n== %s\n' "$1"; }
 ok() { printf '   %s\n' "$1"; }
@@ -366,24 +371,34 @@ docs/deploying-to-cloud-run.md has the exception this project uses."
 summary() {
   step "Done"
   ok "image      ${IMAGE}"
-  ok "webhook    ${WEBHOOK_URL}   public, runs as ${WEBHOOK_SA}"
   ok "worker     ${WORKER_URL}   private, runs as ${WORKER_SA}"
   ok "jobs       ${MIGRATE_JOB}, ${SEED_JOB}, run as ${MAINTENANCE_SA}"
   ok "queue      ${TASK_QUEUE} in ${REGION}"
+  if [[ "$worker_only" == true ]]; then
+    printf '\nPrivate development worker deployed.\n'
+    printf 'Prove its identity boundary: docs/worker-authentication.md\n'
+    printf 'Deploy the public webhook later with: scripts/deploy-dev.sh --skip-migrations\n'
+    return
+  fi
+  ok "webhook    ${WEBHOOK_URL}   public, runs as ${WEBHOOK_SA}"
   printf '\nSlack event URL: %s/slack/events\n' "$WEBHOOK_URL"
   printf 'Prove a task flows end to end: docs/deploying-to-cloud-run.md\n'
 }
 
 main() {
   require_tools
-  resolve_allowlists
+  if [[ "$worker_only" != true ]]; then
+    resolve_allowlists
+  fi
   printf 'Deploying to %s in %s\n' "$PROJECT_ID" "$REGION"
   resolve_image
   resolve_connection_name
   apply_schema
   deploy_worker
   configure_invoker
-  deploy_webhook
+  if [[ "$worker_only" != true ]]; then
+    deploy_webhook
+  fi
   summary
 }
 

@@ -14,14 +14,14 @@ that link and this table have to agree.
 | 2 | Use AI Models and SDKs | `examples/lesson-02/01_basic_model_call.py`, `examples/lesson-02/02_structured_outputs.py` |
 | 3 | AI System Design Patterns | `examples/lesson-03/01_deterministic_workflow.py` |
 | 4 | Build AI Agents | `examples/lesson-04/01_agent_by_hand.py`, `examples/lesson-04/adk_support_agent/agent.py` |
-| 5 | Retrieval-Augmented Generation | `examples/lesson-05/01_setup.sql`, `examples/lesson-05/02_seed_documents.py`, `examples/lesson-05/03_agentic_rag.py`, `examples/lesson-05/04_vector_search.py`, `examples/lesson-05/05_hybrid_search.py`, `docs/rag/`, `policies/` |
-| 6 | Design the Production Slack Assistant | `brief.md`, `ARCHITECTURE.md`, `docs/final-agent-spec.md` |
-| 7 | Build the Slack Assistant | `app/support_agent_app/api/`, `slack/manifest.json`, `app/support_agent_app/demos/send_slack_event.py` |
-| 8 | Connect the Agent and Knowledge Base | `app/support_agent_app/worker/agent/`, `policies/`, `app/support_agent_app/demos/run_workflow.py` |
-| 9 | Add the Queue and Background Worker | `app/support_agent_app/api/task_queue.py`, `app/support_agent_app/worker/`, `app/support_agent_app/demos/run_state_machine.py` |
-| 10 | Complete the Production Behaviour | `app/support_agent_app/application/lifecycle.py`, `app/support_agent_app/database/repositories/`, `tests/functional/database/` |
-| 11 | Test and Evaluate the AI System | `app/support_agent_app/testing/fixtures.py`, `tests/unit/worker/agent/test_support_workflow.py`, `tests/evals/` |
-| 12 | Deploy and Operate on Google Cloud | `Dockerfile`, `scripts/provision-dev.sh`, `scripts/build-and-push.sh`, `scripts/deploy-dev.sh`, `docs/deploying-to-cloud-run.md`, `docs/worker-authentication.md`. Planned: recovery and retention jobs, their schedules, operational checks |
+| 5 | Agentic RAG with PostgreSQL | `examples/lesson-05/01_setup.sql`, `examples/lesson-05/02_seed_documents.py`, `examples/lesson-05/03_agentic_rag.py`, `docs/rag/postgres-document-store.md`, `docs/rag/agentic-search.md`, `policies/` |
+| 6 | Vector and Hybrid Search | `examples/lesson-06/01_setup.sql`, `examples/lesson-06/02_seed_documents.py`, `examples/lesson-06/03_vector_search.py`, `examples/lesson-06/04_hybrid_search.py`, `docs/rag/postgres-and-pgvector.md`, `docs/rag/vector-search.md`, `docs/rag/hybrid-search.md`, `policies/` |
+| 7 | Design and Plan the Production System | `brief.md`, `ARCHITECTURE.md`, `docs/final-agent-spec.md` |
+| 8 | Run and Understand the Local Policy Assistant | `migrations/`, `app/support_agent_app/worker/`, `app/support_agent_app/database/`, `app/support_agent_app/demos/run_workflow.py`, `app/support_agent_app/demos/seed_request.py` |
+| 9 | Deploy the Private Worker to Google Cloud | `Dockerfile`, `scripts/provision-dev.sh`, `scripts/build-and-push.sh`, `scripts/deploy-dev.sh`, `docs/worker-authentication.md`, `docs/resources/deploy-with-codex-prompt.md` |
+| 10 | Connect and Deploy the Slack Webhook | `app/support_agent_app/api/`, `app/support_agent_app/api/task_queue.py`, `slack/`, `docs/slack-setup.md`, `app/support_agent_app/demos/send_slack_event.py`, `docs/deploying-to-cloud-run.md` |
+| 11 | Test and Evaluate the Complete System | `tests/unit/`, `tests/functional/`, `tests/evals/`, `app/support_agent_app/testing/fixtures.py`, `app/support_agent_app/demos/run_state_machine.py` |
+| 12 | Operate and Improve the Cloud System | `ARCHITECTURE.md`, `docs/final-agent-spec.md`, `docs/deploying-to-cloud-run.md`. Planned: recovery and retention jobs, dashboards, alerts, load checks, and operational runbooks |
 
 ## Commands the lessons tell students to run
 
@@ -38,24 +38,26 @@ docker compose -f examples/lesson-05/compose.yaml up -d --wait
 docker compose -f examples/lesson-05/compose.yaml exec -T postgres psql -U rag -d rag_lesson < examples/lesson-05/01_setup.sql
 uv run python examples/lesson-05/02_seed_documents.py
 uv run python examples/lesson-05/03_agentic_rag.py
-uv run python examples/lesson-05/04_vector_search.py
-uv run python examples/lesson-05/05_hybrid_search.py
+docker compose -f examples/lesson-05/compose.yaml down --volumes
+docker compose -f examples/lesson-06/compose.yaml up -d --wait
+docker compose -f examples/lesson-06/compose.yaml exec -T postgres psql -U rag -d rag_lesson < examples/lesson-06/01_setup.sql
+uv run python examples/lesson-06/02_seed_documents.py
+uv run python examples/lesson-06/03_vector_search.py
+uv run python examples/lesson-06/04_hybrid_search.py
 
 uv run python -m unittest discover -s tests/unit -t .
 uv run demo-workflow --fixture documented
 uv run demo-workflow --fixture unsupported
 uv run demo-workflow --fixture invalid-evidence
+uv run demo-seed-request
+./demo.sh
+scripts/deploy-dev.sh --worker-only
 ```
 
 Fixture names are `documented`, `unsupported`, `sensitive`, `conflicting`,
 `prompt-injection`, and `invalid-evidence`, defined in
 `app/support_agent_app/testing/fixtures.py`.
 
-## Known gaps
+## Known gap
 
-- `README.md` refers to `demo-worker`, `demo-end-to-end`, and
-  `tests/integration`. None of the three exist: the installed demo commands are
-  `demo-workflow`, `demo-state-machine`, `demo-seed-request`, and
-  `demo-slack-event`, and the test directories are `tests/unit`,
-  `tests/functional`, and `tests/evals`.
-- Lesson 12 has no code yet.
+Lesson 12 still needs recovery and retention jobs, dashboards, alerts, load checks, and operational runbooks.

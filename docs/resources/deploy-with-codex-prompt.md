@@ -2,7 +2,10 @@
 
 Use this prompt after the Slack support application and its deployment scripts exist.
 Read `docs/final-agent-spec.md` before using it.
-Complete the documented local webhook, queue-adapter, separate-worker, and real Slack checks before replacing the local adapters with Google Cloud services.
+Complete the local policy workflow and direct worker checks first.
+Use the first checkpoint to deploy and verify the private worker before the public Slack webhook exists.
+Use the second checkpoint to add Cloud Tasks, deploy the webhook, and connect Slack.
+Use the final checkpoint for operating evidence and hardening.
 
 The goal is to use Codex as an implementation partner while the engineer supervises architecture, IAM, privacy, and verification.
 
@@ -50,6 +53,9 @@ Constraints:
 - Stop for billing, project, region, IAM, or other material decisions that require my approval.
 
 Tasks:
+
+Development checkpoint A: private worker
+
 1. Inspect the repository and identify the application roles, container build, configuration, migrations, and existing deployment scripts.
 2. Run the documented local tests and demos before provisioning cloud resources.
 3. Confirm gcloud authentication, then ask which Google Cloud project and region to use.
@@ -64,6 +70,11 @@ Tasks:
 12. Grant only the expected Cloud Tasks caller identity, then verify missing, swapped, and correct worker identities.
 13. Create the Cloud Tasks queue with five attempts, exponential backoff, ten concurrent tasks, and five dispatches per second.
 14. Prove that Cloud Tasks OIDC invokes the same request_id worker handler.
+
+Stop and report the private worker URL, image digest, identity checks, and Cloud Tasks proof before exposing a public service.
+
+Development checkpoint B: Slack webhook
+
 15. Deploy the public webhook with only database and task-creation permissions, then verify its health endpoint.
 16. Deploy the finite recovery and retention Cloud Run Jobs from the same image.
 17. Schedule recovery every five minutes and retention once per day with the maintenance identity.
@@ -71,6 +82,11 @@ Tasks:
 19. Give the manual Slack configuration steps for the deployed event URL, app_mention subscription, bot scopes, one allowed team, and one allowed channel without reading credential values.
 20. Run a synthetic signed webhook check without including complete message text in command output.
 21. Complete one real mention smoke test in the dedicated course workspace.
+
+Stop and report the public event URL and the sanitized end-to-end result before production hardening.
+
+Operations checkpoint
+
 22. Record only sanitized identifiers, state transitions, timings, source filenames, and final status as evidence.
 23. Test duplicate delivery, stale-worker fencing, safe retries, retry exhaustion recovery, uncertain-send reconciliation, retention, and ten-request concurrency.
 24. Create a dated model-price configuration from the current authoritative provider documentation without adding price figures to long-lived architecture prose.

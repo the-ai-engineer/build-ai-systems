@@ -19,15 +19,15 @@ At search time, the code embeds only the question and sends that vector to Postg
 
 ## The important SQL
 
-[`04_vector_search.py`](../../examples/lesson-05/04_vector_search.py) runs the equivalent of:
+[`03_vector_search.py`](../../examples/lesson-06/03_vector_search.py) runs the equivalent of:
 
 ```sql
 select
     d.title,
     c.content,
     1 - (c.embedding <=> :query_embedding) as similarity
-from lesson_05.support_document_chunks c
-join lesson_05.support_documents d on d.id = c.document_id
+from lesson_06.support_document_chunks c
+join lesson_06.support_documents d on d.id = c.document_id
 order by c.embedding <=> :query_embedding
 limit 5;
 ```
@@ -41,7 +41,7 @@ The displayed similarity is `1 - distance`, where a larger value is better.
 Complete the [database setup](postgres-and-pgvector.md), then run:
 
 ```bash
-uv run python examples/lesson-05/04_vector_search.py \
+uv run python examples/lesson-06/03_vector_search.py \
   "Can I take unused holiday into next year?"
 ```
 
@@ -51,7 +51,7 @@ The exact similarity values can change when the embedding model changes, so trea
 Try a paraphrase:
 
 ```bash
-uv run python examples/lesson-05/04_vector_search.py \
+uv run python examples/lesson-06/03_vector_search.py \
   "What is the deadline for getting reimbursed?"
 ```
 

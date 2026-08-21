@@ -37,7 +37,7 @@ That makes the behaviour easier to inspect and is why the production course appl
 
 ## Run it
 
-Complete the [database setup](postgres-and-pgvector.md), then run:
+Complete the [PostgreSQL document-store setup](postgres-document-store.md), then run:
 
 ```bash
 uv run python examples/lesson-05/03_agentic_rag.py \
