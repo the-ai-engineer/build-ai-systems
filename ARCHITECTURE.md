@@ -153,6 +153,7 @@ Lesson 05 has a separate, teaching-only `lesson_05` schema in the local `rag_les
 It stores complete documents for the agentic RAG example.
 Its `policy_agent` package is the shared Google ADK entry point for the command-line example and ADK Web.
 Lesson 06 uses the same local database and owns a separate `lesson_06` schema with document chunks, Google embeddings, a pgvector HNSW index, and a PostgreSQL full-text index.
+Its `hybrid_policy_agent` package shares hybrid retrieval between the standalone comparison and ADK Web.
 The raw SQL lives beside each lesson's examples, not in the production migration history.
 The deployable application neither imports that example code nor requires the pgvector extension.
 

@@ -112,9 +112,35 @@ class LessonExamplesTest(unittest.TestCase):
         self.assertIn("lesson_06.support_document_chunks", sql)
         self.assertIn("using gin", sql.lower())
         self.assertIn("using hnsw", sql.lower())
-        for filename in ["03_vector_search.py", "04_hybrid_search.py"]:
+        for filename in ["03_vector_search.py", "hybrid_policy_agent/search.py"]:
             source = (Path("examples/lesson-06") / filename).read_text(encoding="utf-8")
             self.assertIn("lesson_06.support_document", source, msg=filename)
+
+    def test_lesson_six_exports_an_adk_web_agent(self) -> None:
+        package = Path("examples/lesson-06/hybrid_policy_agent")
+        sys.path.insert(0, str(package.parent))
+        try:
+            policy_agent = importlib.import_module("hybrid_policy_agent")
+        finally:
+            sys.path.pop(0)
+            sys.modules.pop("hybrid_policy_agent.search", None)
+            sys.modules.pop("hybrid_policy_agent.agent", None)
+            sys.modules.pop("hybrid_policy_agent", None)
+
+        self.assertEqual(policy_agent.root_agent.name, "hybrid_policy_agent")
+        self.assertEqual(
+            [tool.__name__ for tool in policy_agent.root_agent.tools],
+            ["search_support_documents"],
+        )
+
+        command = subprocess.run(
+            [sys.executable, "examples/lesson-06/04_hybrid_search.py", "--help"],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(command.returncode, 0, msg=command.stderr)
+        self.assertIn("Combine exact words with semantic search.", command.stdout)
 
     def test_retrieval_examples_default_to_local_postgres_socket(self) -> None:
         for path in [
@@ -122,7 +148,7 @@ class LessonExamplesTest(unittest.TestCase):
             Path("examples/lesson-05/policy_agent/agent.py"),
             Path("examples/lesson-06/02_seed_documents.py"),
             Path("examples/lesson-06/03_vector_search.py"),
-            Path("examples/lesson-06/04_hybrid_search.py"),
+            Path("examples/lesson-06/hybrid_policy_agent/search.py"),
         ]:
             source = path.read_text(encoding="utf-8")
 
@@ -183,7 +209,7 @@ class LessonExamplesTest(unittest.TestCase):
             vector.vector_literal([0.0])
 
     def test_hybrid_rag_fuses_keyword_and_vector_rankings(self) -> None:
-        example = load_example("lesson-06/04_hybrid_search.py")
+        example = load_example("lesson-06/hybrid_policy_agent/search.py")
 
         scores = example.reciprocal_rank_fusion(
             [
