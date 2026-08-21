@@ -2,12 +2,21 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from collections.abc import AsyncGenerator
 from decimal import Decimal
-from types import SimpleNamespace
+from unittest import mock
 
+from google.adk.models.base_llm import BaseLlm
+from google.adk.models.llm_request import LlmRequest
+from google.adk.models.llm_response import LlmResponse
+from google.adk.telemetry import tracing as adk_tracing
+from google.genai import types
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
 from pydantic import ValidationError
-from pydantic_ai.messages import ModelResponse, ToolCallPart
-from pydantic_ai.models.function import FunctionModel
 from support_agent_app.application.domain import (
     AgentRunRecord,
     HumanReviewDecision,
@@ -16,6 +25,7 @@ from support_agent_app.application.domain import (
     SupportDocument,
     SupportQuestion,
 )
+from support_agent_app.settings import ModelProviderSettings
 from support_agent_app.testing.fake_model import DOCUMENTED_EXCERPT, fixture_model
 from support_agent_app.testing.fixtures import (
     FIXTURE_QUESTIONS,
@@ -32,6 +42,7 @@ from support_agent_app.worker.agent.agent import (
     MAX_OUTPUT_TOKENS,
     MAX_TOOL_CALLS,
     MODEL_TIMEOUT_SECONDS,
+    _run_agent,
     build_agent,
     run_support_workflow,
 )
@@ -93,7 +104,7 @@ class SupportWorkflowTests(unittest.TestCase):
         self.assertEqual(outcome.run.tool_call_count, 2)
         self.assertEqual(outcome.run.model_turn_count, 3)
         self.assertEqual(outcome.run.finish_reason, "stop")
-        self.assertEqual(outcome.run.model_id, "function:fixture")
+        self.assertEqual(outcome.run.model_id, "fixture")
         self.assertEqual(outcome.run.model_location, "local")
         self.assertGreater(outcome.run.retrieved_context_tokens, 0)
         self.assertEqual(
@@ -267,10 +278,8 @@ class SupportWorkflowTests(unittest.TestCase):
             repository=MemoryPolicyRepository(documents),
             loaded_documents={document.document_id: document for document in documents[:3]},
         )
-        context = SimpleNamespace(deps=dependencies)
-
         with self.assertRaisesRegex(ValueError, "at most 3 documents"):
-            get_support_document(context, documents[3].document_id)  # type: ignore[arg-type]
+            get_support_document(dependencies, documents[3].document_id)
 
     def test_parallel_model_calls_cannot_bypass_document_limit(self) -> None:
         documents = [
@@ -288,22 +297,32 @@ class SupportWorkflowTests(unittest.TestCase):
         ]
         dependencies = WorkflowDependencies(repository=MemoryPolicyRepository(documents))
 
-        def request_four_documents(messages, info):
-            return ModelResponse(
-                parts=[
-                    ToolCallPart(
-                        "get_support_document",
-                        {"document_id": document.document_id},
-                    )
-                    for document in documents
-                ],
-                model_name="parallel-fixture",
-                finish_reason="stop",
-            )
+        class FourDocumentModel(BaseLlm):
+            model: str = "parallel-fixture"
 
-        agent = build_agent(FunctionModel(request_four_documents, model_name="parallel-fixture"))
+            async def generate_content_async(
+                self,
+                llm_request: LlmRequest,
+                stream: bool = False,
+            ) -> AsyncGenerator[LlmResponse, None]:
+                del llm_request, stream
+                yield LlmResponse(
+                    content=types.Content(
+                        role="model",
+                        parts=[
+                            types.Part.from_function_call(
+                                name="get_support_document",
+                                args={"document_id": document.document_id},
+                            )
+                            for document in documents
+                        ],
+                    ),
+                    finish_reason=types.FinishReason.STOP,
+                )
+
+        agent = build_agent(FourDocumentModel(), dependencies)
         with self.assertRaisesRegex(ValueError, "at most 3 documents"):
-            agent.run_sync("Load four documents.", deps=dependencies)
+            asyncio.run(_run_agent(agent, "Load four documents."))
 
         self.assertEqual(len(dependencies.loaded_documents), MAX_LOADED_DOCUMENTS)
 
@@ -315,6 +334,29 @@ class SupportWorkflowTests(unittest.TestCase):
         self.assertNotIn(DOCUMENTED_EXCERPT, serialized)
         self.assertNotIn("answer", AgentRunRecord.model_fields)
         self.assertNotIn("question", AgentRunRecord.model_fields)
+
+    def test_adk_telemetry_excludes_message_and_tool_content(self) -> None:
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        tracer = provider.get_tracer("privacy-test")
+        dependencies = WorkflowDependencies(repository=fixture_repository("documented"))
+        question_canary = "PRIVATE-QUESTION-CANARY"
+
+        with mock.patch.object(adk_tracing, "tracer", tracer):
+            asyncio.run(
+                _run_agent(
+                    build_agent(fixture_model("documented"), dependencies),
+                    question_canary,
+                )
+            )
+
+        spans = exporter.get_finished_spans()
+        self.assertGreater(len(spans), 0)
+        attributes = "\n".join(str(dict(span.attributes)) for span in spans)
+        self.assertNotIn(question_canary, attributes)
+        self.assertNotIn(DOCUMENTED_EXCERPT, attributes)
+        self.assertNotIn("You may carry up to five unused days", attributes)
 
     def test_cost_estimate_uses_versioned_token_prices(self) -> None:
         prices = load_price_configuration()
@@ -345,7 +387,7 @@ class SupportWorkflowTests(unittest.TestCase):
             self.repository,
             model=model,
         )
-        self.assertEqual(outcome.run.model_id, model.model_id)
+        self.assertEqual(outcome.run.model_id, model.model)
 
         with self.assertRaisesRegex(ValueError, "does not match"):
             run_support_workflow(
@@ -356,39 +398,40 @@ class SupportWorkflowTests(unittest.TestCase):
             )
 
     def test_safety_latency_and_cost_limits_are_explicit(self) -> None:
-        self.assertEqual(DEFAULT_MODEL, "google-cloud:gemini-3.5-flash")
+        self.assertEqual(DEFAULT_MODEL, "gemini-3.5-flash")
         self.assertEqual(MAX_MODEL_TURNS, 6)
         self.assertEqual(MAX_TOOL_CALLS, 5)
         self.assertEqual(MAX_OUTPUT_TOKENS, 500)
         self.assertEqual(MODEL_TIMEOUT_SECONDS, 20.0)
-        # A scripted model gets no provider settings, because there is no provider.
-        agent = build_agent(fixture_model("unsupported"))
-        self.assertNotIn("google_cloud_service_tier", agent.model_settings)
+        dependencies = WorkflowDependencies(repository=self.repository)
+        agent = build_agent(fixture_model("unsupported"), dependencies)
+        self.assertIsNone(agent.generate_content_config.service_tier)
         deadline_agent = build_agent(
             fixture_model("unsupported"),
+            dependencies,
             model_timeout_seconds=3.0,
         )
-        self.assertEqual(deadline_agent.model_settings["timeout"], 3.0)
+        self.assertEqual(deadline_agent.timeout, 3.0)
 
     def test_requested_service_tier_matches_the_recorded_and_priced_one(self) -> None:
         """The tier sent to the provider, recorded, and priced must be one value.
 
-        They disagreed once: the request asked for on_demand while the run
-        record said standard, so the cost estimate confidently priced a request
-        that never happened.
+        A previous regression let the requested and recorded tiers drift, so
+        the cost estimate confidently priced a request that never happened.
         """
         selection = ModelSelection(
-            model="google-cloud:gemini-3.5-flash",
-            model_id="google-cloud:gemini-3.5-flash",
+            model="gemini-3.5-flash",
+            model_id="gemini-3.5-flash",
             location="global",
             service_tier=GOOGLE_CLOUD_SERVICE_TIER,
-            provider_settings={"google_cloud_service_tier": GOOGLE_CLOUD_SERVICE_TIER},
         )
         agent = build_agent(
-            "google-cloud:gemini-3.5-flash", provider_settings=selection.provider_settings
+            selection.model,
+            WorkflowDependencies(repository=self.repository),
+            service_tier=selection.service_tier,
         )
 
-        sent = agent.model_settings["google_cloud_service_tier"]
+        sent = agent.generate_content_config.service_tier
         self.assertEqual(sent, selection.service_tier)
 
         priced = {price.service_tier for price in load_price_configuration().prices}
@@ -400,21 +443,50 @@ class SupportWorkflowTests(unittest.TestCase):
         self.assertIn("no more than 7 documents", build_instructions(7))
 
     def test_workflow_timeout_bounds_the_complete_agent_run(self) -> None:
-        async def slow_model(messages, info):
-            await asyncio.sleep(0.05)
-            return ModelResponse(model_name="slow-fixture", finish_reason="stop")
+        class SlowModel(BaseLlm):
+            model: str = "slow-fixture"
+
+            async def generate_content_async(
+                self,
+                llm_request: LlmRequest,
+                stream: bool = False,
+            ) -> AsyncGenerator[LlmResponse, None]:
+                del llm_request, stream
+                await asyncio.sleep(0.05)
+                yield LlmResponse(finish_reason=types.FinishReason.STOP)
 
         with self.assertRaises(TimeoutError):
             run_support_workflow(
                 FIXTURE_QUESTIONS["unsupported"],
                 self.repository,
-                model=FunctionModel(slow_model, model_name="slow-fixture"),
+                model=SlowModel(),
                 model_timeout_seconds=0.001,
             )
 
     def test_live_model_boundary_requires_google_cloud_provider(self) -> None:
-        with self.assertRaisesRegex(ValueError, "google-cloud"):
+        with self.assertRaisesRegex(ValueError, "Gemini"):
             create_google_cloud_model("openai:gpt-test")
+
+    def test_google_cloud_model_uses_agent_platform_and_adc_configuration(self) -> None:
+        selection = create_google_cloud_model(
+            settings=ModelProviderSettings(
+                model_name="gemini-3.5-flash",
+                google_cloud_project="course-project",
+                google_cloud_location="global",
+            )
+        )
+
+        self.assertEqual(selection.model_id, "gemini-3.5-flash")
+        self.assertEqual(selection.location, "global")
+        self.assertEqual(selection.service_tier, "standard")
+        self.assertEqual(
+            selection.model.client_kwargs,
+            {
+                "enterprise": True,
+                "project": "course-project",
+                "location": "global",
+            },
+        )
 
 
 if __name__ == "__main__":

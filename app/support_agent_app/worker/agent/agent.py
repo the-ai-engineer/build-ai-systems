@@ -1,15 +1,21 @@
-"""Agent construction and one constrained run, with usage limits enforced."""
+"""Google ADK agent construction and one bounded policy workflow run."""
 
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+from dataclasses import dataclass
 from time import perf_counter
+from uuid import uuid4
 
-from pydantic_ai import Agent, Tool
-from pydantic_ai.messages import ModelResponse
-from pydantic_ai.models import Model
-from pydantic_ai.usage import UsageLimits
+from google.adk.agents import Agent
+from google.adk.agents.run_config import RunConfig
+from google.adk.events import Event
+from google.adk.models.base_llm import BaseLlm
+from google.adk.runners import InMemoryRunner
+from google.adk.telemetry import ContentCapturingMode, TelemetryConfig
+from google.genai import types
+from pydantic import ValidationError
 
 from ...application.domain import (
     AgentRunRecord,
@@ -18,52 +24,83 @@ from ...application.domain import (
     WorkflowOutcome,
 )
 from ...application.protocols import PolicyRepository
-from ..model_provider import ModelSelection
+from ..model_provider import GOOGLE_CLOUD_SERVICE_TIER, ModelSelection
 from .evidence import verify_decision
 from .prompts import INSTRUCTIONS
 from .schemas import AgentDecision
-from .tools import WorkflowDependencies, get_support_document, list_support_documents
+from .tools import WorkflowDependencies, build_adk_tools
 
-DEFAULT_MODEL = "google-cloud:gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-3.5-flash"
 MAX_MODEL_TURNS = 6
 MAX_TOOL_CALLS = 5
 MODEL_TIMEOUT_SECONDS = 20.0
 MAX_OUTPUT_TOKENS = 500
+APP_NAME = "support_agent"
+PRIVATE_RUN_CONFIG = RunConfig(
+    telemetry=TelemetryConfig(
+        capture_message_content=ContentCapturingMode.NO_CONTENT,
+    )
+)
+
+
+class AgentRunLimitError(RuntimeError):
+    """The model exceeded a deterministic request or tool-call limit."""
+
+
+class InvalidModelOutputError(RuntimeError):
+    """ADK finished without a valid AgentDecision."""
+
+
+@dataclass
+class _RunCounters:
+    model_turns: int = 0
+    tool_calls: int = 0
 
 
 def build_agent(
-    model: Model | str,
+    model: BaseLlm | str,
+    dependencies: WorkflowDependencies,
     *,
+    counters: _RunCounters | None = None,
     model_timeout_seconds: float = MODEL_TIMEOUT_SECONDS,
-    provider_settings: dict[str, object] | None = None,
-) -> Agent[WorkflowDependencies, AgentDecision]:
-    """Build the agent with limits that hold for any model.
-
-    Provider-specific settings arrive from `model_provider`, so this function
-    never names a vendor. Passing them for a model that does not understand
-    them would be meaningless, so a fake model simply gets none.
-    """
+    service_tier: str | None = None,
+) -> Agent:
+    """Build one request-scoped ADK agent with deterministic limits."""
 
     if model_timeout_seconds <= 0:
         raise ValueError("model_timeout_seconds must be positive")
-    settings: dict[str, object] = {
-        # Per request. See run_support_workflow for the second, total budget.
-        "timeout": min(MODEL_TIMEOUT_SECONDS, model_timeout_seconds),
-        "max_tokens": MAX_OUTPUT_TOKENS,
-        "parallel_tool_calls": False,
-    }
-    settings.update(provider_settings or {})
+    run_counters = counters or _RunCounters()
+
+    def before_model_callback(callback_context, llm_request):
+        del callback_context, llm_request
+        run_counters.model_turns += 1
+        if run_counters.model_turns > MAX_MODEL_TURNS:
+            raise AgentRunLimitError(f"A run may use at most {MAX_MODEL_TURNS} model turns")
+        return None
+
+    def before_tool_callback(tool, args, tool_context):
+        del args, tool_context
+        if tool.name == "set_model_response":
+            return None
+        run_counters.tool_calls += 1
+        if run_counters.tool_calls > MAX_TOOL_CALLS:
+            raise AgentRunLimitError(f"A run may call at most {MAX_TOOL_CALLS} tools")
+        return None
+
     return Agent(
-        model,
-        deps_type=WorkflowDependencies,
-        output_type=AgentDecision,
-        instructions=INSTRUCTIONS,
-        tools=[
-            Tool(list_support_documents, sequential=True),
-            Tool(get_support_document, sequential=True),
-        ],
-        model_settings=settings,  # type: ignore[arg-type]
-        retries=1,
+        name=APP_NAME,
+        description="Answers employee questions from approved HR policy documents.",
+        model=model,
+        instruction=INSTRUCTIONS,
+        tools=build_adk_tools(dependencies),
+        output_schema=AgentDecision,
+        generate_content_config=types.GenerateContentConfig(
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            service_tier=service_tier,
+        ),
+        before_model_callback=before_model_callback,
+        before_tool_callback=before_tool_callback,
+        timeout=model_timeout_seconds,
     )
 
 
@@ -71,45 +108,36 @@ def run_support_workflow(
     question: SupportQuestion,
     repository: PolicyRepository,
     *,
-    model: Model | str | None = None,
+    model: BaseLlm | str | None = None,
     model_id: str | None = None,
     context_token_counter: Callable[[str], int] | None = None,
     model_timeout_seconds: float = MODEL_TIMEOUT_SECONDS,
 ) -> WorkflowOutcome:
+    """Run ADK once and turn its untrusted result into an application outcome."""
+
     dependencies = WorkflowDependencies(repository=repository)
     selection = _resolve_model(model, model_id)
-    started = perf_counter()
+    counters = _RunCounters()
     agent = build_agent(
         selection.model,
+        dependencies,
+        counters=counters,
         model_timeout_seconds=model_timeout_seconds,
-        provider_settings=selection.provider_settings,
+        service_tier=(
+            selection.service_tier if selection.service_tier == GOOGLE_CLOUD_SERVICE_TIER else None
+        ),
     )
-    # Two budgets, deliberately. `model_settings["timeout"]` bounds one request;
-    # this `wait_for` bounds the whole run. Without it, six turns at a 20 second
-    # per-request timeout can legitimately take two minutes and blow the worker
-    # deadline. `agent.run_sync()` would collapse this back to one budget.
-    result = asyncio.run(
+    started = perf_counter()
+    events = asyncio.run(
         asyncio.wait_for(
-            agent.run(
-                question.text,
-                deps=dependencies,
-                usage_limits=UsageLimits(
-                    request_limit=MAX_MODEL_TURNS,
-                    tool_calls_limit=MAX_TOOL_CALLS,
-                    output_tokens_limit=MAX_OUTPUT_TOKENS * MAX_MODEL_TURNS,
-                ),
-            ),
+            _run_agent(agent, question.text),
             timeout=model_timeout_seconds,
         )
     )
     duration_ms = max(0, round((perf_counter() - started) * 1_000))
 
-    decision = verify_decision(result.output, dependencies.loaded_documents)
-    model_responses = [
-        message for message in result.all_messages() if isinstance(message, ModelResponse)
-    ]
-    finish_reason = model_responses[-1].finish_reason or "unknown"
-    usage = result.usage
+    decision = verify_decision(_read_decision(events), dependencies.loaded_documents)
+    input_tokens, output_tokens = _token_usage(events)
     count_context_tokens = context_token_counter or estimate_context_tokens
     run = AgentRunRecord(
         model_id=selection.model_id,
@@ -119,18 +147,88 @@ def run_support_workflow(
             LoadedDocumentRecord(document_id=document.document_id, revision=document.revision)
             for document in dependencies.loaded_documents.values()
         ),
-        input_tokens=usage.input_tokens,
+        input_tokens=input_tokens,
         retrieved_context_tokens=sum(
             count_context_tokens(document.body)
             for document in dependencies.loaded_documents.values()
         ),
-        output_tokens=usage.output_tokens,
+        output_tokens=output_tokens,
         duration_ms=duration_ms,
-        finish_reason=finish_reason,
-        tool_call_count=usage.tool_calls,
-        model_turn_count=usage.requests,
+        finish_reason=_finish_reason(events),
+        tool_call_count=counters.tool_calls,
+        model_turn_count=counters.model_turns,
     )
     return WorkflowOutcome(result=decision, run=run)
+
+
+async def _run_agent(agent: Agent, question: str) -> list[Event]:
+    session_id = str(uuid4())
+    runner = InMemoryRunner(agent=agent, app_name=APP_NAME)
+    await runner.session_service.create_session(
+        app_name=APP_NAME,
+        user_id="worker",
+        session_id=session_id,
+    )
+    events: list[Event] = []
+    try:
+        async for event in runner.run_async(
+            user_id="worker",
+            session_id=session_id,
+            new_message=types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=question)],
+            ),
+            run_config=PRIVATE_RUN_CONFIG,
+        ):
+            events.append(event)
+    finally:
+        await runner.close()
+    return events
+
+
+def _read_decision(events: list[Event]) -> AgentDecision:
+    for event in reversed(events):
+        structured = getattr(event.actions, "set_model_response", None)
+        if structured is not None:
+            try:
+                return AgentDecision.model_validate(structured)
+            except ValidationError as error:
+                raise InvalidModelOutputError("ADK returned an invalid decision") from error
+
+    final_text = _final_text(events)
+    try:
+        return AgentDecision.model_validate_json(final_text)
+    except (ValidationError, ValueError) as error:
+        raise InvalidModelOutputError("ADK did not return a valid decision") from error
+
+
+def _final_text(events: list[Event]) -> str:
+    for event in reversed(events):
+        if not event.is_final_response() or event.content is None:
+            continue
+        text = "".join(part.text or "" for part in event.content.parts or [])
+        if text:
+            return text
+    return ""
+
+
+def _token_usage(events: list[Event]) -> tuple[int, int]:
+    input_tokens = 0
+    output_tokens = 0
+    for event in events:
+        usage = event.usage_metadata
+        if usage is None:
+            continue
+        input_tokens += usage.prompt_token_count or 0
+        output_tokens += usage.candidates_token_count or 0
+    return input_tokens, output_tokens
+
+
+def _finish_reason(events: list[Event]) -> str:
+    for event in reversed(events):
+        if event.finish_reason is not None:
+            return event.finish_reason.value.lower()
+    return "unknown"
 
 
 def estimate_context_tokens(text: str) -> int:
@@ -139,19 +237,18 @@ def estimate_context_tokens(text: str) -> int:
     return (len(text.encode("utf-8")) + 3) // 4
 
 
-def _resolve_model(model: Model | str | None, model_id: str | None) -> ModelSelection:
-    """Pick the model to run, and describe it for the run record."""
+def _resolve_model(model: BaseLlm | str | None, model_id: str | None) -> ModelSelection:
+    """Pick the ADK model to run, and describe it for the run record."""
 
     if model is None:
         from ..model_provider import create_google_cloud_model
 
         return create_google_cloud_model(model_id)
 
-    actual_id = model if isinstance(model, str) else model.model_id
+    actual_id = model if isinstance(model, str) else model.model
     if model_id is not None and model_id != actual_id:
         raise ValueError(f"Injected model ID {actual_id!r} does not match model_id {model_id!r}")
-    if isinstance(model, Model) and model.system == "function":
-        # A scripted model. No provider settings, because there is no provider.
+    if actual_id == "fixture":
         return ModelSelection(
             model=model,
             model_id=actual_id,

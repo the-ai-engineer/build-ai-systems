@@ -13,8 +13,9 @@ The public webhook verifies Slack, stores the request in Postgres, creates a Clo
 The webhook never calls a model or retrieves a policy document.
 
 A private Cloud Run worker claims the stored request and runs the slow policy workflow.
-The Pydantic AI agent uses constrained Postgres tools, and deterministic application code validates evidence, records the decision, and controls the Slack reply.
-The finished application uses Pydantic AI's Google Cloud provider with configurable `google-cloud:gemini-3.5-flash` as the current tested default.
+The Google ADK agent uses constrained Postgres tools, and deterministic application code validates evidence, records the decision, and controls the Slack reply.
+The finished application uses Google ADK with Gemini through Google Cloud Agent Platform.
+`gemini-3.5-flash` is the current tested default and remains configurable.
 
 Postgres is the source of truth for policy documents, support requests, fenced claims, decisions, task generations, and outbound actions.
 Cloud Tasks delivers one internal request ID to one worker handler.
@@ -65,7 +66,7 @@ flowchart LR
     Webhook --> DB[("Postgres")]
     Webhook -->|"request_id only"| Tasks["Cloud Tasks"]
     Tasks -->|"OIDC request"| Worker["Private Cloud Run worker"]
-    Worker --> Agent["Pydantic AI agent"]
+    Worker --> Agent["Google ADK agent"]
     Agent --> DB
     Worker --> Slack
     Worker --> DB
@@ -451,8 +452,8 @@ No course documentation, issue, log, task payload, test fixture, or `MEMORY.md` 
 
 ## Model Configuration
 
-Pydantic AI uses its Google Cloud provider for the finished application.
-The model setting defaults to `google-cloud:gemini-3.5-flash` and remains configurable.
+Google ADK runs Gemini through Google Cloud Agent Platform for the finished application.
+The model setting defaults to `gemini-3.5-flash` and remains configurable.
 `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION` provide the project and location.
 
 Gemini Flash is primary because model selection is an architecture and operating-cost decision.
@@ -531,6 +532,7 @@ Operators need metrics for:
 
 Logs and traces use request IDs, state names, timings, counts, hashes, and safe error categories.
 They never contain complete questions, answers, policy bodies, supporting excerpts, Slack payloads, or credentials.
+Every production ADK run explicitly disables message-content capture in its telemetry configuration.
 
 ## Acceptance Criteria
 

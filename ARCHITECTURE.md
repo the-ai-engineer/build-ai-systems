@@ -74,7 +74,7 @@ it is what makes independent deployment true rather than aspirational.
 `worker/main.py` and `api/main.py` are composition roots and are the only modules that name concrete adapters.
 
 `WorkerService` takes a `SupportRequestStore`, a `PolicyRepository`, an `AgentRunner`, and a `SlackClient`.
-It never learns that the store is Postgres, that the agent is Pydantic AI, or that the messaging platform is Slack.
+It never learns that the store is Postgres, that the agent is Google ADK, or that the messaging platform is Slack.
 
 ## How one request flows
 
@@ -361,7 +361,7 @@ deleted, and against the real model two of its assertions were wrong.
 `PYTHON_STANDARDS.md` puts external clients in `integrations/`. Every client here has exactly one caller, so each lives with the service that owns it: `api/task_queue.py`, `worker/messaging.py`, `worker/model_provider.py`. A shared `integrations/` would spread each service across one more directory for no reader benefit. Introduce it if a client ever gains a second caller.
 
 **`worker/failures.py` imports provider exception types.**
-`classify_workflow_failure` maps `pydantic_ai` and `psycopg` exceptions to durable categories.
+`classify_workflow_failure` maps `google.genai` and `psycopg` exceptions to durable categories.
 
 This is no longer a layering violation now that it lives inside the worker, which already knows both. It is recorded because the mapping is the one place provider error semantics are interpreted, and it should stay that way.
 

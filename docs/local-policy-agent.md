@@ -3,7 +3,7 @@
 This is the first runnable slice of the HR policy assistant.
 It has no Slack, Cloud Tasks, or Cloud Run dependency.
 
-The default commands use a deterministic Pydantic AI `FunctionModel` and the synthetic policies in `policies/`.
+The default commands use a deterministic Google ADK `FixtureModel` and the synthetic policies in `policies/`.
 They need no model credentials, database credentials, or network access.
 
 ```bash
@@ -30,13 +30,14 @@ Its SQL is fixed and parameterized.
 
 ## Optional Google Cloud model run
 
-The configured model defaults to `google-cloud:gemini-3.5-flash`.
-Pydantic AI uses Application Default Credentials with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`.
+The configured model defaults to `gemini-3.5-flash`.
+Google ADK runs Gemini through Google Cloud Agent Platform using Application Default Credentials with `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION`.
 No Gemini API key is required or stored by this application.
 
 After configuring Application Default Credentials outside the repository, run:
 
 ```bash
+export GOOGLE_GENAI_USE_ENTERPRISE=TRUE
 uv run demo-workflow --fixture documented --live-model
 ```
 

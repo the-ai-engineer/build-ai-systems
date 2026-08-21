@@ -22,8 +22,8 @@ Canonical architecture:
 - The webhook stores one support request in Cloud SQL Postgres.
 - The webhook creates a named Cloud Task containing only request_id.
 - Cloud Tasks invokes a private Cloud Run worker with OIDC.
-- The worker obtains a fenced Postgres claim before running Pydantic AI.
-- Pydantic AI uses its Google Cloud provider with configurable google-cloud:gemini-3.5-flash as the current tested default.
+- The worker obtains a fenced Postgres claim before running Google ADK.
+- Google ADK runs Gemini through Google Cloud Agent Platform with configurable gemini-3.5-flash as the current tested default.
 - GOOGLE_CLOUD_PROJECT and GOOGLE_CLOUD_LOCATION supply the model project and location.
 - The worker runtime service identity invokes Gemini without a separate API key.
 - Model selection uses the smallest model that passes the HR support evals.

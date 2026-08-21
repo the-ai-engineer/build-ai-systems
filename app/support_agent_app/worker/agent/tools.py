@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-
-from pydantic_ai import RunContext
 
 from ...application.domain import SupportDocument, SupportDocumentIndexItem
 from ...application.protocols import PolicyRepository
@@ -19,25 +18,41 @@ class WorkflowDependencies:
 
 
 def list_support_documents(
-    context: RunContext[WorkflowDependencies],
+    dependencies: WorkflowDependencies,
 ) -> list[SupportDocumentIndexItem]:
     """List the active policy index without exposing arbitrary database access."""
-    return context.deps.repository.list_active_documents()
+    return dependencies.repository.list_active_documents()
 
 
 def get_support_document(
-    context: RunContext[WorkflowDependencies],
+    dependencies: WorkflowDependencies,
     document_id: str,
 ) -> SupportDocument:
     """Load one active policy, up to the per-run document limit."""
-    existing = context.deps.loaded_documents.get(document_id)
+    existing = dependencies.loaded_documents.get(document_id)
     if existing is not None:
         return existing
-    if len(context.deps.loaded_documents) >= MAX_LOADED_DOCUMENTS:
+    if len(dependencies.loaded_documents) >= MAX_LOADED_DOCUMENTS:
         raise ValueError(f"A run may load at most {MAX_LOADED_DOCUMENTS} documents")
 
-    document = context.deps.repository.get_active_document(document_id)
+    document = dependencies.repository.get_active_document(document_id)
     if document is None:
         raise ValueError("The requested active support document does not exist")
-    context.deps.loaded_documents[document_id] = document
+    dependencies.loaded_documents[document_id] = document
     return document
+
+
+def build_adk_tools(dependencies: WorkflowDependencies) -> list[Callable[..., object]]:
+    """Bind the request-scoped repository to the two ADK function tools."""
+
+    def list_support_documents_tool() -> list[dict[str, object]]:
+        """List the active policy index before choosing policy evidence."""
+        return [item.model_dump(mode="json") for item in list_support_documents(dependencies)]
+
+    def get_support_document_tool(document_id: str) -> dict[str, object]:
+        """Load one active policy document by its exact identifier."""
+        return get_support_document(dependencies, document_id).model_dump(mode="json")
+
+    list_support_documents_tool.__name__ = "list_support_documents"
+    get_support_document_tool.__name__ = "get_support_document"
+    return [list_support_documents_tool, get_support_document_tool]

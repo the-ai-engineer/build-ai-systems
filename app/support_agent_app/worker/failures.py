@@ -6,16 +6,12 @@ so it can map them to durable categories. See ARCHITECTURE.md.
 
 from __future__ import annotations
 
+from google.auth.exceptions import DefaultCredentialsError
+from google.genai.errors import APIError, ClientError, ServerError
 from psycopg import Error as PostgresError
 from pydantic import ValidationError
-from pydantic_ai.exceptions import (
-    ConcurrencyLimitExceeded,
-    ModelAPIError,
-    ModelHTTPError,
-    UnexpectedModelBehavior,
-    UsageLimitExceeded,
-    UserError,
-)
+
+from .agent.agent import AgentRunLimitError, InvalidModelOutputError
 
 
 class WorkerTemporaryError(RuntimeError):
@@ -25,17 +21,18 @@ class WorkerTemporaryError(RuntimeError):
 def classify_workflow_failure(error: Exception) -> tuple[str, bool]:
     """Return a safe durable category and whether another attempt can help."""
 
-    if isinstance(error, ModelHTTPError):
-        retryable = error.status_code in {408, 409, 429} or error.status_code >= 500
+    if isinstance(error, DefaultCredentialsError):
+        return "model_configuration", False
+    if isinstance(error, ClientError):
+        retryable = error.code in {408, 409, 429}
         category = "model_provider_temporary" if retryable else "model_configuration"
         return category, retryable
-    if isinstance(
-        error,
-        (TimeoutError, ModelAPIError, ConcurrencyLimitExceeded, PostgresError),
-    ):
+    if isinstance(error, ServerError):
+        return "model_provider_temporary", True
+    if isinstance(error, (TimeoutError, APIError, PostgresError)):
         return "model_or_database_temporary", True
-    if isinstance(error, (ValidationError, UnexpectedModelBehavior, UsageLimitExceeded)):
+    if isinstance(error, (ValidationError, InvalidModelOutputError, AgentRunLimitError)):
         return "invalid_model_output", False
-    if isinstance(error, (UserError, ValueError)):
+    if isinstance(error, ValueError):
         return "model_configuration", False
     return "model_or_database_temporary", True
