@@ -15,7 +15,7 @@ from google.genai import types
 
 EMBEDDING_MODEL = "gemini-embedding-001"
 EMBEDDING_DIMENSIONS = 768
-DEFAULT_DATABASE_URL = "postgresql://rag:rag@localhost:5433/rag_lesson"
+DEFAULT_DATABASE_URL = "postgresql:///rag_lesson"
 
 
 @dataclass(frozen=True)

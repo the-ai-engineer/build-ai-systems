@@ -1,7 +1,7 @@
 # Set up PostgreSQL and pgvector
 
-This guide creates the standalone Lesson 06 search database.
-The database runs in Docker, while the Python examples run on your machine.
+Lesson 06 adds vector and full-text indexes to the same local `rag_lesson` database used in Lesson 05.
+Its `lesson_06` schema keeps this teaching data separate from the complete-document example and the production application.
 
 ## What you will create
 
@@ -12,9 +12,20 @@ The raw SQL in [`01_setup.sql`](../../examples/lesson-06/01_setup.sql) creates:
 - a GIN index for PostgreSQL full-text search
 - an HNSW index for pgvector cosine search
 
-The `lesson_06` schema keeps this teaching data separate from the production application schema.
+## 1. Install pgvector
 
-## 1. Configure Google Cloud
+pgvector is a PostgreSQL extension, so it must be installed for the same local PostgreSQL version that runs your database.
+
+On macOS with Homebrew PostgreSQL 17 or 18:
+
+```bash
+brew install pgvector
+```
+
+The Homebrew formula adds pgvector only to Homebrew PostgreSQL 17 and 18.
+For an older Homebrew PostgreSQL version, Linux, Windows, Postgres.app, or a source installation, follow the [official pgvector installation guide](https://github.com/pgvector/pgvector#installation).
+
+## 2. Configure Google Cloud
 
 The examples use Vertex AI through Application Default Credentials.
 No Gemini API key is required.
@@ -34,65 +45,50 @@ cp examples/.env.sample examples/.env
 GOOGLE_GENAI_USE_ENTERPRISE=TRUE
 GOOGLE_CLOUD_PROJECT=build-ai-systems-dev
 GOOGLE_CLOUD_LOCATION=global
-RAG_DATABASE_URL=postgresql://rag:rag@localhost:5433/rag_lesson
 ```
 
-The database username and password above are only for the disposable local container.
-Do not reuse them for a deployed database.
+You do not need to set `RAG_DATABASE_URL` for the normal local setup.
+The examples default to `postgresql:///rag_lesson`, which uses your operating-system user and the local PostgreSQL socket.
 
-## 2. Start PostgreSQL
+## 3. Create the database
+
+If you did not create it in Lesson 05, run:
 
 ```bash
-docker compose -f examples/lesson-06/compose.yaml up -d --wait
+createdb rag_lesson
 ```
 
-Check that it is healthy:
+If `rag_lesson` already exists, continue.
+
+## 4. Apply the raw SQL
 
 ```bash
-docker compose -f examples/lesson-06/compose.yaml ps
+psql rag_lesson < examples/lesson-06/01_setup.sql
 ```
 
-The `postgres` service should report `healthy`.
-It listens on local port `5433` to avoid clashing with a PostgreSQL server on the default port.
-
-## 3. Apply the raw SQL
-
-```bash
-docker compose -f examples/lesson-06/compose.yaml exec -T postgres \
-  psql -U rag -d rag_lesson < examples/lesson-06/01_setup.sql
-```
-
-This command is safe to run again.
-The tables and indexes use `if not exists`.
+This enables pgvector in `rag_lesson` and creates the Lesson 06 schema, tables, and indexes.
+It is safe to run again because the setup uses `if not exists`.
 
 Inspect the schema:
 
 ```bash
-docker compose -f examples/lesson-06/compose.yaml exec postgres \
-  psql -U rag -d rag_lesson -c '\d lesson_06.support_document_chunks'
+psql rag_lesson -c '\d lesson_06.support_document_chunks'
 ```
 
-## 4. Seed documents and embeddings
+## 5. Seed documents and embeddings
 
 ```bash
 uv run python examples/lesson-06/02_seed_documents.py
 ```
 
-Expected result:
-
-```text
-Loaded 3 documents and 9 chunks into Postgres.
-```
-
 The seed command reads the canonical Markdown files in `policies/`.
 It stores each whole document, splits it on paragraph boundaries, and asks `gemini-embedding-001` for a 768-dimensional embedding for each chunk.
-Running it again updates current documents, replaces their chunks, and removes policies that are no longer in the approved directory.
+Running it again updates current documents, replaces their chunks, and removes policies that are no longer approved.
 
 Inspect the data:
 
 ```bash
-docker compose -f examples/lesson-06/compose.yaml exec postgres \
-  psql -U rag -d rag_lesson -c \
+psql rag_lesson -c \
   'select document_id, count(*) from lesson_06.support_document_chunks group by document_id order by document_id;'
 ```
 
@@ -114,25 +110,28 @@ That distinction gives the embedding model the correct role for each input.
 
 ## Troubleshooting
 
-`connection refused` means the container is not healthy or the URL uses the wrong port.
-Run `docker compose -f examples/lesson-06/compose.yaml ps` and check for port `5433`.
+`connection refused` means the local PostgreSQL server is not running or your connection settings differ from the default.
+Run `pg_isready` first.
+Set `RAG_DATABASE_URL` in `examples/.env` if your server uses another user, host, port, or database.
 
-`type "vector" does not exist` means the SQL was applied to a PostgreSQL server without pgvector.
-Use the provided Compose image and re-run `01_setup.sql`.
+`type "vector" does not exist` or `extension "vector" is not available` means pgvector is not installed for the PostgreSQL server you are using.
+Install it for that PostgreSQL version, then run the setup SQL again.
 
 An authentication or quota-project error means Application Default Credentials are missing or stale.
 Run the two `gcloud auth application-default` commands again.
 
-To stop the database without deleting it:
+## Ask a coding agent to set this up
 
-```bash
-docker compose -f examples/lesson-06/compose.yaml stop
+Copy this prompt into Codex or another coding agent from the repository root:
+
+```text
+Set up the Lesson 06 vector and hybrid search examples on my machine.
+
+First inspect my operating system, PostgreSQL version, pg_config path, running server, and whether the vector extension is available.
+Use my native local PostgreSQL installation, not Docker, and reuse the rag_lesson database from Lesson 05.
+If pgvector is missing, identify the official install command for my PostgreSQL version and wait for my approval before installing it.
+Do not delete or overwrite any existing database, role, schema, or configuration.
+Apply examples/lesson-06/01_setup.sql, verify the vector extension and both indexes, then run the seed, vector search, and hybrid search examples.
+Use the Google Cloud settings in examples/.env without printing credentials.
+Finish with the verification results and the commands I can use next time.
 ```
-
-To delete the disposable lesson database and start clean:
-
-```bash
-docker compose -f examples/lesson-06/compose.yaml down --volumes
-```
-
-The final command permanently removes the local lesson data.

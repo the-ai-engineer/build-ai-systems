@@ -126,20 +126,16 @@ Run Lesson 05 against its complete-document PostgreSQL store.
 Use Google Cloud ADC for the ADK agent:
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml up -d --wait
-docker compose -f examples/lesson-05/compose.yaml exec -T postgres \
-  psql -U rag -d rag_lesson < examples/lesson-05/01_setup.sql
+createdb rag_lesson
+psql rag_lesson < examples/lesson-05/01_setup.sql
 uv run python examples/lesson-05/02_seed_documents.py
 uv run python examples/lesson-05/03_agentic_rag.py
 ```
 
-Run the standalone Lesson 06 vector and hybrid examples against their pgvector database:
+Run the standalone Lesson 06 vector and hybrid examples against the shared local pgvector database:
 
 ```bash
-docker compose -f examples/lesson-05/compose.yaml down --volumes
-docker compose -f examples/lesson-06/compose.yaml up -d --wait
-docker compose -f examples/lesson-06/compose.yaml exec -T postgres \
-  psql -U rag -d rag_lesson < examples/lesson-06/01_setup.sql
+psql rag_lesson < examples/lesson-06/01_setup.sql
 uv run python examples/lesson-06/02_seed_documents.py
 uv run python examples/lesson-06/03_vector_search.py
 uv run python examples/lesson-06/04_hybrid_search.py

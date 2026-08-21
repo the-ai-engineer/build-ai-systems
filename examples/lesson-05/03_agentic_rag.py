@@ -14,7 +14,7 @@ from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
 
 
-DEFAULT_DATABASE_URL = "postgresql://rag:rag@localhost:5433/rag_lesson"
+DEFAULT_DATABASE_URL = "postgresql:///rag_lesson"
 
 
 def create_document_tools(database_url: str) -> list[Any]:

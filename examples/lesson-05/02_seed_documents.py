@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 
 POLICY_DIR = Path(__file__).parents[2] / "policies"
-DEFAULT_DATABASE_URL = "postgresql://rag:rag@localhost:5433/rag_lesson"
+DEFAULT_DATABASE_URL = "postgresql:///rag_lesson"
 
 
 @dataclass(frozen=True)

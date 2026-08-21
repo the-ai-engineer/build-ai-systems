@@ -48,7 +48,7 @@ This is the approach used by the production Slack assistant.
 ## Run Lesson 06
 
 Start with the [PostgreSQL and pgvector setup](postgres-and-pgvector.md).
-Lesson 06 creates its own standalone search database:
+Lesson 06 creates a separate schema in the shared local `rag_lesson` database:
 
 ```mermaid
 erDiagram
