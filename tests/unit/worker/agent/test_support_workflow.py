@@ -41,6 +41,7 @@ from support_agent_app.worker.agent.agent import (
     MAX_MODEL_TURNS,
     MAX_OUTPUT_TOKENS,
     MAX_TOOL_CALLS,
+    MODEL_THINKING_LEVEL,
     MODEL_TIMEOUT_SECONDS,
     _run_agent,
     build_agent,
@@ -403,9 +404,14 @@ class SupportWorkflowTests(unittest.TestCase):
         self.assertEqual(MAX_TOOL_CALLS, 5)
         self.assertEqual(MAX_OUTPUT_TOKENS, 500)
         self.assertEqual(MODEL_TIMEOUT_SECONDS, 20.0)
+        self.assertEqual(MODEL_THINKING_LEVEL, types.ThinkingLevel.MINIMAL)
         dependencies = WorkflowDependencies(repository=self.repository)
         agent = build_agent(fixture_model("unsupported"), dependencies)
         self.assertIsNone(agent.generate_content_config.service_tier)
+        self.assertEqual(
+            agent.generate_content_config.thinking_config,
+            types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL),
+        )
         deadline_agent = build_agent(
             fixture_model("unsupported"),
             dependencies,
@@ -413,11 +419,12 @@ class SupportWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(deadline_agent.timeout, 3.0)
 
-    def test_requested_service_tier_matches_the_recorded_and_priced_one(self) -> None:
-        """The tier sent to the provider, recorded, and priced must be one value.
+    def test_default_service_tier_is_recorded_and_priced_but_not_sent(self) -> None:
+        """Agent Platform rejects an explicit ``standard`` service tier.
 
-        A previous regression let the requested and recorded tiers drift, so
-        the cost estimate confidently priced a request that never happened.
+        Omitting the field selects the documented pay-as-you-go default. The
+        run record and price table still name that default so cost metadata is
+        explicit without sending an unsupported provider value.
         """
         selection = ModelSelection(
             model="gemini-3.5-flash",
@@ -428,11 +435,10 @@ class SupportWorkflowTests(unittest.TestCase):
         agent = build_agent(
             selection.model,
             WorkflowDependencies(repository=self.repository),
-            service_tier=selection.service_tier,
         )
 
-        sent = agent.generate_content_config.service_tier
-        self.assertEqual(sent, selection.service_tier)
+        self.assertIsNone(agent.generate_content_config.service_tier)
+        self.assertNotIn("service_tier", agent.generate_content_config.model_fields_set)
 
         priced = {price.service_tier for price in load_price_configuration().prices}
         self.assertIn(selection.service_tier, priced)
