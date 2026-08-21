@@ -24,7 +24,7 @@ from ...application.domain import (
     WorkflowOutcome,
 )
 from ...application.protocols import PolicyRepository
-from ..model_provider import GOOGLE_CLOUD_SERVICE_TIER, ModelSelection
+from ..model_provider import ModelSelection
 from .evidence import verify_decision
 from .prompts import INSTRUCTIONS
 from .schemas import AgentDecision
@@ -35,6 +35,7 @@ MAX_MODEL_TURNS = 6
 MAX_TOOL_CALLS = 5
 MODEL_TIMEOUT_SECONDS = 20.0
 MAX_OUTPUT_TOKENS = 500
+MODEL_THINKING_LEVEL = types.ThinkingLevel.MINIMAL
 APP_NAME = "support_agent"
 PRIVATE_RUN_CONFIG = RunConfig(
     telemetry=TelemetryConfig(
@@ -63,7 +64,6 @@ def build_agent(
     *,
     counters: _RunCounters | None = None,
     model_timeout_seconds: float = MODEL_TIMEOUT_SECONDS,
-    service_tier: str | None = None,
 ) -> Agent:
     """Build one request-scoped ADK agent with deterministic limits."""
 
@@ -96,7 +96,9 @@ def build_agent(
         output_schema=AgentDecision,
         generate_content_config=types.GenerateContentConfig(
             max_output_tokens=MAX_OUTPUT_TOKENS,
-            service_tier=service_tier,
+            thinking_config=types.ThinkingConfig(
+                thinking_level=MODEL_THINKING_LEVEL,
+            ),
         ),
         before_model_callback=before_model_callback,
         before_tool_callback=before_tool_callback,
@@ -123,9 +125,6 @@ def run_support_workflow(
         dependencies,
         counters=counters,
         model_timeout_seconds=model_timeout_seconds,
-        service_tier=(
-            selection.service_tier if selection.service_tier == GOOGLE_CLOUD_SERVICE_TIER else None
-        ),
     )
     started = perf_counter()
     events = asyncio.run(

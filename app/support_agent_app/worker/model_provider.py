@@ -9,6 +9,9 @@ from google.adk.models.google_llm import Gemini
 
 from ..settings import ModelProviderSettings
 
+# Agent Platform defaults to pay-as-you-go routing when no service tier is sent.
+# Keep that default's billing label separate from the provider request: the
+# Enterprise API rejects the Gen AI SDK's explicit ``standard`` enum value.
 GOOGLE_CLOUD_SERVICE_TIER = "standard"
 
 
