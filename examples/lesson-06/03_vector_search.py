@@ -64,8 +64,8 @@ def vector_search(
                 c.id as chunk_id,
                 c.content,
                 1 - (c.embedding <=> %s::vector) as similarity
-            from lesson_05.support_document_chunks c
-            join lesson_05.support_documents d on d.id = c.document_id
+            from lesson_06.support_document_chunks c
+            join lesson_06.support_documents d on d.id = c.document_id
             order by c.embedding <=> %s::vector
             limit %s
             """,

@@ -62,7 +62,7 @@ def retrieve_rankings(
         keyword_rows = connection.execute(
             """
             select c.id
-            from lesson_05.support_document_chunks c
+            from lesson_06.support_document_chunks c
             where c.search_vector @@ websearch_to_tsquery('english', %s)
             order by ts_rank_cd(
                 c.search_vector,
@@ -75,7 +75,7 @@ def retrieve_rankings(
         vector_rows = connection.execute(
             """
             select c.id
-            from lesson_05.support_document_chunks c
+            from lesson_06.support_document_chunks c
             order by c.embedding <=> %s::vector
             limit %s
             """,
@@ -96,8 +96,8 @@ def retrieve_rankings(
                     d.id as document_id,
                     d.title,
                     c.content
-                from lesson_05.support_document_chunks c
-                join lesson_05.support_documents d on d.id = c.document_id
+                from lesson_06.support_document_chunks c
+                join lesson_06.support_documents d on d.id = c.document_id
                 where c.id = any(%s)
                 """,
                 (chunk_ids,),

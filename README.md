@@ -75,18 +75,14 @@ uv run apply-migrations
 uv run seed-policies
 ```
 
-`apply-migrations` and `seed-policies` are installed commands and find the root
-`.env` from anywhere in the tree. The demos are run with `python -m examples...`,
-so they must be run from the repository root.
+`apply-migrations`, `seed-policies`, and the demos are installed commands and find the root `.env` from anywhere in the tree.
 
 The demos build deterministic fake model and Slack adapters directly, so they
 make no Google Cloud or Slack call:
 
 ```bash
-uv run python -m unittest discover -s tests/integration -t .
-uv run demo-worker --fixture documented
-uv run demo-worker --fixture human-review
-uv run demo-worker --fixture uncertain-send
+DATABASE_URL=... uv run python -m unittest discover -s tests/functional -t .
+uv run demo-seed-request
 ```
 
 The worker service itself defaults to the real adapters, and to the real
@@ -103,12 +99,11 @@ WORKER_TASK_AUTH=static \
 
 ### The fastest look
 
-One command drives every stage, from a signed Slack event to the reply text the
-employee would see. The model and Slack are deterministic fakes, so it needs no
-credentials and sends nothing:
+One script drives every stage, from a signed Slack event to the reply text the employee would see.
+The model and Slack are deterministic fakes, so it needs no credentials and sends nothing:
 
 ```bash
-uv run demo-end-to-end
+./demo.sh
 ```
 
 ### One script, every call shown
@@ -195,13 +190,10 @@ uv run demo-workflow \
   --question "How much annual leave can I carry over?" --live-model
 ```
 
-Through the durable worker path, so you also see the claim, the decision record,
-and the outbound action:
+Through the complete durable path, so you also see the claim, decision record, queue delivery, and outbound action:
 
 ```bash
-DATABASE_URL="postgresql:///support_agent" \
-  uv run demo-worker \
-    --question "How much annual leave can I carry over?" --live-model
+QUESTION="How much annual leave can I carry over?" ./demo.sh --live-model
 ```
 
 `--live-model` needs `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and
@@ -493,11 +485,12 @@ Postgres instead of sending it.
 Two services and two jobs, all from the image above:
 
 ```bash
+scripts/deploy-dev.sh --worker-only       # Lesson 09: private worker first
+
 SLACK_ALLOWED_TEAM_IDS=T... SLACK_ALLOWED_CHANNEL_IDS=C... \
-  scripts/deploy-dev.sh
+  scripts/deploy-dev.sh --skip-migrations # Lesson 10: public webhook
 
 TAG=abc1234 scripts/deploy-dev.sh          # deploy a specific build
-scripts/deploy-dev.sh --skip-migrations    # services only, schema unchanged
 ```
 
 It applies the schema and seeds the policy set as two Cloud Run jobs **before**
@@ -505,6 +498,7 @@ either service exists, then deploys the private worker, grants the one identity
 that may invoke it, and deploys the public webhook last. Each of the four runs
 as its own service account and reads only the secrets that identity is allowed
 to read. Nothing downloads a service-account key.
+`--worker-only` stops at the private development checkpoint so it can be proved before the public webhook is introduced.
 
 [docs/deploying-to-cloud-run.md](docs/deploying-to-cloud-run.md) explains the
 order, the OIDC audience, and the one organization policy the script cannot
@@ -526,11 +520,12 @@ Run an example:
 uv run python examples/lesson-02/01_basic_model_call.py
 ```
 
-Examples are grouped by the lesson that uses them, so `examples/lesson-05/`
-holds the shared PostgreSQL setup and three retrieval approaches.
+Examples are grouped by the lesson that uses them.
+`examples/lesson-05/` holds the agentic RAG document store and `examples/lesson-06/` holds the standalone vector and hybrid search examples.
 
 The model examples require the matching provider credentials.
-Lesson 05 uses Google ADK, Gemini, Google embeddings, PostgreSQL, and pgvector.
+Lesson 05 uses Google ADK, Gemini, and PostgreSQL.
+Lesson 06 uses Gemini embeddings, PostgreSQL, and pgvector.
 Start with the public [RAG implementation guides](docs/rag/README.md).
 
 ## Verify the repository

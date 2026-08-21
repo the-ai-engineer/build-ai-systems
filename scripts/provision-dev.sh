@@ -8,10 +8,12 @@
 # it is already there, so a second run reports "exists" and changes nothing.
 #
 #   scripts/provision-dev.sh
+#   scripts/provision-dev.sh --without-slack
 #   PROJECT_ID=... REGION=... ENV_FILE=... scripts/provision-dev.sh
 #
-# Slack credentials are read from ENV_FILE and piped into Secret Manager on
-# stdin. No secret value is printed, logged, or placed on a command line.
+# Unless --without-slack is set, Slack credentials are read from ENV_FILE and
+# piped into Secret Manager on stdin. No secret value is printed, logged, or
+# placed on a command line.
 #
 # Tear the billable parts down with scripts/teardown-dev.sh.
 
@@ -55,6 +57,13 @@ REQUIRED_APIS=(
   logging.googleapis.com
   monitoring.googleapis.com
 )
+
+without_slack=false
+case "${1:-}" in
+  --without-slack) without_slack=true ;;
+  "") ;;
+  *) printf 'usage: %s [--without-slack]\n' "$0" >&2; exit 2 ;;
+esac
 
 step() { printf '\n== %s\n' "$1"; }
 ok() { printf '   %s\n' "$1"; }
@@ -400,8 +409,10 @@ grant_roles() {
 
   # Each identity reads only the secrets it needs. Only the webhook verifies a
   # Slack signature and only the worker posts a reply.
-  grant_secret_access "$SECRET_SLACK_SIGNING_SECRET" "$WEBHOOK_SA"
-  grant_secret_access "$SECRET_SLACK_BOT_TOKEN" "$WORKER_SA"
+  if [[ "$without_slack" != true ]]; then
+    grant_secret_access "$SECRET_SLACK_SIGNING_SECRET" "$WEBHOOK_SA"
+    grant_secret_access "$SECRET_SLACK_BOT_TOKEN" "$WORKER_SA"
+  fi
   grant_secret_access "$SECRET_DATABASE_URL" "$WEBHOOK_SA"
   grant_secret_access "$SECRET_DATABASE_URL" "$WORKER_SA"
   grant_secret_access "$SECRET_DATABASE_URL" "$MAINTENANCE_SA"
@@ -415,7 +426,11 @@ summary() {
   ok "cloud sql         ${SQL_INSTANCE} (${SQL_TIER}), database ${SQL_DATABASE}"
   ok "queue             ${TASK_QUEUE} in ${REGION}"
   ok "identities        ${WEBHOOK_SA}, ${WORKER_SA}, ${MAINTENANCE_SA}"
-  ok "secrets           ${SECRET_SLACK_BOT_TOKEN}, ${SECRET_SLACK_SIGNING_SECRET}, ${SECRET_DATABASE_URL}"
+  if [[ "$without_slack" == true ]]; then
+    ok "secrets           ${SECRET_DATABASE_URL}; Slack secrets deferred"
+  else
+    ok "secrets           ${SECRET_SLACK_BOT_TOKEN}, ${SECRET_SLACK_SIGNING_SECRET}, ${SECRET_DATABASE_URL}"
+  fi
   ok "private worker    ${WORKER_SERVICE}, invoked only by ${WEBHOOK_SA}"
   printf '\nCloud SQL bills whether or not anything is running.\n'
   printf 'Tear it down when you are finished: scripts/teardown-dev.sh\n'
@@ -429,7 +444,9 @@ main() {
   create_artifact_registry
   create_task_queue
   create_sql_instance
-  store_slack_secrets
+  if [[ "$without_slack" != true ]]; then
+    store_slack_secrets
+  fi
   configure_sql_user_and_url
   grant_roles
   configure_worker_invoker

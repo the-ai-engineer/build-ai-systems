@@ -9,7 +9,9 @@
 #   scripts/deploy-dev.sh
 #   TAG=abc1234 scripts/deploy-dev.sh
 #   PROJECT_ID=... REGION=... scripts/deploy-dev.sh
+#   scripts/deploy-dev.sh --worker-only       stop before the public webhook
 #   scripts/deploy-dev.sh --skip-migrations   services only, schema unchanged
+#   scripts/deploy-dev.sh --worker-only --skip-migrations
 #
 # The order is the point. Migrations and policy seeding finish before either
 # service exists, so no request can ever reach a schema that is not there
@@ -71,11 +73,14 @@ WORKER_REQUEST_TIMEOUT="${WORKER_REQUEST_TIMEOUT:-120s}"
 MAX_INSTANCES="${MAX_INSTANCES:-4}"
 
 skip_migrations=false
-case "${1:-}" in
-  --skip-migrations) skip_migrations=true ;;
-  "") ;;
-  *) printf 'usage: %s [--skip-migrations]\n' "$0" >&2; exit 2 ;;
-esac
+worker_only=false
+for argument in "$@"; do
+  case "$argument" in
+    --skip-migrations) skip_migrations=true ;;
+    --worker-only) worker_only=true ;;
+    *) printf 'usage: %s [--worker-only] [--skip-migrations]\n' "$0" >&2; exit 2 ;;
+  esac
+done
 
 step() { printf '\n== %s\n' "$1"; }
 ok() { printf '   %s\n' "$1"; }
@@ -223,7 +228,7 @@ apply_schema() {
 
 deploy_worker() {
   step "Private worker"
-  local name value worker_env url
+  local name value worker_env worker_secrets url
   url="$(service_url "$WORKER_SERVICE")"
   if [[ -n "$url" ]]; then
     ok "existing url ${url}"
@@ -233,6 +238,13 @@ deploy_worker() {
   fi
 
   worker_env="WORKER_BASE_URL=${url};TASK_OIDC_SERVICE_ACCOUNT=$(sa_email "$WEBHOOK_SA");GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}"
+  worker_secrets="DATABASE_URL=${SECRET_DATABASE_URL}:latest"
+  if [[ "$worker_only" == true ]]; then
+    worker_env="${worker_env};WORKER_SLACK_SINK=record"
+  else
+    worker_env="${worker_env};WORKER_SLACK_SINK=slack"
+    worker_secrets="${worker_secrets},SLACK_BOT_TOKEN=${SECRET_SLACK_BOT_TOKEN}:latest"
+  fi
   for name in SUPPORT_AGENT_MODEL WORKER_DEADLINE_SECONDS; do
     value="${!name:-}"
     if [[ -n "$value" ]]; then
@@ -257,7 +269,7 @@ deploy_worker() {
     --command uvicorn \
     --args="support_agent_app.worker.main:create_app,--factory,--host,0.0.0.0,--port,8080" \
     --set-cloudsql-instances "$SQL_CONNECTION_NAME" \
-    --set-secrets "DATABASE_URL=${SECRET_DATABASE_URL}:latest,SLACK_BOT_TOKEN=${SECRET_SLACK_BOT_TOKEN}:latest" \
+    --set-secrets "$worker_secrets" \
     --set-env-vars "^;^${worker_env}" \
     --timeout "$WORKER_REQUEST_TIMEOUT" \
     --max-instances "$MAX_INSTANCES" \
@@ -366,24 +378,34 @@ docs/deploying-to-cloud-run.md has the exception this project uses."
 summary() {
   step "Done"
   ok "image      ${IMAGE}"
-  ok "webhook    ${WEBHOOK_URL}   public, runs as ${WEBHOOK_SA}"
   ok "worker     ${WORKER_URL}   private, runs as ${WORKER_SA}"
   ok "jobs       ${MIGRATE_JOB}, ${SEED_JOB}, run as ${MAINTENANCE_SA}"
   ok "queue      ${TASK_QUEUE} in ${REGION}"
+  if [[ "$worker_only" == true ]]; then
+    printf '\nPrivate development worker deployed.\n'
+    printf 'Prove its identity boundary: docs/worker-authentication.md\n'
+    printf 'Deploy the public webhook later with: scripts/deploy-dev.sh --skip-migrations\n'
+    return
+  fi
+  ok "webhook    ${WEBHOOK_URL}   public, runs as ${WEBHOOK_SA}"
   printf '\nSlack event URL: %s/slack/events\n' "$WEBHOOK_URL"
   printf 'Prove a task flows end to end: docs/deploying-to-cloud-run.md\n'
 }
 
 main() {
   require_tools
-  resolve_allowlists
+  if [[ "$worker_only" != true ]]; then
+    resolve_allowlists
+  fi
   printf 'Deploying to %s in %s\n' "$PROJECT_ID" "$REGION"
   resolve_image
   resolve_connection_name
   apply_schema
   deploy_worker
   configure_invoker
-  deploy_webhook
+  if [[ "$worker_only" != true ]]; then
+    deploy_webhook
+  fi
   summary
 }
 

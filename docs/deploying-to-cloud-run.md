@@ -8,19 +8,33 @@ laptop.
 The ground it deploys onto comes from `scripts/provision-dev.sh`, and the image
 comes from `scripts/build-and-push.sh`. Neither is repeated here.
 
-## One command
+## Deploy in two course checkpoints
+
+Lesson 09 stops after the private worker is running:
 
 ```bash
 scripts/build-and-push.sh
+scripts/provision-dev.sh --without-slack
+scripts/deploy-dev.sh --worker-only
+```
+
+This applies the schema, seeds the policies, deploys the worker, and configures its private invoker boundary.
+The worker records its prepared reply in Postgres at this checkpoint, so no Slack credential is required.
+Use [the worker authentication guide](worker-authentication.md) to prove the service before adding a public entry point.
+
+Lesson 10 deploys the public webhook from the same image:
+
+```bash
+scripts/provision-dev.sh
 SLACK_ALLOWED_TEAM_IDS=T0B2CKH25KK \
 SLACK_ALLOWED_CHANNEL_IDS=C0BQJ8U1Z5X \
-  scripts/deploy-dev.sh
+  scripts/deploy-dev.sh --skip-migrations
 ```
 
 The two allowlists are the only values the script needs and cannot infer. They
 are identifiers, not secrets, so they come from the environment or `.env`.
-Every credential stays in Secret Manager and is mounted by name; the script
-never reads one.
+Every credential stays in Secret Manager and is mounted by name; the script never reads one.
+Running `scripts/deploy-dev.sh` without `--worker-only` still performs the complete deployment in the same safe order.
 
 ## What it deploys, in this order
 

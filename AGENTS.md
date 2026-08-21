@@ -51,7 +51,8 @@ Do not add application structure or infrastructure before the relevant linked ta
 - Use ADK's shared agent concepts to support cross-language learning, while keeping the course implementation in Python and acknowledging language-specific differences.
 - Show provider boundaries without pretending provider capabilities are identical.
 - Keep structured outputs, tool calls, and agent loops tied to real product decisions.
-- Teach whole-document agentic retrieval, vector search, and hybrid search against one shared local PostgreSQL database.
+- Teach agentic RAG over complete PostgreSQL documents in Lesson 05.
+- Keep Lesson 06 as a standalone comparison of vector and hybrid search that later production lessons do not depend on.
 - Use raw SQL to make the lesson schema and pgvector indexes visible.
 - Keep vector and hybrid retrieval optional in the production application.
 - Use Google Cloud as the deployment target.
@@ -62,7 +63,7 @@ Start with the design and linked tasks, then build the local policy agent, Postg
 Test that handler directly before adding a webhook.
 Deploy the same private worker to a development Cloud Run service, invoke it through the supported Cloud Run proxy or another authenticated request, then add Cloud Tasks with OIDC.
 Connect the public Slack webhook only after the worker and queue work independently.
-The webhook, local queue, and worker now run end to end locally; `app/support_agent_app/demos/run_end_to_end.py` drives all three.
+The webhook, local queue, and worker now run end to end locally; `demo.sh` drives all three.
 A temporary HTTPS tunnel may expose a local webhook to real Slack.
 Google Cloud does not provide a supported Cloud Tasks emulator, so do not introduce a third-party emulator.
 Keep this early development deployment separate from the later production hardening lesson.
@@ -92,7 +93,7 @@ Students must still understand the contracts, authority boundaries, failure beha
 - `policies/` is the single approved policy set, used by the application and the retrieval examples.
 - `docs/course-code-map.md` contains only lesson names and their runnable or planned code.
 - `docs/final-agent-spec.md` defines the finished application contract.
-- `docs/rag/` contains public implementation guides for the Lesson 05 retrieval examples.
+- `docs/rag/` contains public implementation guides for the Lesson 05 and 06 retrieval examples.
 - `docs/resources/deploy-with-codex-prompt.md` contains the supervised deployment prompt.
 - `MEMORY.md` is the sanitized, non-authoritative coordination log.
 - `tests/` verifies the examples and repository contracts.
@@ -121,8 +122,8 @@ Functional tests skip without `DATABASE_URL`; evals skip without `GOOGLE_CLOUD_P
 
 Run a changed model example with the required provider credentials.
 
-Run the Lesson 05 examples against the shared local pgvector database.
-Use Google Cloud ADC for seeding, agentic search, vector search, and hybrid search:
+Run Lesson 05 against its complete-document PostgreSQL store.
+Use Google Cloud ADC for the ADK agent:
 
 ```bash
 docker compose -f examples/lesson-05/compose.yaml up -d --wait
@@ -130,6 +131,16 @@ docker compose -f examples/lesson-05/compose.yaml exec -T postgres \
   psql -U rag -d rag_lesson < examples/lesson-05/01_setup.sql
 uv run python examples/lesson-05/02_seed_documents.py
 uv run python examples/lesson-05/03_agentic_rag.py
-uv run python examples/lesson-05/04_vector_search.py
-uv run python examples/lesson-05/05_hybrid_search.py
+```
+
+Run the standalone Lesson 06 vector and hybrid examples against their pgvector database:
+
+```bash
+docker compose -f examples/lesson-05/compose.yaml down --volumes
+docker compose -f examples/lesson-06/compose.yaml up -d --wait
+docker compose -f examples/lesson-06/compose.yaml exec -T postgres \
+  psql -U rag -d rag_lesson < examples/lesson-06/01_setup.sql
+uv run python examples/lesson-06/02_seed_documents.py
+uv run python examples/lesson-06/03_vector_search.py
+uv run python examples/lesson-06/04_hybrid_search.py
 ```

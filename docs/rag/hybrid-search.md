@@ -44,7 +44,7 @@ fused result:   B, A, D, C
 Complete the [database setup](postgres-and-pgvector.md), then run:
 
 ```bash
-uv run python examples/lesson-05/05_hybrid_search.py \
+uv run python examples/lesson-06/04_hybrid_search.py \
   "Can I carry unused holiday into next year?"
 ```
 
@@ -62,7 +62,7 @@ order by ts_rank_cd(
 ```
 
 The vector side uses the same cosine query as the vector example.
-[`05_hybrid_search.py`](../../examples/lesson-05/05_hybrid_search.py) fuses the returned chunk IDs in ordinary Python so every step stays visible.
+[`04_hybrid_search.py`](../../examples/lesson-06/04_hybrid_search.py) fuses the returned chunk IDs in ordinary Python so every step stays visible.
 
 ## Where reranking fits
 

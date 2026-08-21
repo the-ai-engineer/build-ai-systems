@@ -150,8 +150,9 @@ Postgres owns everything, under one migration history in root `migrations/`.
 Migrations are never applied at application startup. An operator runs `apply-migrations`.
 
 Lesson 05 has a separate, teaching-only `lesson_05` schema in its local Compose database.
-It stores document chunks, Google embeddings, a pgvector HNSW index, and a PostgreSQL full-text index so students can compare retrieval strategies against the same data.
-Its raw SQL lives beside the standalone examples in `examples/lesson-05/`, not in the production migration history.
+It stores complete documents for the agentic RAG example.
+Lesson 06 has its own standalone `lesson_06` schema with document chunks, Google embeddings, a pgvector HNSW index, and a PostgreSQL full-text index.
+The raw SQL lives beside each lesson's examples, not in the production migration history.
 The deployable application neither imports that example code nor requires the pgvector extension.
 
 ## Configuration
@@ -392,9 +393,10 @@ The course has students write their own architecture document first. This file i
 **Root holds course documents.**
 `brief.md`, `MEMORY.md`, and `docs/` are teaching artifacts, not application structure.
 
-**Lesson 05 owns a separate teaching schema.**
+**Lessons 05 and 06 own separate teaching schemas.**
 The root `migrations/` directory remains the single production migration history.
-The raw SQL beside Lesson 05 creates an isolated schema in a disposable local database because pgvector and chunk tables are concepts the lesson compares, not dependencies of the production application.
+Lesson 05 creates a complete-document store for the production retrieval pattern.
+Lesson 06 creates a separate disposable pgvector and full-text search schema because chunks and search indexes are alternatives the production application does not depend on.
 
 **`SupportRequestStore` has fifteen methods and one implementation.**
 That is more surface than an interface usually earns. It stays because it is the boundary that keeps `WorkerService` free of Postgres, which is the system's central design claim, and because a type checker verifies the match where `worker/main.py` passes the repository in. Writing it caught nine signature mismatches. `PostgresSupportRepository` deliberately does not inherit from it: a `Protocol` subclass silently inherits `...` bodies for anything it fails to implement, which would turn drift into a `None` return at runtime instead of a type error.

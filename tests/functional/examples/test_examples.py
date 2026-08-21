@@ -27,6 +27,7 @@ class LessonExamplesTest(unittest.TestCase):
             Path("docs/course-code-map.md"),
             Path("docs/final-agent-spec.md"),
             Path("docs/rag/README.md"),
+            Path("docs/rag/postgres-document-store.md"),
             Path("docs/rag/postgres-and-pgvector.md"),
             Path("docs/rag/vector-search.md"),
             Path("docs/rag/hybrid-search.md"),
@@ -49,20 +50,37 @@ class LessonExamplesTest(unittest.TestCase):
 
         self.assertEqual(len(policy_paths), 3)
 
-    def test_lesson_five_uses_one_postgres_schema_for_three_strategies(self) -> None:
+    def test_lesson_five_uses_a_complete_document_store(self) -> None:
         sql = Path("examples/lesson-05/01_setup.sql").read_text(encoding="utf-8")
 
-        self.assertIn("create extension if not exists vector", sql.lower())
         self.assertIn("lesson_05.support_documents", sql)
-        self.assertIn("lesson_05.support_document_chunks", sql)
+        self.assertNotIn("support_document_chunks", sql)
+        self.assertNotIn("vector", sql.lower())
+        source = Path("examples/lesson-05/03_agentic_rag.py").read_text(encoding="utf-8")
+        self.assertIn("lesson_05.support_documents", source)
+
+    def test_lesson_six_uses_pgvector_and_full_text_search(self) -> None:
+        sql = Path("examples/lesson-06/01_setup.sql").read_text(encoding="utf-8")
+
+        self.assertIn("create extension if not exists vector", sql.lower())
+        self.assertIn("lesson_06.support_documents", sql)
+        self.assertIn("lesson_06.support_document_chunks", sql)
         self.assertIn("using gin", sql.lower())
         self.assertIn("using hnsw", sql.lower())
-        for filename in ["03_agentic_rag.py", "04_vector_search.py", "05_hybrid_search.py"]:
-            source = (Path("examples/lesson-05") / filename).read_text(encoding="utf-8")
-            self.assertIn("lesson_05.support_document", source, msg=filename)
+        for filename in ["03_vector_search.py", "04_hybrid_search.py"]:
+            source = (Path("examples/lesson-06") / filename).read_text(encoding="utf-8")
+            self.assertIn("lesson_06.support_document", source, msg=filename)
 
-    def test_seed_step_loads_and_chunks_the_canonical_policies(self) -> None:
+    def test_lesson_five_seed_loads_the_canonical_policies(self) -> None:
         example = load_example("lesson-05/02_seed_documents.py")
+
+        documents = example.load_documents()
+
+        self.assertEqual(len(documents), 3)
+        self.assertTrue(any("five unused days" in document.body for document in documents))
+
+    def test_lesson_six_seed_chunks_the_canonical_policies(self) -> None:
+        example = load_example("lesson-06/02_seed_documents.py")
 
         documents = example.load_documents()
         chunks = [chunk for document in documents for chunk in example.split_document(document)]
@@ -75,24 +93,18 @@ class LessonExamplesTest(unittest.TestCase):
     def test_seed_step_removes_documents_that_are_no_longer_approved(self) -> None:
         example = load_example("lesson-05/02_seed_documents.py")
         document = example.load_documents()[0]
-        chunk = example.split_document(document)[0]
         connection_context = MagicMock()
         connection = connection_context.__enter__.return_value
 
         with patch.object(example.psycopg, "connect", return_value=connection_context):
-            example.seed_database(
-                "postgresql://unused",
-                [document],
-                [chunk],
-                [[0.0] * 768],
-            )
+            example.seed_database("postgresql://unused", [document])
 
         first_query, first_parameters = connection.execute.call_args_list[0].args
         self.assertIn("delete from lesson_05.support_documents", first_query)
         self.assertEqual(first_parameters, ([document.id],))
 
     def test_vector_examples_require_the_schema_embedding_size(self) -> None:
-        vector = load_example("lesson-05/04_vector_search.py")
+        vector = load_example("lesson-06/03_vector_search.py")
 
         literal = vector.vector_literal([0.0] * 768)
 
@@ -102,7 +114,7 @@ class LessonExamplesTest(unittest.TestCase):
             vector.vector_literal([0.0])
 
     def test_hybrid_rag_fuses_keyword_and_vector_rankings(self) -> None:
-        example = load_example("lesson-05/05_hybrid_search.py")
+        example = load_example("lesson-06/04_hybrid_search.py")
 
         scores = example.reciprocal_rank_fusion(
             [

@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17
+    image: pgvector/pgvector:0.8.6-pg17
     environment:
       POSTGRES_DB: rag_lesson
       POSTGRES_USER: rag
@@ -13,7 +13,7 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - lesson_05_postgres:/var/lib/postgresql/data
+      - lesson_06_postgres:/var/lib/postgresql/data
 
 volumes:
-  lesson_05_postgres:
+  lesson_06_postgres:

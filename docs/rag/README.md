@@ -1,7 +1,9 @@
 # RAG implementation guides
 
-Lesson 05 compares three useful retrieval strategies against the same HR policy data.
-The examples share one local PostgreSQL database so the retrieval method is the variable, not the infrastructure.
+The course separates the production retrieval choice from two optional alternatives.
+
+- Lesson 05 uses [agentic search](agentic-search.md) over complete documents in PostgreSQL.
+- Lesson 06 covers [vector search](vector-search.md) and [hybrid search](hybrid-search.md) as standalone alternatives.
 
 ## Choose a strategy
 
@@ -24,10 +26,29 @@ flowchart LR
     C -->|"Typed facts"| S["Direct SQL query"]
 ```
 
-## Run the sequence
+## Run Lesson 05
 
-Start with [PostgreSQL and pgvector setup](postgres-and-pgvector.md).
-It creates these shared tables:
+Start with the [PostgreSQL document store setup](postgres-document-store.md).
+It creates one authoritative table:
+
+```mermaid
+erDiagram
+    SUPPORT_DOCUMENTS {
+        text id PK
+        text title
+        text summary
+        text body
+        text content_hash
+    }
+```
+
+Then run the [agentic search example](agentic-search.md).
+This is the approach used by the production Slack assistant.
+
+## Run Lesson 06
+
+Start with the [PostgreSQL and pgvector setup](postgres-and-pgvector.md).
+Lesson 06 creates its own standalone search database:
 
 ```mermaid
 erDiagram
@@ -49,11 +70,5 @@ erDiagram
     }
 ```
 
-Then run the examples in this order:
-
-1. [Agentic search](agentic-search.md)
-2. [Vector search](vector-search.md)
-3. [Hybrid search](hybrid-search.md)
-
-The production Slack assistant intentionally uses the first approach.
-The vector and hybrid examples teach common retrieval techniques without making them production requirements.
+Then run [vector search](vector-search.md) followed by [hybrid search](hybrid-search.md).
+Later course lessons do not depend on Lesson 06.
