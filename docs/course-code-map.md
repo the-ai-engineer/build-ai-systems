@@ -15,7 +15,7 @@ that link and this table have to agree.
 | 3 | AI System Design Patterns | `examples/lesson-03/01_deterministic_workflow.py` |
 | 4 | Build AI Agents | `examples/lesson-04/01_agent_by_hand.py`, `examples/lesson-04/adk_support_agent/agent.py` |
 | 5 | Agentic RAG with PostgreSQL | `examples/lesson-05/01_setup.sql`, `examples/lesson-05/02_seed_documents.py`, `examples/lesson-05/03_agentic_rag.py`, `examples/lesson-05/policy_agent/`, `docs/rag/postgres-document-store.md`, `docs/rag/agentic-search.md`, `policies/` |
-| 6 | Vector and Hybrid Search | `examples/lesson-06/01_setup.sql`, `examples/lesson-06/02_seed_documents.py`, `examples/lesson-06/03_vector_search.py`, `examples/lesson-06/04_hybrid_search.py`, `docs/rag/postgres-and-pgvector.md`, `docs/rag/vector-search.md`, `docs/rag/hybrid-search.md`, `policies/` |
+| 6 | Vector and Hybrid Search | `examples/lesson-06/01_setup.sql`, `examples/lesson-06/02_seed_documents.py`, `examples/lesson-06/03_vector_search.py`, `examples/lesson-06/04_hybrid_search.py`, `examples/lesson-06/hybrid_policy_agent/`, `docs/rag/postgres-and-pgvector.md`, `docs/rag/vector-search.md`, `docs/rag/hybrid-search.md`, `policies/` |
 | 7 | Design and Plan the Production System | `brief.md`, `ARCHITECTURE.md`, `docs/final-agent-spec.md` |
 | 8 | Run and Understand the Local Policy Assistant | `migrations/`, `app/support_agent_app/worker/`, `app/support_agent_app/database/`, `app/support_agent_app/demos/run_workflow.py`, `app/support_agent_app/demos/seed_request.py` |
 | 9 | Deploy the Private Worker to Google Cloud | `Dockerfile`, `scripts/provision-dev.sh`, `scripts/build-and-push.sh`, `scripts/deploy-dev.sh`, `docs/worker-authentication.md`, `docs/resources/deploy-with-codex-prompt.md` |
@@ -43,6 +43,7 @@ psql rag_lesson < examples/lesson-06/01_setup.sql
 uv run python examples/lesson-06/02_seed_documents.py
 uv run python examples/lesson-06/03_vector_search.py
 uv run python examples/lesson-06/04_hybrid_search.py
+(cd examples/lesson-06 && uv run adk web --port 8000)
 
 uv run python -m unittest discover -s tests/unit -t .
 uv run demo-workflow --fixture documented

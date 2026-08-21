@@ -71,4 +71,5 @@ erDiagram
 ```
 
 Then run [vector search](vector-search.md) followed by [hybrid search](hybrid-search.md).
+The hybrid-search guide also shows how to inspect the final retrieval tool in ADK Web.
 Later course lessons do not depend on Lesson 06.
