@@ -89,6 +89,24 @@ class LessonExamplesTest(unittest.TestCase):
             source = (Path("examples/lesson-06") / filename).read_text(encoding="utf-8")
             self.assertIn("lesson_06.support_document", source, msg=filename)
 
+    def test_retrieval_examples_default_to_local_postgres_socket(self) -> None:
+        for path in [
+            Path("examples/lesson-05/02_seed_documents.py"),
+            Path("examples/lesson-05/03_agentic_rag.py"),
+            Path("examples/lesson-06/02_seed_documents.py"),
+            Path("examples/lesson-06/03_vector_search.py"),
+            Path("examples/lesson-06/04_hybrid_search.py"),
+        ]:
+            source = path.read_text(encoding="utf-8")
+
+            self.assertIn('DEFAULT_DATABASE_URL = "postgresql:///rag_lesson"', source)
+            self.assertNotIn("localhost:5433", source)
+
+        self.assertFalse(Path("examples/lesson-05/compose.yaml").exists())
+        self.assertFalse(Path("examples/lesson-06/compose.yaml").exists())
+        environment_sample = Path("examples/.env.sample").read_text(encoding="utf-8")
+        self.assertNotIn("\nRAG_DATABASE_URL=", environment_sample)
+
     def test_lesson_five_seed_loads_the_canonical_policies(self) -> None:
         example = load_example("lesson-05/02_seed_documents.py")
 

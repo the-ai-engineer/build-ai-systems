@@ -149,9 +149,9 @@ Postgres owns everything, under one migration history in root `migrations/`.
 
 Migrations are never applied at application startup. An operator runs `apply-migrations`.
 
-Lesson 05 has a separate, teaching-only `lesson_05` schema in its local Compose database.
+Lesson 05 has a separate, teaching-only `lesson_05` schema in the local `rag_lesson` database.
 It stores complete documents for the agentic RAG example.
-Lesson 06 has its own standalone `lesson_06` schema with document chunks, Google embeddings, a pgvector HNSW index, and a PostgreSQL full-text index.
+Lesson 06 uses the same local database and owns a separate `lesson_06` schema with document chunks, Google embeddings, a pgvector HNSW index, and a PostgreSQL full-text index.
 The raw SQL lives beside each lesson's examples, not in the production migration history.
 The deployable application neither imports that example code nor requires the pgvector extension.
 

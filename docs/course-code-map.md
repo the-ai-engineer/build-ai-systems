@@ -34,13 +34,11 @@ uv run python examples/lesson-02/02_structured_outputs.py
 uv run python examples/lesson-03/01_deterministic_workflow.py
 uv run python examples/lesson-04/01_agent_by_hand.py
 (cd examples/lesson-04 && uv run adk web --port 8000)
-docker compose -f examples/lesson-05/compose.yaml up -d --wait
-docker compose -f examples/lesson-05/compose.yaml exec -T postgres psql -U rag -d rag_lesson < examples/lesson-05/01_setup.sql
+createdb rag_lesson
+psql rag_lesson < examples/lesson-05/01_setup.sql
 uv run python examples/lesson-05/02_seed_documents.py
 uv run python examples/lesson-05/03_agentic_rag.py
-docker compose -f examples/lesson-05/compose.yaml down --volumes
-docker compose -f examples/lesson-06/compose.yaml up -d --wait
-docker compose -f examples/lesson-06/compose.yaml exec -T postgres psql -U rag -d rag_lesson < examples/lesson-06/01_setup.sql
+psql rag_lesson < examples/lesson-06/01_setup.sql
 uv run python examples/lesson-06/02_seed_documents.py
 uv run python examples/lesson-06/03_vector_search.py
 uv run python examples/lesson-06/04_hybrid_search.py
