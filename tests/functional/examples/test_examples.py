@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
-import os
 import unittest
 from pathlib import Path
 from types import ModuleType
-from unittest.mock import patch
-
-from pydantic_ai.models import infer_model
 
 
 def load_example(filename: str) -> ModuleType:
@@ -88,26 +84,17 @@ class LessonExamplesTest(unittest.TestCase):
         self.assertGreater(scores["annual-leave-policy"], scores["expenses-policy"])
         self.assertGreater(scores["annual-leave-policy"], scores["remote-working-policy"])
 
-    def test_first_framework_agent_uses_direct_providers(self) -> None:
-        source = Path("examples/lesson-04/02_first_framework_agent.py").read_text(encoding="utf-8")
+    def test_lesson_four_keeps_hand_built_and_adk_agents(self) -> None:
+        hand_built = Path("examples/lesson-04/01_agent_by_hand.py")
+        adk_package = Path("examples/lesson-04/adk_support_agent")
+        source = (adk_package / "agent.py").read_text(encoding="utf-8")
 
-        self.assertIn("from pydantic_ai import Agent", source)
-        self.assertIn('OPENAI_MODEL = "openai:gpt-5.6"', source)
-        self.assertIn('CLAUDE_MODEL = "anthropic:claude-sonnet-4-6"', source)
-        self.assertIn("support_agent = Agent(", source)
+        self.assertTrue(hand_built.is_file())
+        self.assertTrue((adk_package / "__init__.py").is_file())
+        self.assertIn("from google.adk.agents import Agent", source)
+        self.assertIn('MODEL_NAME = os.getenv("SUPPORT_AGENT_MODEL", "gemini-3.5-flash")', source)
+        self.assertIn("root_agent = Agent(", source)
         self.assertIn("tools=[list_support_documents, find_support_document]", source)
-        self.assertIn("defer_model_check=True", source)
-
-    def test_pydantic_ai_resolves_openai_and_anthropic_models(self) -> None:
-        with patch.dict(
-            os.environ,
-            {"OPENAI_API_KEY": "test", "ANTHROPIC_API_KEY": "test"},
-        ):
-            openai_model = infer_model("openai:gpt-5.6")
-            anthropic_model = infer_model("anthropic:claude-sonnet-4-6")
-
-        self.assertEqual(type(openai_model).__name__, "OpenAIResponsesModel")
-        self.assertEqual(type(anthropic_model).__name__, "AnthropicModel")
 
     def test_slack_contract_contains_every_design_criterion(self) -> None:
         source = Path("docs/final-agent-spec.md").read_text(encoding="utf-8")
@@ -179,7 +166,7 @@ class LessonExamplesTest(unittest.TestCase):
         ]:
             source = path.read_text(encoding="utf-8")
 
-            self.assertIn("google-cloud:gemini-3.5-flash", source, msg=str(path))
+            self.assertIn("gemini-3.5-flash", source, msg=str(path))
             self.assertIn("Application Default Credentials", source, msg=str(path))
             self.assertIn("separate Gemini API key", source, msg=str(path))
 

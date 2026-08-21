@@ -21,7 +21,8 @@ The public Cloud Run webhook verifies Slack requests, stores accepted work, and 
 The private Cloud Run worker claims the request with a fenced lease, runs the policy workflow, and records one controlled Slack action.
 Postgres is the durable source of truth.
 
-The finished application uses Pydantic AI's Google Cloud provider with configurable `google-cloud:gemini-3.5-flash` as the current tested default.
+The finished application uses Google ADK with Gemini through Google Cloud Agent Platform.
+`gemini-3.5-flash` is the current tested default and remains configurable.
 Local authenticated integration uses Application Default Credentials.
 Cloud Run uses its runtime service identity and does not require a separate Gemini API key.
 Deterministic fake-model tests remain required.
@@ -49,7 +50,7 @@ Never put a database URL, Slack token, signing secret, or credential in
 
 ## Run the local policy agent
 
-The first application slice runs with synthetic fixtures and a deterministic Pydantic AI model.
+The first application slice runs with synthetic fixtures and a deterministic Google ADK model.
 It needs no Slack, Google Cloud, database, model credentials, or network access.
 
 ```bash
@@ -529,7 +530,8 @@ Examples are grouped by the lesson that uses them, so `examples/lesson-05/`
 holds the four retrieval examples.
 
 The model examples require the matching provider credentials.
-The whole-document, vector, and hybrid RAG examples use the OpenAI API.
+The whole-document RAG example uses Google ADK with Gemini on Google Cloud.
+The vector and hybrid RAG examples use the OpenAI API.
 The SQL RAG example uses an in-memory SQLite database and needs no setup.
 
 ## Verify the repository

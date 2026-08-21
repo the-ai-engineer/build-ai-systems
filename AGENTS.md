@@ -39,15 +39,16 @@ Do not add application structure or infrastructure before the relevant linked ta
 ## Teaching direction
 
 - Use Python.
-- Use configurable `google-cloud:gemini-3.5-flash` as the finished application's current tested default model.
-- Use Pydantic AI's Google Cloud provider with Application Default Credentials.
+- Use configurable `gemini-3.5-flash` as the finished application's current tested default model.
+- Use Google ADK with Gemini through Google Cloud Agent Platform and Application Default Credentials.
 - Supply the Google Cloud project and location through environment configuration.
 - Cloud Run must use its runtime service identity and must not require a separate Gemini API key.
 - Early standalone examples may retain their existing providers when provider mechanics are the lesson.
 - Teach model selection as an architecture and operating-cost decision.
 - Choose the smallest model that passes the support evals, not the model with the most prestige.
 - Record usage metadata without recording employee questions, answers, or policy text.
-- Introduce Pydantic AI after the hand-built agent lesson.
+- In lesson 4, keep the pure Python hand-built loop as example 01, then introduce Google ADK with Gemini on Google Cloud as example 02.
+- Use ADK's shared agent concepts to support cross-language learning, while keeping the course implementation in Python and acknowledging language-specific differences.
 - Show provider boundaries without pretending provider capabilities are identical.
 - Keep structured outputs, tool calls, and agent loops tied to real product decisions.
 - Keep advanced vector and hybrid retrieval optional.
@@ -123,4 +124,5 @@ Run the retrieval examples that do not need an API key:
 uv run python examples/06b_sql_rag.py
 ```
 
-Run the whole-document, vector, and hybrid examples with `OPENAI_API_KEY` set.
+Run the whole-document example with Google Cloud ADC and the ADK environment configured.
+Run the vector and hybrid examples with `OPENAI_API_KEY` set.

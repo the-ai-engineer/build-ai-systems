@@ -5,21 +5,21 @@
   "source_url": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
   "prices": [
     {
-      "model_id": "google-cloud:gemini-3.5-flash",
+      "model_id": "gemini-3.5-flash",
       "location_class": "global",
-      "service_tier": "on_demand",
+      "service_tier": "standard",
       "input_usd_per_million_tokens": "1.50",
       "output_usd_per_million_tokens": "9.00"
     },
     {
-      "model_id": "google-cloud:gemini-3.5-flash",
+      "model_id": "gemini-3.5-flash",
       "location_class": "non-global",
-      "service_tier": "on_demand",
+      "service_tier": "standard",
       "input_usd_per_million_tokens": "1.65",
       "output_usd_per_million_tokens": "9.90"
     },
     {
-      "model_id": "function:fixture",
+      "model_id": "fixture",
       "location_class": "local",
       "service_tier": "deterministic-test",
       "input_usd_per_million_tokens": "0",

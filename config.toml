@@ -6,7 +6,7 @@
 # Manager and arrive as normal environment variables.
 
 # Model provider
-model_name = "google-cloud:gemini-3.5-flash"
+model_name = "gemini-3.5-flash"
 
 # Worker
 worker_model_source = "configured"

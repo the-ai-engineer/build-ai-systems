@@ -43,7 +43,7 @@ class EnvDiscoveryTests(unittest.TestCase):
         with CONFIG_FILE.open("rb") as source:
             configured = tomllib.load(source)
 
-        self.assertEqual(configured["model_name"], "google-cloud:gemini-3.5-flash")
+        self.assertEqual(configured["model_name"], "gemini-3.5-flash")
         self.assertEqual(configured["worker_task_auth"], "google-oidc")
         self.assertEqual(configured["task_queue_backend"], "local")
         self.assertTrue(
@@ -89,7 +89,7 @@ class EnvDiscoveryTests(unittest.TestCase):
 
         with mock.patch.dict(os.environ, {}, clear=True):
             configured = TomlOnly.load()
-        self.assertEqual(configured.model_name, "google-cloud:gemini-3.5-flash")
+        self.assertEqual(configured.model_name, "gemini-3.5-flash")
 
     def test_toml_cannot_supply_secrets_or_deployment_identifiers(self) -> None:
         with TemporaryDirectory() as directory:

@@ -1,40 +1,17 @@
-"""
-First Framework Agent
+"""Lesson 04.02: rebuild the hand-written support agent with Google ADK.
 
-Move the document lookup tools from the hand-built loop into Pydantic AI.
-
-The framework owns the provider-specific request format and agent loop.
-Our instructions and business tools stay the same when the model changes.
-
-This makes provider changes easier, not automatic. Native provider tools,
-model settings, and supported features can still require code changes.
+Run ADK Web from examples/lesson-04 to inspect the agent loop, tool calls,
+results, and session events in a browser.
 """
 
 from __future__ import annotations
 
 import os
-from pathlib import Path
 
-from dotenv import load_dotenv
+from google.adk.agents import Agent
 from pydantic import BaseModel
-from pydantic_ai import Agent
 
-load_dotenv(Path(__file__).parents[1] / ".env")
-
-
-OPENAI_MODEL = "openai:gpt-5.6"
-CLAUDE_MODEL = "anthropic:claude-sonnet-4-6"
-
-def normalize_model_name(model_name: str) -> str:
-    """Accept Pydantic AI names and the old provider/model course format."""
-    if model_name.startswith(("openai/", "anthropic/")):
-        provider, model = model_name.split("/", maxsplit=1)
-        return f"{provider}:{model}"
-    return model_name
-
-
-# Change this setting, not the agent loop, to use another supported provider.
-MODEL_NAME = normalize_model_name(os.getenv("AI_ARCHITECT_MODEL", OPENAI_MODEL))
+MODEL_NAME = os.getenv("SUPPORT_AGENT_MODEL", "gemini-3.5-flash")
 
 
 class SupportDocument(BaseModel):
@@ -98,41 +75,18 @@ def find_support_document(query: str) -> dict[str, str | bool]:
     return {"found": False, "reason": "No matching support document was found."}
 
 
-support_agent = Agent(
-    MODEL_NAME,
-    instructions=(
+root_agent = Agent(
+    name="support_agent",
+    model=MODEL_NAME,
+    description="Answers customer questions from approved support documents.",
+    instruction=(
         "You are a customer support agent.\n"
         "Use list_support_documents before choosing a policy.\n"
         "Use find_support_document before answering.\n"
         "Answer only from the returned policy document.\n"
+        "Do not perform refunds, change orders, or answer account-specific requests.\n"
+        "Say a human should handle those requests even when a policy matches.\n"
         "If no policy matches, say a human should handle the message."
     ),
     tools=[list_support_documents, find_support_document],
-    defer_model_check=True,
 )
-
-
-def required_api_key(model_name: str) -> str:
-    if model_name.startswith("anthropic:"):
-        return "ANTHROPIC_API_KEY"
-    return "OPENAI_API_KEY"
-
-
-def main() -> None:
-    print(f"Pydantic AI model: {MODEL_NAME}")
-    print(f"Try Claude with: AI_ARCHITECT_MODEL={CLAUDE_MODEL}")
-
-    api_key_name = required_api_key(MODEL_NAME)
-    if not os.getenv(api_key_name):
-        print(f"Set {api_key_name} in examples/.env to run the agent.")
-        return
-
-    result = support_agent.run_sync(
-        "Can I return a backpack if I opened the box but have not used it?"
-    )
-    print("\nFinal:")
-    print(result.output)
-
-
-if __name__ == "__main__":
-    main()

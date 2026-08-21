@@ -48,8 +48,8 @@ Use placeholders for identifiers and describe test inputs without copying employ
 ### 2026-08-14: Finished-app model provider
 
 - Slack remains the application interface.
-- The finished application uses Pydantic AI's Google Cloud provider.
-- The current tested default is configurable `google-cloud:gemini-3.5-flash`.
+- The finished application uses Google ADK with Gemini through Google Cloud Agent Platform.
+- The current tested default is configurable `gemini-3.5-flash`.
 - `GOOGLE_CLOUD_PROJECT` and `GOOGLE_CLOUD_LOCATION` supply the project and location.
 - Local authenticated integration uses Application Default Credentials.
 - Cloud Run uses the worker runtime service identity and does not require a separate Gemini API key.
@@ -65,10 +65,10 @@ Use placeholders for identifiers and describe test inputs without copying employ
 
 - Keep one explicit workflow instead of adding a registry, graph framework, or Slack abstraction.
 - Use typed domain input without Slack fields and a discriminated typed result for `answer` or `human_review`.
-- Give the Pydantic AI agent only `list_support_documents()` and `get_support_document(document_id)`.
+- Give the Google ADK agent only `list_support_documents()` and `get_support_document(document_id)`.
 - Limit one run to three loaded documents, six model requests, five single tool calls, a 20-second model timeout, and 500 output tokens per model response.
-- Configure `google-cloud:gemini-3.5-flash` by default and construct the Google Cloud provider explicitly from project and location configuration so authenticated runs use Application Default Credentials.
-- Use a deterministic Pydantic AI `FunctionModel` and file repository for the default proof path.
+- Configure `gemini-3.5-flash` by default and construct ADK's Gemini model explicitly from project and location configuration so authenticated runs use Application Default Credentials.
+- Use a deterministic Google ADK `FixtureModel` and file repository for the default proof path.
 - Keep the same workflow replaceable with the active Postgres repository and live Google Cloud model adapters.
 - Verify document ID, title, filename, revision, active state, and exact excerpt occurrence in application code before accepting an answer.
 - Convert invalid citation evidence to `human_review` with no automated answer.
@@ -77,7 +77,7 @@ Use placeholders for identifiers and describe test inputs without copying employ
 - Record model location and service tier, use separate dated global and non-global rates, and force live Google Cloud requests to standard on-demand routing.
 - Reject answers and excerpts that contain only whitespace before deterministic evidence checks.
 - Strip and reject whitespace-only decision reasons so every human-review result remains inspectable.
-- Mark both retrieval tools as sequential execution barriers so parallel model tool calls cannot bypass the three-document limit.
+- Keep the document cap in application code so parallel model tool calls cannot bypass the three-document limit.
 
 ### 2026-08-14: Issue #19 Postgres request lifecycle
 
@@ -212,7 +212,7 @@ Alternatives rejected:
 - The regression proves the first call remains retryable, Slack receives zero attempts, and the next claim sends the exact stored reply without another model call.
 - The next fresh review reproduced Slack starting after a database step consumed its send budget and a connect timeout entering reconciliation even though no request reached Slack.
 - Worker-owned Postgres connections now receive the remaining budget as connection and statement timeouts.
-- The complete Pydantic AI run is bounded by the remaining worker budget, including its model turns and deadline-aware Postgres policy tools.
+- The complete Google ADK run is bounded by the remaining worker budget, including its model turns and deadline-aware Postgres policy tools.
 - The worker recomputes the Slack timeout after the database send transition and records a known unsent failure if no send budget remains.
 - Slack connect and pool timeouts are clear retryable failures; read and write timeouts remain uncertain and enter reconciliation.
 - The third fresh review found that invalid typed model output and configuration errors were still classified as temporary.
@@ -343,7 +343,7 @@ No live model or database integration was run for the default deterministic proo
 
 ### 2026-08-14: Make evidence and capability boundaries visible
 
-- Keep the model fixture inside Pydantic AI so tests exercise the real agent loop, tool dispatch, typed output, usage limits, and run accounting.
+- Keep the model fixture inside Google ADK so tests exercise the real agent loop, tool dispatch, typed output, usage limits, and run accounting.
 - Show the document index and full-document lookup as the only model capabilities.
 - Keep the active-document rule in the repository and enforce the loaded-document limit again in the workflow.
 - Treat a model citation as a proposal until deterministic application code verifies every identity and excerpt field.

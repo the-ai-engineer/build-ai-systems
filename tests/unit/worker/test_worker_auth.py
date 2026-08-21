@@ -9,7 +9,8 @@ from unittest import mock
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from pydantic_ai.exceptions import ModelHTTPError
+from google.auth.exceptions import DefaultCredentialsError
+from google.genai.errors import ServerError
 from support_agent_app.settings import MissingConfiguration, WorkerBoundarySettings
 from support_agent_app.worker.auth import (
     AUTHORIZATION_HEADER,
@@ -116,8 +117,12 @@ class WorkerAuthTests(unittest.TestCase):
             ("model_configuration", False),
         )
         self.assertEqual(
-            classify_workflow_failure(ModelHTTPError(503, "synthetic-model")),
+            classify_workflow_failure(ServerError(503, {"error": "synthetic-model"})),
             ("model_provider_temporary", True),
+        )
+        self.assertEqual(
+            classify_workflow_failure(DefaultCredentialsError("synthetic missing ADC")),
+            ("model_configuration", False),
         )
 
     def test_static_authenticator_rejects_missing_and_wrong_identities(self) -> None:

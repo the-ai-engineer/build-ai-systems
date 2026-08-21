@@ -13,7 +13,7 @@ that link and this table have to agree.
 | 1 | Introduction to Build AI Systems | `brief.md` |
 | 2 | Use AI Models and SDKs | `examples/lesson-02/01_basic_model_call.py`, `examples/lesson-02/02_structured_outputs.py` |
 | 3 | AI System Design Patterns | `examples/lesson-03/01_deterministic_workflow.py` |
-| 4 | Build an AI Agent by Hand | `examples/lesson-04/01_agent_by_hand.py`, `examples/lesson-04/02_first_framework_agent.py` |
+| 4 | Build AI Agents | `examples/lesson-04/01_agent_by_hand.py`, `examples/lesson-04/adk_support_agent/agent.py` |
 | 5 | Retrieval-Augmented Generation | `examples/lesson-05/01_file_rag.py`, `examples/lesson-05/02_sql_rag.py`, `examples/lesson-05/03_vector_rag.py`, `examples/lesson-05/04_hybrid_rag.py`, `policies/` |
 | 6 | Design the Production Slack Assistant | `brief.md`, `ARCHITECTURE.md`, `docs/final-agent-spec.md` |
 | 7 | Build the Slack Assistant | `app/support_agent_app/api/`, `slack/manifest.json`, `app/support_agent_app/demos/send_slack_event.py` |
@@ -33,7 +33,7 @@ uv run python examples/lesson-02/01_basic_model_call.py
 uv run python examples/lesson-02/02_structured_outputs.py
 uv run python examples/lesson-03/01_deterministic_workflow.py
 uv run python examples/lesson-04/01_agent_by_hand.py
-uv run python examples/lesson-04/02_first_framework_agent.py
+(cd examples/lesson-04 && uv run adk web --port 8000)
 uv run python examples/lesson-05/01_file_rag.py
 uv run python examples/lesson-05/02_sql_rag.py --category annual_leave --field carry_over_days
 uv run python examples/lesson-05/03_vector_rag.py
