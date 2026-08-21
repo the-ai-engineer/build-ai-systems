@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -94,10 +95,14 @@ class LessonExamplesTest(unittest.TestCase):
             ["list_support_documents", "read_support_document"],
         )
 
-        command_source = Path("examples/lesson-05/03_agentic_rag.py").read_text(encoding="utf-8")
-        self.assertIn(
-            "from policy_agent.agent import DEFAULT_DATABASE_URL, build_agent", command_source
+        command = subprocess.run(
+            [sys.executable, "examples/lesson-05/03_agentic_rag.py", "--help"],
+            capture_output=True,
+            check=False,
+            text=True,
         )
+        self.assertEqual(command.returncode, 0, msg=command.stderr)
+        self.assertIn("Let an agent choose and read a policy.", command.stdout)
 
     def test_lesson_six_uses_pgvector_and_full_text_search(self) -> None:
         sql = Path("examples/lesson-06/01_setup.sql").read_text(encoding="utf-8")
