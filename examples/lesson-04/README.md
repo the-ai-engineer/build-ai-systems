@@ -27,14 +27,16 @@ gcloud auth application-default set-quota-project YOUR_PROJECT_ID
 ADK uses Application Default Credentials.
 Do not create or store a Gemini API key for this lesson.
 
-Tell ADK to use Google Cloud Agent Platform and choose the project and model
-location:
+From the repository root, create the local agent environment file from the
+committed example:
 
 ```bash
-export GOOGLE_GENAI_USE_ENTERPRISE=TRUE
-export GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID
-export GOOGLE_CLOUD_LOCATION=global
+cp examples/lesson-04/adk_support_agent/.env.example \
+  examples/lesson-04/adk_support_agent/.env
 ```
+
+Edit `GOOGLE_CLOUD_PROJECT` in `.env` if you use a different project.
+ADK Web loads this file from the agent package.
 
 `gemini-3.5-flash` is the tested default.
 Override it only when you deliberately want to evaluate another Gemini model:

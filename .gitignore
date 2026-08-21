@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 !examples/.env.sample
+!examples/lesson-04/adk_support_agent/.env.example
 __pycache__/
 *.py[cod]
 .pytest_cache/
