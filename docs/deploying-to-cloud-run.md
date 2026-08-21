@@ -14,15 +14,18 @@ Lesson 09 stops after the private worker is running:
 
 ```bash
 scripts/build-and-push.sh
+scripts/provision-dev.sh --without-slack
 scripts/deploy-dev.sh --worker-only
 ```
 
 This applies the schema, seeds the policies, deploys the worker, and configures its private invoker boundary.
+The worker records its prepared reply in Postgres at this checkpoint, so no Slack credential is required.
 Use [the worker authentication guide](worker-authentication.md) to prove the service before adding a public entry point.
 
 Lesson 10 deploys the public webhook from the same image:
 
 ```bash
+scripts/provision-dev.sh
 SLACK_ALLOWED_TEAM_IDS=T0B2CKH25KK \
 SLACK_ALLOWED_CHANNEL_IDS=C0BQJ8U1Z5X \
   scripts/deploy-dev.sh --skip-migrations

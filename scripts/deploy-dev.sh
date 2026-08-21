@@ -228,7 +228,7 @@ apply_schema() {
 
 deploy_worker() {
   step "Private worker"
-  local name value worker_env url
+  local name value worker_env worker_secrets url
   url="$(service_url "$WORKER_SERVICE")"
   if [[ -n "$url" ]]; then
     ok "existing url ${url}"
@@ -238,6 +238,13 @@ deploy_worker() {
   fi
 
   worker_env="WORKER_BASE_URL=${url};TASK_OIDC_SERVICE_ACCOUNT=$(sa_email "$WEBHOOK_SA");GOOGLE_CLOUD_PROJECT=${PROJECT_ID};GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}"
+  worker_secrets="DATABASE_URL=${SECRET_DATABASE_URL}:latest"
+  if [[ "$worker_only" == true ]]; then
+    worker_env="${worker_env};WORKER_SLACK_SINK=record"
+  else
+    worker_env="${worker_env};WORKER_SLACK_SINK=slack"
+    worker_secrets="${worker_secrets},SLACK_BOT_TOKEN=${SECRET_SLACK_BOT_TOKEN}:latest"
+  fi
   for name in SUPPORT_AGENT_MODEL WORKER_DEADLINE_SECONDS; do
     value="${!name:-}"
     if [[ -n "$value" ]]; then
@@ -262,7 +269,7 @@ deploy_worker() {
     --command uvicorn \
     --args="support_agent_app.worker.main:create_app,--factory,--host,0.0.0.0,--port,8080" \
     --set-cloudsql-instances "$SQL_CONNECTION_NAME" \
-    --set-secrets "DATABASE_URL=${SECRET_DATABASE_URL}:latest,SLACK_BOT_TOKEN=${SECRET_SLACK_BOT_TOKEN}:latest" \
+    --set-secrets "$worker_secrets" \
     --set-env-vars "^;^${worker_env}" \
     --timeout "$WORKER_REQUEST_TIMEOUT" \
     --max-instances "$MAX_INSTANCES" \

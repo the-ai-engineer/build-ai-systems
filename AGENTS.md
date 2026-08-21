@@ -136,6 +136,7 @@ uv run python examples/lesson-05/03_agentic_rag.py
 Run the standalone Lesson 06 vector and hybrid examples against their pgvector database:
 
 ```bash
+docker compose -f examples/lesson-05/compose.yaml down --volumes
 docker compose -f examples/lesson-06/compose.yaml up -d --wait
 docker compose -f examples/lesson-06/compose.yaml exec -T postgres \
   psql -U rag -d rag_lesson < examples/lesson-06/01_setup.sql
