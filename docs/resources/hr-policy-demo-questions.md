@@ -74,9 +74,9 @@ These show why the agent may load up to three documents.
 | Can I work from home on different hours every week? | `remote-working-policy.md` and `flexible-working-policy.md` |
 | Can I use my learning budget for a conference and claim the train fare? | `learning-and-development-policy.md` and `expenses-policy.md` |
 | What happens if I need adjusted hours after a long sickness absence? | `sickness-absence-policy.md` and `workplace-adjustments-policy.md` |
-| Can I add annual leave after my paid bereavement leave? | `bereavement-and-compassionate-leave-policy.md` and `annual-leave-policy.md` |
+| After five paid bereavement days, could I use annual leave, and how much unused annual leave can carry over? | `bereavement-and-compassionate-leave-policy.md` and `annual-leave-policy.md` |
 | Can I change my normal work location because of a health condition? | `flexible-working-policy.md` and `workplace-adjustments-policy.md` |
-| What should a new starter do if required equipment is missing while working remotely? | `onboarding-and-probation-policy.md` and `remote-working-policy.md` |
+| As a new starter with missing equipment, should I buy a replacement, and what security rules apply while I work remotely? | `onboarding-and-probation-policy.md` and `remote-working-policy.md` |
 
 ## Questions the assistant should send to HR
 

@@ -486,6 +486,8 @@ class SupportWorkflowTests(unittest.TestCase):
             "For human_review, set answer to null, sources to an empty list, and reason_code.",
             INSTRUCTIONS,
         )
+        self.assertIn("Answer every supported part of the question", INSTRUCTIONS)
+        self.assertIn("Keep answer under 60 words and reason under 20 words", INSTRUCTIONS)
         self.assertIn("without exploratory loads", INSTRUCTIONS)
 
     def test_workflow_timeout_bounds_the_complete_agent_run(self) -> None:
