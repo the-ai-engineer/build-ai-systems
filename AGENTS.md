@@ -11,8 +11,8 @@ Examples should be easy to read on screen and easy to run locally.
 
 ## Repository boundary
 
-Canonical written lessons, diagrams, scripts, and teaching material live in `/Users/owainlewis/Code/github/owainlewis/slip/content/build-ai-systems/`.
-This repository owns runnable code, tests, policies, deployment configuration, and `docs/final-agent-spec.md` as the implementation contract.
+Canonical authored lessons, scripts, and paid teaching prose live in `/Users/owainlewis/Code/github/owainlewis/slip/content/build-ai-systems/`.
+This repository owns runnable code, tests, policies, deployment configuration, public technical implementation guides and diagrams, and `docs/final-agent-spec.md` as the implementation contract.
 `MEMORY.md` is a sanitized coordination log, not a source of truth.
 Do not duplicate paid lesson prose in this public repository.
 `ai-engineer-curriculum` is not part of the active Build AI Systems workflow and must not be modified for this project.
@@ -51,7 +51,9 @@ Do not add application structure or infrastructure before the relevant linked ta
 - Use ADK's shared agent concepts to support cross-language learning, while keeping the course implementation in Python and acknowledging language-specific differences.
 - Show provider boundaries without pretending provider capabilities are identical.
 - Keep structured outputs, tool calls, and agent loops tied to real product decisions.
-- Keep advanced vector and hybrid retrieval optional.
+- Teach whole-document agentic retrieval, vector search, and hybrid search against one shared local PostgreSQL database.
+- Use raw SQL to make the lesson schema and pgvector indexes visible.
+- Keep vector and hybrid retrieval optional in the production application.
 - Use Google Cloud as the deployment target.
 - Keep the complete system runnable locally before cloud deployment.
 
@@ -90,6 +92,7 @@ Students must still understand the contracts, authority boundaries, failure beha
 - `policies/` is the single approved policy set, used by the application and the retrieval examples.
 - `docs/course-code-map.md` contains only lesson names and their runnable or planned code.
 - `docs/final-agent-spec.md` defines the finished application contract.
+- `docs/rag/` contains public implementation guides for the Lesson 05 retrieval examples.
 - `docs/resources/deploy-with-codex-prompt.md` contains the supervised deployment prompt.
 - `MEMORY.md` is the sanitized, non-authoritative coordination log.
 - `tests/` verifies the examples and repository contracts.
@@ -118,11 +121,15 @@ Functional tests skip without `DATABASE_URL`; evals skip without `GOOGLE_CLOUD_P
 
 Run a changed model example with the required provider credentials.
 
-Run the retrieval examples that do not need an API key:
+Run the Lesson 05 examples against the shared local pgvector database.
+Use Google Cloud ADC for seeding, agentic search, vector search, and hybrid search:
 
 ```bash
-uv run python examples/06b_sql_rag.py
+docker compose -f examples/lesson-05/compose.yaml up -d --wait
+docker compose -f examples/lesson-05/compose.yaml exec -T postgres \
+  psql -U rag -d rag_lesson < examples/lesson-05/01_setup.sql
+uv run python examples/lesson-05/02_seed_documents.py
+uv run python examples/lesson-05/03_agentic_rag.py
+uv run python examples/lesson-05/04_vector_search.py
+uv run python examples/lesson-05/05_hybrid_search.py
 ```
-
-Run the whole-document example with Google Cloud ADC and the ADK environment configured.
-Run the vector and hybrid examples with `OPENAI_API_KEY` set.
