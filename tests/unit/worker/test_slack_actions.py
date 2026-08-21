@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 
 import httpx
@@ -63,6 +64,60 @@ class SlackActionTests(unittest.TestCase):
         self.assertEqual(len(slack.attempts), 1)
         self.assertEqual(slack.attempts[0].channel_id, "C-test")
         self.assertEqual(slack.attempts[0].thread_ts, "100.001")
+
+    def test_real_adapter_adds_a_reaction_to_the_request_message(self) -> None:
+        captured_request: httpx.Request | None = None
+
+        def accept(request: httpx.Request) -> httpx.Response:
+            nonlocal captured_request
+            captured_request = request
+            return httpx.Response(200, json={"ok": True})
+
+        slack = SlackWebApiClient(
+            "synthetic-token",
+            client=httpx.Client(
+                base_url="https://slack.com/api",
+                transport=httpx.MockTransport(accept),
+            ),
+        )
+
+        added = slack.add_reaction(
+            channel_id="C-test",
+            message_ts="100.001",
+            name="eyes",
+            timeout_seconds=2.0,
+        )
+
+        self.assertTrue(added)
+        assert captured_request is not None
+        self.assertEqual(captured_request.url.path, "/api/reactions.add")
+        self.assertEqual(
+            json.loads(captured_request.content),
+            {"channel": "C-test", "timestamp": "100.001", "name": "eyes"},
+        )
+
+    def test_real_adapter_treats_an_existing_reaction_as_success(self) -> None:
+        slack = SlackWebApiClient(
+            "synthetic-token",
+            client=httpx.Client(
+                base_url="https://slack.com/api",
+                transport=httpx.MockTransport(
+                    lambda _: httpx.Response(
+                        200,
+                        json={"ok": False, "error": "already_reacted"},
+                    )
+                ),
+            ),
+        )
+
+        added = slack.add_reaction(
+            channel_id="C-test",
+            message_ts="100.001",
+            name="eyes",
+            timeout_seconds=2.0,
+        )
+
+        self.assertTrue(added)
 
     def test_real_adapter_classifies_a_clear_slack_rejection(self) -> None:
         def reject(request: httpx.Request) -> httpx.Response:

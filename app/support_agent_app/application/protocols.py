@@ -182,7 +182,17 @@ class SupportRequestStore(Protocol):
 
 
 class SlackClient(Protocol):
-    """One controlled outbound action, with no provider detail exposed."""
+    """Employee-visible Slack actions, with no provider detail exposed."""
+
+    def add_reaction(
+        self,
+        *,
+        channel_id: str,
+        message_ts: str,
+        name: str,
+        timeout_seconds: float,
+    ) -> bool:
+        """Return whether Slack accepted or already held the reaction."""
 
     def post_thread_reply(
         self,

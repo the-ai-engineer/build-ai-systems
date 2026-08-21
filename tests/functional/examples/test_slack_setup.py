@@ -38,7 +38,7 @@ class SlackSetupTests(unittest.TestCase):
         self.assertEqual(manifest["display_information"]["name"], "HR Policy Assistant")
         self.assertEqual(
             manifest["oauth_config"]["scopes"]["bot"],
-            ["app_mentions:read", "chat:write"],
+            ["app_mentions:read", "chat:write", "reactions:write"],
         )
         self.assertNotIn("user", manifest["oauth_config"]["scopes"])
         self.assertFalse(manifest["features"]["app_home"]["messages_tab_enabled"])

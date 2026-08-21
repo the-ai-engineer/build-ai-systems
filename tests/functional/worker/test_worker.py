@@ -37,6 +37,22 @@ class CountingWorkflow:
         )
 
 
+class ReactionInspectingWorkflow(CountingWorkflow):
+    def __init__(self, slack: FakeSlackClient) -> None:
+        super().__init__()
+        self.slack = slack
+        self.reaction_seen_before_run = False
+
+    def __call__(self, question, repository, *, model, model_timeout_seconds):
+        self.reaction_seen_before_run = bool(self.slack.reactions)
+        return super().__call__(
+            question,
+            repository,
+            model=model,
+            model_timeout_seconds=model_timeout_seconds,
+        )
+
+
 class InspectingSlackClient(FakeSlackClient):
     def __init__(self, database_url: str, behavior="success") -> None:
         super().__init__(behavior)
@@ -80,6 +96,7 @@ class InspectingSlackClient(FakeSlackClient):
 
 class PermanentlyRejectedSlackClient(FakeSlackClient):
     def post_thread_reply(self, **kwargs):
+        self.calls.append("reply")
         self.attempts.append(kwargs)
         raise SlackSendError("slack_request_rejected", retryable=False)
 
@@ -195,6 +212,34 @@ class WorkerTests(PostgresTestCase):
         self.assertIsNone(decision["answer"])
         self.assertEqual(decision["sources"], [])
 
+    def test_reaction_failure_does_not_block_the_final_reply(self) -> None:
+        accepted = self.accept_fixture("documented", "Ev-worker-reaction-failure")
+        slack = FakeSlackClient(reaction_succeeds=False)
+
+        result = self.service("documented", slack).process(
+            accepted.request_id,
+            WorkerDeadline.after(30),
+        )
+
+        self.assertEqual(result.outcome, "completed")
+        self.assertEqual(slack.calls, ["reaction", "reply"])
+        self.assertEqual(len(slack.reactions), 1)
+        self.assertEqual(len(slack.attempts), 1)
+
+    def test_reaction_is_added_before_the_policy_workflow_starts(self) -> None:
+        accepted = self.accept_fixture("documented", "Ev-worker-reaction-order")
+        slack = FakeSlackClient()
+        workflow = ReactionInspectingWorkflow(slack)
+
+        result = self.service("documented", slack, workflow).process(
+            accepted.request_id,
+            WorkerDeadline.after(30),
+        )
+
+        self.assertEqual(result.outcome, "completed")
+        self.assertTrue(workflow.reaction_seen_before_run)
+        self.assertEqual(slack.calls, ["reaction", "reply"])
+
     def test_duplicate_complete_does_not_repeat_model_or_send(self) -> None:
         accepted = self.accept_fixture("documented", "Ev-worker-duplicate")
         workflow = CountingWorkflow()
@@ -207,6 +252,7 @@ class WorkerTests(PostgresTestCase):
         self.assertEqual(first.outcome, "completed")
         self.assertEqual(duplicate.outcome, LifecycleOutcome.DUPLICATE_COMPLETE.value)
         self.assertEqual(workflow.calls, 1)
+        self.assertEqual(len(slack.reactions), 1)
         self.assertEqual(len(slack.attempts), 1)
         counts = self.fetchone(
             """
@@ -236,6 +282,7 @@ class WorkerTests(PostgresTestCase):
 
         self.assertEqual(result.outcome, LifecycleOutcome.ACTIVE_LEASE.value)
         self.assertEqual(workflow.calls, 0)
+        self.assertEqual(slack.reactions, [])
         self.assertEqual(slack.attempts, [])
 
     def test_known_temporary_send_failure_retries_exact_reply_without_model(self) -> None:

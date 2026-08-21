@@ -259,7 +259,8 @@ class PostgresSupportRepository:
             self._lock_current_claim(connection, claim)
             row = connection.execute(
                 """
-                select request_id, slack_channel_id, slack_thread_ts, question_text
+                select request_id, slack_channel_id, slack_message_ts,
+                       slack_thread_ts, question_text
                 from support_requests
                 where request_id = %s
                 """,
@@ -269,6 +270,7 @@ class PostgresSupportRepository:
             return ClaimedRequest(
                 request_id=row["request_id"],
                 slack_channel_id=row["slack_channel_id"],
+                slack_message_ts=row["slack_message_ts"],
                 slack_thread_ts=row["slack_thread_ts"],
                 question_text=row["question_text"],
             )

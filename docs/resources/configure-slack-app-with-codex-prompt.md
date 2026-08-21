@@ -10,7 +10,7 @@ Reuse and reconcile an existing matching HR Policy Assistant app.
 Do not create a duplicate blindly, and do not alter unrelated apps.
 
 Before a public HTTPS webhook exists, use slack/manifest.bootstrap.json.
-The app must have only the app_mentions:read and chat:write bot scopes.
+The app must have only the app_mentions:read, chat:write, and reactions:write bot scopes.
 Keep direct messages, the App Home Messages tab, interactive components, shortcuts, slash commands, incoming webhooks, Socket Mode, organization deployment, MCP, and multi-workspace distribution disabled.
 Do not configure a Slack user or user group for human-review replies.
 

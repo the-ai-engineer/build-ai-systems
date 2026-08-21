@@ -76,6 +76,7 @@ An employee mentions the assistant in a new top-level message:
 > How many days of annual leave can I carry into next year?
 
 The assistant accepts the question and processes it in the background.
+It adds an `:eyes:` reaction to the employee's message before starting the policy workflow, so the employee can see that work has begun.
 It then posts a reply in the message thread:
 
 > You can carry up to five unused days into the next holiday year with manager approval.
@@ -131,6 +132,7 @@ Policy owners will provide the approved source documents that the assistant is a
 8. Repeated delivery of the same Slack event must not create repeated work or duplicate intended replies.
 9. A temporary system or provider failure must not silently lose an accepted question.
 10. HR and system operators must be able to inspect the outcome and supporting evidence for each processed question.
+11. The assistant should add one visible acknowledgement reaction before starting the policy workflow, without making the final reply depend on that reaction succeeding.
 
 ## 8. Success measures
 

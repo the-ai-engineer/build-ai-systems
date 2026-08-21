@@ -139,7 +139,13 @@ class EndToEndTests(PostgresTestCase):
             server.should_exit = True
             thread.join(timeout=10)
 
-        # The employee got one cited reply in their own thread.
+        # The employee saw progress before one cited reply in their own thread.
+        self.assertEqual(self.slack.calls, ["reaction", "reply"])
+        self.assertEqual(len(self.slack.reactions), 1)
+        reaction = self.slack.reactions[0]
+        self.assertEqual(reaction.channel_id, CHANNEL)
+        self.assertEqual(reaction.message_ts, "1700000000.000100")
+        self.assertEqual(reaction.name, "eyes")
         self.assertEqual(len(self.slack.attempts), 1)
         attempt = self.slack.attempts[0]
         self.assertEqual(attempt.channel_id, CHANNEL)
