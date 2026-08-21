@@ -528,6 +528,7 @@ Examples are grouped by the lesson that uses them.
 
 The model examples require the matching provider credentials.
 Lesson 05 uses Google ADK, Gemini, and PostgreSQL.
+After its database setup, run it from the command line or start ADK Web from `examples/lesson-05`.
 Lesson 06 uses Gemini embeddings, PostgreSQL, and pgvector.
 Start with the public [RAG implementation guides](docs/rag/README.md).
 

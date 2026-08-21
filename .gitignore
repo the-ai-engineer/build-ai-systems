@@ -9,6 +9,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.adk/
 .venv/
 venv/
 dist/
