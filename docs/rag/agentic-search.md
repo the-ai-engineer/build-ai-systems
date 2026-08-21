@@ -35,7 +35,7 @@ Whole-document retrieval is a strong default when:
 It removes chunking, embedding, and ranking from the answer path.
 That makes the behaviour easier to inspect and is why the production course application starts here.
 
-## Run it
+## Run it from the command line
 
 Complete the [PostgreSQL document-store setup](postgres-document-store.md), then run:
 
@@ -55,6 +55,21 @@ uv run python examples/lesson-05/03_agentic_rag.py \
 
 The expected answer says that no approved policy was found.
 It must not promise to contact or connect a representative because the example has no tool that can perform that action.
+
+## Run it in ADK Web
+
+Start the local development UI from the directory that contains the agent package:
+
+```bash
+cd examples/lesson-05
+uv run adk web --port 8000
+```
+
+Open `http://localhost:8000`, select `policy_agent`, and ask a policy question.
+ADK Web shows the model turns, calls to `list_support_documents` and `read_support_document`, tool results, and final answer.
+
+ADK Web is unauthenticated and intended only for local development.
+Keep it on the default `127.0.0.1` host and do not expose it to an untrusted network.
 
 ## The important design choice
 

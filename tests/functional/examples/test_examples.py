@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib
 import importlib.util
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -74,8 +76,33 @@ class LessonExamplesTest(unittest.TestCase):
         self.assertIn("lesson_05.support_documents", sql)
         self.assertNotIn("support_document_chunks", sql)
         self.assertNotIn("vector", sql.lower())
-        source = Path("examples/lesson-05/03_agentic_rag.py").read_text(encoding="utf-8")
+        source = Path("examples/lesson-05/policy_agent/agent.py").read_text(encoding="utf-8")
         self.assertIn("lesson_05.support_documents", source)
+
+    def test_lesson_five_exports_an_adk_web_agent(self) -> None:
+        package = Path("examples/lesson-05/policy_agent")
+        sys.path.insert(0, str(package.parent))
+        try:
+            policy_agent = importlib.import_module("policy_agent")
+        finally:
+            sys.path.pop(0)
+            sys.modules.pop("policy_agent.agent", None)
+            sys.modules.pop("policy_agent", None)
+
+        self.assertEqual(policy_agent.root_agent.name, "policy_agent")
+        self.assertEqual(
+            [tool.__name__ for tool in policy_agent.root_agent.tools],
+            ["list_support_documents", "read_support_document"],
+        )
+
+        command = subprocess.run(
+            [sys.executable, "examples/lesson-05/03_agentic_rag.py", "--help"],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(command.returncode, 0, msg=command.stderr)
+        self.assertIn("Let an agent choose and read a policy.", command.stdout)
 
     def test_lesson_six_uses_pgvector_and_full_text_search(self) -> None:
         sql = Path("examples/lesson-06/01_setup.sql").read_text(encoding="utf-8")
@@ -92,7 +119,7 @@ class LessonExamplesTest(unittest.TestCase):
     def test_retrieval_examples_default_to_local_postgres_socket(self) -> None:
         for path in [
             Path("examples/lesson-05/02_seed_documents.py"),
-            Path("examples/lesson-05/03_agentic_rag.py"),
+            Path("examples/lesson-05/policy_agent/agent.py"),
             Path("examples/lesson-06/02_seed_documents.py"),
             Path("examples/lesson-06/03_vector_search.py"),
             Path("examples/lesson-06/04_hybrid_search.py"),

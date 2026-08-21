@@ -42,7 +42,7 @@ erDiagram
     }
 ```
 
-Then run the [agentic search example](agentic-search.md).
+Then run the [agentic search example](agentic-search.md) from the command line or in ADK Web.
 This is the approach used by the production Slack assistant.
 
 ## Run Lesson 06
