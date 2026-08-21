@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,12 +14,6 @@ from dotenv import load_dotenv
 
 POLICY_DIR = Path(__file__).parents[2] / "policies"
 DEFAULT_DATABASE_URL = "postgresql://rag:rag@localhost:5433/rag_lesson"
-
-POLICY_SUMMARIES = {
-    "annual-leave-policy": "Annual leave allowance, requests, and carrying unused days forward.",
-    "expenses-policy": "Receipts, deadlines, and approval rules for business expenses.",
-    "remote-working-policy": "Remote working limits, manager agreement, and office attendance.",
-}
 
 
 @dataclass(frozen=True)
@@ -38,7 +33,7 @@ def load_documents() -> list[SupportDocument]:
             SupportDocument(
                 id=path.stem,
                 title=extract_title(body, path.stem),
-                summary=POLICY_SUMMARIES[path.stem],
+                summary=extract_summary(body),
                 body=body,
                 content_hash=hashlib.sha256(body.encode()).hexdigest(),
             )
@@ -85,6 +80,13 @@ def extract_title(markdown: str, fallback: str) -> str:
         if line.startswith("# "):
             return line.removeprefix("# ").strip()
     return fallback
+
+
+def extract_summary(markdown: str) -> str:
+    for paragraph in re.split(r"\n\s*\n", markdown):
+        if not paragraph.startswith("#"):
+            return " ".join(paragraph.split())
+    return "Approved company policy."
 
 
 def main() -> None:

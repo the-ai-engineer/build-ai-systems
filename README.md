@@ -182,6 +182,9 @@ message text is deliberately never logged. Postgres is the source of truth.
 Both demos take `--question`. Add `--live-model` to make it mean something: the
 deterministic fixture model returns a canned decision and ignores what you typed,
 and the demos say so if you forget.
+The [demo question catalogue](docs/resources/hr-policy-demo-questions.md) covers
+the full synthetic HR corpus, multi-policy answers, personal cases, missing
+evidence, and prompt injection.
 
 Straight at the agent, no database, fastest loop:
 
