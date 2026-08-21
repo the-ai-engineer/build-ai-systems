@@ -11,14 +11,15 @@ The unrelated app's manifest has direct-message events, message-history and assi
 It is not the course app and must not be renamed, reduced, deleted, or otherwise repurposed.
 
 The installed course app is `HR Policy Assistant`, with safe app ID `A0BQF2X29MF`.
-Its installed bot scopes are exactly `app_mentions:read` and `chat:write`, with no user scopes.
+It was last observed with `app_mentions:read` and `chat:write`, with no user scopes.
+The acknowledgement reaction also requires `reactions:write`, so the app must be updated and reinstalled before that behavior is deployed.
 App Home messages, interactivity, slash commands, Events API delivery, Socket Mode, and public distribution are off.
 Inspect the list again before creating anything because the workspace may have changed since this observation.
 
 ## Repository manifests
 
 Use [the bootstrap manifest](../slack/manifest.bootstrap.json) to create the app before a public webhook exists.
-It creates the display information and bot user, requests only `app_mentions:read` and `chat:write`, and explicitly disables direct messages, incoming webhooks, interactivity, Socket Mode, organization deployment, and Slack-hosted or MCP features.
+It creates the display information and bot user, requests only `app_mentions:read`, `chat:write`, and `reactions:write`, and explicitly disables direct messages, incoming webhooks, interactivity, Socket Mode, organization deployment, and Slack-hosted or MCP features.
 It has no event delivery configuration.
 
 [The deployment-stage manifest](../slack/manifest.json) adds the single `app_mention` bot event.
@@ -74,6 +75,7 @@ Select **Install to Workspace** or **Reinstall to Workspace** only after confirm
 
 - `app_mentions:read`
 - `chat:write`
+- `reactions:write`
 
 Slack may then show an OAuth consent or workspace installation approval screen.
 The browser agent must stop there and ask the user for explicit confirmation.
@@ -108,7 +110,7 @@ Never commit the deployed service URL, temporary tunnel URL, or a complete Slack
 - **App Home** has its Messages tab disabled, so direct messages are not a supported entry point.
 - **Interactivity & Shortcuts** is disabled.
 - **Slash Commands** has no commands.
-- **OAuth & Permissions** lists only the two bot scopes above and no user scopes.
+- **OAuth & Permissions** lists only the three bot scopes above and no user scopes.
 - **Event Subscriptions** remains off until the verified webhook is connected, then lists only `app_mention`.
 - **Socket Mode** is disabled.
 - **Manage Distribution** remains off because version 1 supports one workspace.

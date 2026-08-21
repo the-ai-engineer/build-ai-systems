@@ -106,6 +106,7 @@ class ClaimResult:
 class ClaimedRequest:
     request_id: UUID
     slack_channel_id: str
+    slack_message_ts: str
     slack_thread_ts: str
     question_text: str = field(repr=False)
 

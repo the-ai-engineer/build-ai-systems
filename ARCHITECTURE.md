@@ -91,13 +91,14 @@ Then, in the worker:
 6. A task arrives carrying only `request_id`. The employee's question stays in the database, so the queue never holds sensitive content.
 7. `worker/auth.py` verifies the Google-signed OIDC token Cloud Tasks attached. A failure is a 401 before any work happens.
 8. `WorkerService.process` claims the request with a fenced lease and receives a `Claim`.
-9. It checks for a previously failed or stranded reply and resumes that path if one exists.
-10. Otherwise it runs the agent, which may list the policy index and load at most three active documents.
-11. `agent/evidence.py` verifies every citation against the documents the run actually loaded. An unverifiable answer becomes a human-review decision.
-12. The verified decision is persisted, one outbound action is created, and the reply is sent to the Slack thread.
-13. The result is recorded and the route maps it to a status code.
+9. It asks Slack to add one `:eyes:` reaction to the original message before model work begins. The reaction is best effort and naturally idempotent because Slack permits one copy of a named reaction from a bot on a message.
+10. It checks for a previously failed or stranded reply and resumes that path if one exists.
+11. Otherwise it runs the agent, which may list the policy index and load at most three active documents.
+12. `agent/evidence.py` verifies every citation against the documents the run actually loaded. An unverifiable answer becomes a human-review decision.
+13. The verified decision is persisted, one outbound reply action is created, and the reply is sent to the Slack thread.
+14. The result is recorded and the route maps it to a status code.
 
-`tests/integration/api/test_end_to_end.py` runs all thirteen steps against a real Postgres, with only the model and Slack faked.
+`tests/functional/api/test_end_to_end.py` runs all fourteen steps against a real Postgres, with only the model and Slack faked.
 
 ### Who may invoke the worker
 

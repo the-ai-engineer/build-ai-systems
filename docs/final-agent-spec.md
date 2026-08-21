@@ -29,6 +29,7 @@ Every mention is an independent support request, including mentions added to an 
 
 The bot replies in the originating thread.
 It does not load other thread messages as conversation memory.
+Before starting the policy workflow, it adds an `:eyes:` reaction to the employee's message as a visible progress signal.
 
 The assistant answers general HR questions covered by approved company policies.
 It does not access employee records, calculate personal entitlements, approve requests, make employment decisions, process files, or answer from untrusted sources.
@@ -39,6 +40,7 @@ It does not access employee records, calculate personal entitlements, approve re
 - Make the source of every supported answer visible and verifiable.
 - Give unsupported, sensitive, personal, or conflicting questions a fixed reply that asks the employee to contact HR without tagging a Slack user or user group.
 - Acknowledge Slack before model latency can exceed the webhook deadline.
+- Show the employee that asynchronous processing has started before the model runs.
 - Survive duplicate delivery, process crashes, and temporary provider failures.
 - Prevent stale workers and retries from creating duplicate known replies.
 - Keep every important state transition inspectable and teachable.
@@ -90,7 +92,7 @@ Cloud Scheduler starts the jobs with a maintenance service identity.
 | Cloud Tasks | Authenticated delivery, retry timing, concurrency, and rate limits | Business status, claim ownership, or AI decisions |
 | Policy worker | Claims, deadlines, workflow execution, failure classification, evidence validation, and controlled Slack actions | Webhook authentication or arbitrary queue routing |
 | Policy agent | Document selection and a typed answer or human-review decision | Arbitrary SQL, Slack calls, queues, or database writes |
-| Slack adapter | Posting one prepared thread reply and returning the Slack message timestamp | Deciding whether an answer is supported or safe |
+| Slack adapter | Adding the acknowledgement reaction, posting one prepared thread reply, and returning the reply timestamp | Deciding whether an answer is supported or safe |
 | Recovery job | Repairing safely stranded work and surfacing exhausted or uncertain work | Model calls, policy decisions, or automatic resend of uncertain actions |
 | Retention job | Clearing expired sensitive fields in bounded batches | Deleting the workflow audit trail or policy documents |
 
@@ -275,6 +277,7 @@ authenticate task identity
 -> load request_id
 -> atomically claim retryable work
 -> load the stored question and Slack identifiers
+-> add the best-effort acknowledgement reaction
 -> run the constrained policy agent within a deadline budget
 -> verify the typed decision and sources
 -> persist the decision under the current claim
@@ -354,6 +357,10 @@ No no-answer template contains a model-generated policy answer.
 
 Both outcomes reply to `slack_thread_ts` in the original channel.
 
+Before model work begins, the worker asks Slack to add `:eyes:` to the original message timestamp.
+This acknowledgement is best effort and never prevents the accepted request from reaching its final reply.
+Slack treats a repeated reaction from the same bot as `already_reacted`, which the adapter treats as success, so task retries do not stack reactions.
+
 ## Outbound Action Safety
 
 The worker persists the exact outbound message before calling Slack.
@@ -370,6 +377,9 @@ A clear Slack rejection can be retryable or permanent based on the response code
 A timeout, connection loss, or process failure after sending begins has an uncertain result.
 The worker marks the action `uncertain`, moves the request to `reconciliation`, and returns success to stop automatic task delivery.
 The system never automatically resends a pending action from an expired claim or an uncertain action.
+
+The acknowledgement reaction is not an `outbound_actions` reply record.
+Its bot, channel, message timestamp, and fixed emoji make the operation naturally idempotent at Slack, and its failure cannot change request state.
 
 An authenticated operator command inspects reconciliation records without printing message text or excerpts.
 The operator records one audited outcome: `confirmed_sent`, `confirmed_not_sent_and_retry`, or `cancelled`.

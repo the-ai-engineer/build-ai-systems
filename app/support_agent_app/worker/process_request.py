@@ -7,6 +7,7 @@ are protocols in `protocols.py`. `worker/main.py` supplies the real ones.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import timedelta
 from uuid import UUID
@@ -39,6 +40,10 @@ HUMAN_REVIEW_REPLY = (
     "I couldn’t find a reliable answer in the policy documents. Please ask a member of the HR team."
 )
 OFF_TOPIC_REPLY = "I can only help with questions about company HR policies."
+REQUEST_ACKNOWLEDGEMENT_REACTION = "eyes"
+MAX_ACKNOWLEDGEMENT_TIMEOUT_SECONDS = 2.0
+
+logger = logging.getLogger(__name__)
 
 
 def format_slack_reply(decision: SupportDecision) -> str:
@@ -108,6 +113,11 @@ class WorkerService:
             stored_request = self._requests.load_claimed_request(
                 claim,
                 timeout_seconds=deadline.database_timeout_seconds(),
+            )
+            self._acknowledge_request(
+                channel_id=stored_request.slack_channel_id,
+                message_ts=stored_request.slack_message_ts,
+                deadline=deadline,
             )
 
             failed_action = self._requests.find_failed_reply_action(
@@ -185,6 +195,42 @@ class WorkerService:
                 )
             except Exception as record_error:
                 raise WorkerTemporaryError("worker state update failed") from record_error
+
+    def _acknowledge_request(
+        self,
+        *,
+        channel_id: str,
+        message_ts: str,
+        deadline: WorkerDeadline,
+    ) -> None:
+        """Best-effort progress signal before the model starts.
+
+        Slack keeps one reaction per bot, message, and emoji. A retried worker
+        may call this again, but `already_reacted` is success and the employee
+        still sees one reaction. Failure is deliberately non-fatal because the
+        accepted request and final reply matter more than this progress signal.
+        """
+
+        available = (
+            deadline.remaining_seconds()
+            - MINIMUM_WORKFLOW_BUDGET_SECONDS
+            - FINALIZATION_RESERVE_SECONDS
+        )
+        if available <= 0:
+            return
+        timeout_seconds = min(MAX_ACKNOWLEDGEMENT_TIMEOUT_SECONDS, available)
+        try:
+            acknowledged = self._slack.add_reaction(
+                channel_id=channel_id,
+                message_ts=message_ts,
+                name=REQUEST_ACKNOWLEDGEMENT_REACTION,
+                timeout_seconds=timeout_seconds,
+            )
+        except Exception:
+            logger.warning("request acknowledgement reaction failed unexpectedly")
+            return
+        if not acknowledged:
+            logger.warning("request acknowledgement reaction was not accepted")
 
     def _run_and_record_workflow(
         self,

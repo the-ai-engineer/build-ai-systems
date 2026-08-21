@@ -197,10 +197,12 @@ request paid for the instance. A warm rejection is single-digit milliseconds.
 
 ### What the proof does not cover
 
-The bot token holds `app_mentions:read` and `chat:write` and no read scope, so
-the reply was confirmed by a human looking at the channel rather than by
-reading it back over the API. Granting a history scope to verify a deployment
-would be a worse trade than looking.
+The current deployment contract requires `app_mentions:read`, `chat:write`, and
+`reactions:write` and still grants no message-history or reaction-read scope.
+This recorded proof predates the acknowledgement reaction, so its bot token held
+only the first two scopes. The reply was confirmed by a human looking at the
+channel rather than by reading it back over the API. Granting a history scope
+to verify a deployment would be a worse trade than looking.
 
 The mention was synthetic. A real Slack delivery additionally depends on the
 Slack app's event URL pointing at

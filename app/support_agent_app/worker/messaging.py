@@ -1,7 +1,8 @@
 """The real Slack adapter. Every httpx and Slack detail stops here.
 
-Callers see only `post_thread_reply`, plus the two application-owned send
-errors that tell them whether a retry is safe.
+Callers see a best-effort acknowledgement reaction and `post_thread_reply`,
+plus the two application-owned send errors that tell them whether a reply retry
+is safe.
 """
 
 from __future__ import annotations
@@ -39,7 +40,25 @@ class RecordingSlackClient:
     """
 
     def __init__(self) -> None:
+        self.reactions = 0
         self.sent = 0
+
+    def add_reaction(
+        self,
+        *,
+        channel_id: str,
+        message_ts: str,
+        name: str,
+        timeout_seconds: float,
+    ) -> bool:
+        self.reactions += 1
+        logger.info(
+            "recorded reaction %s for channel %s message %s instead of sending it",
+            name,
+            channel_id,
+            message_ts,
+        )
+        return True
 
     def post_thread_reply(
         self,
@@ -68,6 +87,37 @@ class SlackWebApiClient:
             raise ValueError("bot_token is required")
         self._bot_token = bot_token
         self._client = client or httpx.Client(base_url=SLACK_API_BASE_URL)
+
+    def add_reaction(
+        self,
+        *,
+        channel_id: str,
+        message_ts: str,
+        name: str,
+        timeout_seconds: float,
+    ) -> bool:
+        """Add an idempotent acknowledgement without blocking the support request."""
+
+        try:
+            response = self._client.post(
+                "/reactions.add",
+                headers={
+                    "Authorization": f"Bearer {self._bot_token}",
+                    "Content-Type": "application/json; charset=utf-8",
+                },
+                content=json.dumps({"channel": channel_id, "timestamp": message_ts, "name": name}),
+                timeout=timeout_seconds,
+            )
+        except httpx.HTTPError:
+            return False
+
+        if response.status_code >= 400:
+            return False
+        try:
+            payload = response.json()
+        except ValueError:
+            return False
+        return bool(payload.get("ok")) or payload.get("error") == "already_reacted"
 
     def post_thread_reply(
         self,
