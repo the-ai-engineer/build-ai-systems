@@ -51,7 +51,11 @@ def build_adk_tools(dependencies: WorkflowDependencies) -> list[Callable[..., ob
 
     def get_support_document_tool(document_id: str) -> dict[str, object]:
         """Load one active policy document by its exact identifier."""
-        return get_support_document(dependencies, document_id).model_dump(mode="json")
+        try:
+            document = get_support_document(dependencies, document_id)
+        except ValueError as error:
+            return {"error": str(error)}
+        return document.model_dump(mode="json")
 
     list_support_documents_tool.__name__ = "list_support_documents"
     get_support_document_tool.__name__ = "get_support_document"

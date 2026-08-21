@@ -50,7 +50,7 @@ Try an unsupported question:
 
 ```bash
 uv run python examples/lesson-05/03_agentic_rag.py \
-  "What is the company pension contribution?"
+  "Does the company provide a bicycle repair allowance?"
 ```
 
 The expected answer says that no approved policy was found.

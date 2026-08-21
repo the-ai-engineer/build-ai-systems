@@ -306,7 +306,33 @@ class SupportWorkflowTests(unittest.TestCase):
                 llm_request: LlmRequest,
                 stream: bool = False,
             ) -> AsyncGenerator[LlmResponse, None]:
-                del llm_request, stream
+                del stream
+                tool_returns = [
+                    part.function_response
+                    for content in llm_request.contents
+                    for part in content.parts or []
+                    if part.function_response is not None
+                ]
+                if tool_returns:
+                    yield LlmResponse(
+                        content=types.Content(
+                            role="model",
+                            parts=[
+                                types.Part.from_function_call(
+                                    name="set_model_response",
+                                    args={
+                                        "decision": "human_review",
+                                        "answer": None,
+                                        "reason": "The document limit was reached.",
+                                        "reason_code": "unsupported",
+                                        "sources": [],
+                                    },
+                                )
+                            ],
+                        ),
+                        finish_reason=types.FinishReason.STOP,
+                    )
+                    return
                 yield LlmResponse(
                     content=types.Content(
                         role="model",
@@ -322,10 +348,17 @@ class SupportWorkflowTests(unittest.TestCase):
                 )
 
         agent = build_agent(FourDocumentModel(), dependencies)
-        with self.assertRaisesRegex(ValueError, "at most 3 documents"):
-            asyncio.run(_run_agent(agent, "Load four documents."))
+        events = asyncio.run(_run_agent(agent, "Load four documents."))
 
         self.assertEqual(len(dependencies.loaded_documents), MAX_LOADED_DOCUMENTS)
+        tool_results = [
+            part.function_response.response
+            for event in events
+            if event.content is not None
+            for part in event.content.parts or []
+            if part.function_response is not None
+        ]
+        self.assertTrue(any("at most 3 documents" in str(result) for result in tool_results))
 
     def test_run_metadata_excludes_question_and_policy_text(self) -> None:
         outcome = self.run_fixture("documented")
@@ -447,6 +480,15 @@ class SupportWorkflowTests(unittest.TestCase):
         """A limit written as prose is a duplicate definition, and drifts."""
         self.assertIn(f"no more than {MAX_LOADED_DOCUMENTS} documents", INSTRUCTIONS)
         self.assertIn("no more than 7 documents", build_instructions(7))
+
+    def test_the_prompt_states_the_human_review_output_boundary(self) -> None:
+        self.assertIn(
+            "For human_review, set answer to null, sources to an empty list, and reason_code.",
+            INSTRUCTIONS,
+        )
+        self.assertIn("Answer every supported part of the question", INSTRUCTIONS)
+        self.assertIn("Keep answer under 60 words and reason under 20 words", INSTRUCTIONS)
+        self.assertIn("without exploratory loads", INSTRUCTIONS)
 
     def test_workflow_timeout_bounds_the_complete_agent_run(self) -> None:
         class SlowModel(BaseLlm):

@@ -106,18 +106,18 @@ The first version covers general questions about approved internal HR policies.
 Initial topics include:
 
 - Annual leave and public holidays.
-- Pay and benefits policies.
-- Parental and family leave.
+- Sickness, bereavement, parental, and family leave.
+- Pay, benefits, and employee records.
 - Expenses and travel policies.
 - Remote and flexible working.
-- Employee onboarding.
-- General workplace policies.
+- Employee onboarding, probation, learning, and development.
+- Working hours, workplace adjustments, conduct, and grievances.
 
 The system will use Slack as its employee interface.
 It will process questions asynchronously so that receiving a request is separate from generating and delivering an answer.
 It must be able to buffer a burst of questions and process them safely without losing work or producing duplicate replies.
 
-The policy collection will remain intentionally small.
+The policy collection will remain curated and use short, focused documents, but it must be broad enough to represent the routine questions received by a typical HR team.
 Policy owners will provide the approved source documents that the assistant is allowed to use.
 
 ## 7. Business requirements
@@ -207,7 +207,7 @@ The system is complete when a real Slack question is accepted, processed safely,
 
 ## 13. Open questions
 
-- Which HR policy topics should be included in the first release?
+- Which additional HR policy topics would justify a later release?
 - What is the approved human referral route?
 - How quickly does the company expect routine questions to be answered?
 - How long may question text and generated answers be retained?

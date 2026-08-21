@@ -7,6 +7,23 @@ from pathlib import Path
 from types import ModuleType
 from unittest.mock import MagicMock, patch
 
+EXPECTED_POLICY_IDS = {
+    "annual-leave-policy",
+    "bereavement-and-compassionate-leave-policy",
+    "employee-data-and-records-policy",
+    "expenses-policy",
+    "family-leave-policy",
+    "flexible-working-policy",
+    "learning-and-development-policy",
+    "onboarding-and-probation-policy",
+    "pay-and-benefits-policy",
+    "remote-working-policy",
+    "sickness-absence-policy",
+    "working-hours-policy",
+    "workplace-adjustments-policy",
+    "workplace-conduct-policy",
+}
+
 
 def load_example(filename: str) -> ModuleType:
     path = Path("examples") / filename
@@ -33,6 +50,7 @@ class LessonExamplesTest(unittest.TestCase):
             Path("docs/rag/hybrid-search.md"),
             Path("docs/rag/agentic-search.md"),
             Path("docs/resources/deploy-with-codex-prompt.md"),
+            Path("docs/resources/hr-policy-demo-questions.md"),
         ]:
             self.assertTrue(path.is_file(), msg=str(path))
 
@@ -48,7 +66,7 @@ class LessonExamplesTest(unittest.TestCase):
     def test_retrieval_examples_have_local_policy_data(self) -> None:
         policy_paths = sorted(Path("policies").glob("*.md"))
 
-        self.assertEqual(len(policy_paths), 3)
+        self.assertEqual({path.stem for path in policy_paths}, EXPECTED_POLICY_IDS)
 
     def test_lesson_five_uses_a_complete_document_store(self) -> None:
         sql = Path("examples/lesson-05/01_setup.sql").read_text(encoding="utf-8")
@@ -76,7 +94,10 @@ class LessonExamplesTest(unittest.TestCase):
 
         documents = example.load_documents()
 
-        self.assertEqual(len(documents), 3)
+        self.assertEqual({document.id for document in documents}, EXPECTED_POLICY_IDS)
+        self.assertTrue(
+            all(document.summary.startswith("This policy covers") for document in documents)
+        )
         self.assertTrue(any("five unused days" in document.body for document in documents))
 
     def test_lesson_six_seed_chunks_the_canonical_policies(self) -> None:
@@ -85,9 +106,12 @@ class LessonExamplesTest(unittest.TestCase):
         documents = example.load_documents()
         chunks = [chunk for document in documents for chunk in example.split_document(document)]
 
-        self.assertEqual(len(documents), 3)
-        self.assertEqual(len(chunks), 9)
-        self.assertEqual(len({chunk.id for chunk in chunks}), 9)
+        self.assertEqual({document.id for document in documents}, EXPECTED_POLICY_IDS)
+        self.assertEqual(len({chunk.id for chunk in chunks}), len(chunks))
+        self.assertGreaterEqual(len(chunks), len(documents) * 3)
+        self.assertTrue(
+            all(document.summary.startswith("This policy covers") for document in documents)
+        )
         self.assertTrue(any("five unused days" in chunk.content for chunk in chunks))
 
     def test_seed_step_removes_documents_that_are_no_longer_approved(self) -> None:
