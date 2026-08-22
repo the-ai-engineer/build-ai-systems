@@ -19,7 +19,8 @@ At search time, the code embeds only the question and sends that vector to Postg
 
 ## The important SQL
 
-[`vector_search.py`](../../examples/lesson-06/vector_search.py) runs the equivalent of:
+[`step_04_vector_search.py`](../../examples/lesson-06/step_04_vector_search.py)
+runs the equivalent of:
 
 ```sql
 select
@@ -41,7 +42,7 @@ The displayed similarity is `1 - distance`, where a larger value is better.
 Complete the [database setup](postgres-and-pgvector.md), then run:
 
 ```bash
-uv run python examples/lesson-06/vector_search.py \
+uv run python examples/lesson-06/step_04_vector_search.py \
   "Can I take unused holiday into next year?"
 ```
 
@@ -51,7 +52,7 @@ The exact similarity values can change when the embedding model changes, so trea
 Try a paraphrase:
 
 ```bash
-uv run python examples/lesson-06/vector_search.py \
+uv run python examples/lesson-06/step_04_vector_search.py \
   "What is the deadline for getting reimbursed?"
 ```
 

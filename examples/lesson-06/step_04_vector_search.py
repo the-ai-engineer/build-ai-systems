@@ -1,4 +1,4 @@
-"""Vector search over policy chunks stored in PostgreSQL with pgvector."""
+"""Step 4: Search policy chunks by vector similarity."""
 
 from __future__ import annotations
 

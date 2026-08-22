@@ -44,14 +44,14 @@ fused result:   B, A, D, C
 Complete the [database setup](postgres-and-pgvector.md), then run:
 
 ```bash
-uv run python examples/lesson-06/hybrid_search.py \
+uv run python examples/lesson-06/step_06_hybrid_search.py \
   "Can I carry unused holiday into next year?"
 ```
 
 Each result shows its keyword rank and vector rank.
 `None` means that retrieval method did not include the chunk in its candidate list.
 
-The `hybrid_search()` function calls [`keyword_search()`](../../examples/lesson-06/keyword_search.py) and [`vector_search()`](../../examples/lesson-06/vector_search.py) directly.
+The `hybrid_search()` function calls [`keyword_search()`](../../examples/lesson-06/step_05_keyword_search.py) and [`vector_search()`](../../examples/lesson-06/step_04_vector_search.py) directly.
 It converts their ordered results into ranks, then passes those two lists to `reciprocal_rank_fusion()`.
 Every part of the composition is ordinary Python and there is no answer agent in this lesson.
 

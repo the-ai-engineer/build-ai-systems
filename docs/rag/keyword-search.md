@@ -17,7 +17,8 @@ The GIN index makes matching that column efficient.
 
 ## The important SQL
 
-[`keyword_search.py`](../../examples/lesson-06/keyword_search.py) runs the equivalent of:
+[`step_05_keyword_search.py`](../../examples/lesson-06/step_05_keyword_search.py)
+runs the equivalent of:
 
 ```sql
 select
@@ -39,7 +40,7 @@ limit 5;
 Complete the [database setup](postgres-and-pgvector.md), then run:
 
 ```bash
-uv run python examples/lesson-06/keyword_search.py \
+uv run python examples/lesson-06/step_05_keyword_search.py \
   "Can I carry unused holiday into next year?"
 ```
 

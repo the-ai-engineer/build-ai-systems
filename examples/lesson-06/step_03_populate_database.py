@@ -1,4 +1,4 @@
-"""Populate PostgreSQL with policy chunks and their embeddings."""
+"""Step 3: Populate PostgreSQL with policy chunks and embeddings."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from chunk_text import chunk_text
+from step_02_chunk_text import chunk_text
 
 
 POLICY_DIR = Path(__file__).parents[2] / "policies"

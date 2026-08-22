@@ -17,7 +17,7 @@ The examples use your operating-system user and the normal local PostgreSQL sock
 ## Apply the raw SQL
 
 ```bash
-psql rag_lesson < examples/lesson-05/01_setup.sql
+psql rag_lesson < examples/lesson-05/step_01_setup.sql
 ```
 
 The SQL creates `lesson_05.support_documents` with a stable ID, title, summary, complete body, content hash, and update time.
@@ -25,7 +25,7 @@ The SQL creates `lesson_05.support_documents` with a stable ID, title, summary, 
 ## Load the policies
 
 ```bash
-uv run python examples/lesson-05/populate_database.py
+uv run python examples/lesson-05/step_02_populate_database.py
 ```
 
 Expected result:
@@ -67,7 +67,7 @@ Set up the Lesson 05 PostgreSQL example on my machine.
 First inspect my operating system, installed PostgreSQL tools, running server, and existing databases.
 Use my native local PostgreSQL installation, not Docker.
 Create the rag_lesson database only if it does not exist.
-Apply examples/lesson-05/01_setup.sql, run the population script, and show me the document count.
+Apply examples/lesson-05/step_01_setup.sql, run the population script, and show me the document count.
 Do not delete or overwrite any existing database, role, schema, or configuration.
 If PostgreSQL is missing or needs a system-level change, explain the exact command and wait for my approval.
 Finish by giving me the commands I can use next time.

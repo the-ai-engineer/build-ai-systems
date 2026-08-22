@@ -1,4 +1,4 @@
-"""Keyword search over policy chunks using PostgreSQL full-text search."""
+"""Step 5: Search policy chunks with PostgreSQL full-text search."""
 
 from __future__ import annotations
 

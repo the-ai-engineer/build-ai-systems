@@ -1,4 +1,4 @@
-"""Combine keyword and vector rankings with Reciprocal Rank Fusion."""
+"""Step 6: Combine keyword and vector rankings with Reciprocal Rank Fusion."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from keyword_search import keyword_search
-from vector_search import vector_search
+from step_04_vector_search import vector_search
+from step_05_keyword_search import keyword_search
 
 
 DEFAULT_DATABASE_URL = "postgresql:///rag_lesson"

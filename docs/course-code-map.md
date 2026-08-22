@@ -14,8 +14,8 @@ that link and this table have to agree.
 | 2 | Use AI Models and SDKs | `examples/lesson-02/01_basic_model_call.py`, `examples/lesson-02/02_structured_outputs.py` |
 | 3 | AI System Design Patterns | `examples/lesson-03/01_deterministic_workflow.py` |
 | 4 | Build AI Agents | `examples/lesson-04/01_agent_by_hand.py`, `examples/lesson-04/adk_support_agent/agent.py` |
-| 5 | Agentic RAG with PostgreSQL | `examples/lesson-05/01_setup.sql`, `examples/lesson-05/populate_database.py`, `examples/lesson-05/agentic_search.py`, `docs/rag/postgres-document-store.md`, `docs/rag/agentic-search.md`, `policies/` |
-| 6 | Vector, Keyword, and Hybrid Search | `examples/lesson-06/01_setup.sql`, `examples/lesson-06/chunk_text.py`, `examples/lesson-06/populate_database.py`, `examples/lesson-06/vector_search.py`, `examples/lesson-06/keyword_search.py`, `examples/lesson-06/hybrid_search.py`, `docs/rag/postgres-and-pgvector.md`, `docs/rag/vector-search.md`, `docs/rag/keyword-search.md`, `docs/rag/hybrid-search.md`, `policies/` |
+| 5 | Agentic RAG with PostgreSQL | `examples/lesson-05/step_01_setup.sql`, `examples/lesson-05/step_02_populate_database.py`, `examples/lesson-05/step_03_agentic_search.py`, `docs/rag/postgres-document-store.md`, `docs/rag/agentic-search.md`, `policies/` |
+| 6 | Vector, Keyword, and Hybrid Search | `examples/lesson-06/step_01_setup.sql`, `examples/lesson-06/step_02_chunk_text.py`, `examples/lesson-06/step_03_populate_database.py`, `examples/lesson-06/step_04_vector_search.py`, `examples/lesson-06/step_05_keyword_search.py`, `examples/lesson-06/step_06_hybrid_search.py`, `docs/rag/postgres-and-pgvector.md`, `docs/rag/vector-search.md`, `docs/rag/keyword-search.md`, `docs/rag/hybrid-search.md`, `policies/` |
 | 7 | Design and Plan the Production System | `brief.md`, `ARCHITECTURE.md`, `docs/final-agent-spec.md` |
 | 8 | Run and Understand the Local Policy Assistant | `migrations/`, `app/support_agent_app/worker/`, `app/support_agent_app/database/`, `app/support_agent_app/demos/run_workflow.py`, `app/support_agent_app/demos/seed_request.py` |
 | 9 | Deploy the Private Worker to Google Cloud | `Dockerfile`, `scripts/provision-dev.sh`, `scripts/build-and-push.sh`, `scripts/deploy-dev.sh`, `docs/worker-authentication.md`, `docs/resources/deploy-with-codex-prompt.md` |
@@ -35,15 +35,15 @@ uv run python examples/lesson-03/01_deterministic_workflow.py
 uv run python examples/lesson-04/01_agent_by_hand.py
 (cd examples/lesson-04 && uv run adk web --port 8000)
 createdb rag_lesson
-psql rag_lesson < examples/lesson-05/01_setup.sql
-uv run python examples/lesson-05/populate_database.py
-uv run python examples/lesson-05/agentic_search.py
-psql rag_lesson < examples/lesson-06/01_setup.sql
-uv run python examples/lesson-06/chunk_text.py
-uv run python examples/lesson-06/populate_database.py
-uv run python examples/lesson-06/vector_search.py
-uv run python examples/lesson-06/keyword_search.py
-uv run python examples/lesson-06/hybrid_search.py
+psql rag_lesson < examples/lesson-05/step_01_setup.sql
+uv run python examples/lesson-05/step_02_populate_database.py
+uv run python examples/lesson-05/step_03_agentic_search.py
+psql rag_lesson < examples/lesson-06/step_01_setup.sql
+uv run python examples/lesson-06/step_02_chunk_text.py
+uv run python examples/lesson-06/step_03_populate_database.py
+uv run python examples/lesson-06/step_04_vector_search.py
+uv run python examples/lesson-06/step_05_keyword_search.py
+uv run python examples/lesson-06/step_06_hybrid_search.py
 
 uv run python -m unittest discover -s tests/unit -t .
 uv run demo-workflow --fixture documented

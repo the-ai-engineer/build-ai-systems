@@ -1,4 +1,4 @@
-"""Populate the Lesson 05 PostgreSQL document store with approved policies."""
+"""Step 2: Populate the Lesson 05 document store with approved policies."""
 
 from __future__ import annotations
 
