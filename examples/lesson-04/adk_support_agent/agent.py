@@ -12,6 +12,7 @@ from google.adk.agents import Agent
 from pydantic import BaseModel
 
 MODEL_NAME = os.getenv("SUPPORT_AGENT_MODEL", "gemini-3.5-flash")
+UNSUPPORTED_REPLY = "I can only answer questions covered by the available support policies."
 
 
 class SupportDocument(BaseModel):
@@ -72,7 +73,11 @@ def find_support_document(query: str) -> dict[str, str | bool]:
                 "body": document.body,
             }
 
-    return {"found": False, "reason": "No matching support document was found."}
+    return {
+        "found": False,
+        "reason": "No matching support document was found.",
+        "reply": UNSUPPORTED_REPLY,
+    }
 
 
 root_agent = Agent(
@@ -85,8 +90,8 @@ root_agent = Agent(
         "Use find_support_document before answering.\n"
         "Answer only from the returned policy document.\n"
         "Do not perform refunds, change orders, or answer account-specific requests.\n"
-        "Say a human should handle those requests even when a policy matches.\n"
-        "If no policy matches, say a human should handle the message."
+        f"For those requests or when no policy matches, reply exactly: {UNSUPPORTED_REPLY}\n"
+        "Do not claim that you can connect, transfer, escalate, contact, or notify anyone."
     ),
     tools=[list_support_documents, find_support_document],
 )

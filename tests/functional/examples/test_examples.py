@@ -233,6 +233,26 @@ class LessonExamplesTest(unittest.TestCase):
         self.assertIn("root_agent = Agent(", source)
         self.assertIn("tools=[list_support_documents, find_support_document]", source)
 
+    def test_lesson_four_adk_fallback_does_not_promise_a_handoff(self) -> None:
+        example = load_example("lesson-04/adk_support_agent/agent.py")
+
+        result = example.find_support_document("Hello!")
+
+        self.assertFalse(result["found"])
+        self.assertEqual(result["reply"], example.UNSUPPORTED_REPLY)
+        self.assertEqual(
+            example.UNSUPPORTED_REPLY,
+            "I can only answer questions covered by the available support policies.",
+        )
+        self.assertIn(
+            f"reply exactly: {example.UNSUPPORTED_REPLY}",
+            example.root_agent.instruction,
+        )
+        self.assertIn(
+            "Do not claim that you can connect, transfer, escalate, contact, or notify anyone.",
+            example.root_agent.instruction,
+        )
+
     def test_slack_contract_contains_every_design_criterion(self) -> None:
         source = Path("docs/final-agent-spec.md").read_text(encoding="utf-8")
 

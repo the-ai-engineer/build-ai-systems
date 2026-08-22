@@ -5,6 +5,7 @@
 !examples/.env.sample
 !examples/lesson-04/adk_support_agent/.env.example
 __pycache__/
+.adk/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
