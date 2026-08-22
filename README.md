@@ -524,13 +524,13 @@ uv run python examples/lesson-02/01_basic_model_call.py
 ```
 
 Examples are grouped by the lesson that uses them.
-`examples/lesson-05/` holds the agentic RAG document store and `examples/lesson-06/` holds the standalone vector and hybrid search examples.
+`examples/lesson-05/` holds the agentic RAG document store and `examples/lesson-06/` holds the standalone chunking, vector, keyword, and hybrid search examples.
 
 The model examples require the matching provider credentials.
 Lesson 05 uses Google ADK, Gemini, and PostgreSQL.
-After its database setup, run it from the command line or start ADK Web from `examples/lesson-05`.
+Its agent, tools, and command-line entry point live together in `agentic_search.py`.
 Lesson 06 uses Gemini embeddings, PostgreSQL, and pgvector.
-After comparing its vector and hybrid scripts, start ADK Web from `examples/lesson-06`.
+Its scripts follow the teaching sequence directly: chunk text, populate PostgreSQL, run vector search, run keyword search, then combine both rankings with RRF.
 Start with the public [RAG implementation guides](docs/rag/README.md).
 
 ## Verify the repository

@@ -151,9 +151,10 @@ Migrations are never applied at application startup. An operator runs `apply-mig
 
 Lesson 05 has a separate, teaching-only `lesson_05` schema in the local `rag_lesson` database.
 It stores complete documents for the agentic RAG example.
-Its `policy_agent` package is the shared Google ADK entry point for the command-line example and ADK Web.
+Its one `agentic_search.py` command keeps the narrow document tools, ADK agent, and command-line entry point together so students can read the complete pattern in one file.
 Lesson 06 uses the same local database and owns a separate `lesson_06` schema with document chunks, Google embeddings, a pgvector HNSW index, and a PostgreSQL full-text index.
-Its `hybrid_policy_agent` package shares hybrid retrieval between the standalone comparison and ADK Web.
+Its standalone scripts expose chunking, population, vector search, keyword search, and hybrid search as direct functions.
+`hybrid_search` calls the vector and keyword functions, then combines their ordered results with Reciprocal Rank Fusion in ordinary Python.
 The raw SQL lives beside each lesson's examples, not in the production migration history.
 The deployable application neither imports that example code nor requires the pgvector extension.
 
@@ -399,6 +400,11 @@ The course has students write their own architecture document first. This file i
 The root `migrations/` directory remains the single production migration history.
 Lesson 05 creates a complete-document store for the production retrieval pattern.
 Lesson 06 creates a separate disposable pgvector and full-text search schema because chunks and search indexes are alternatives the production application does not depend on.
+
+**The retrieval lessons use single-file commands instead of ADK Web packages.**
+Lesson 04 already teaches ADK package discovery and ADK Web.
+Lessons 05 and 06 instead make each retrieval operation visible as a directly runnable function.
+This deliberately avoids package initializers, import-time agent construction, and UI-specific structure that do not help explain retrieval.
 
 **`SupportRequestStore` has fifteen methods and one implementation.**
 That is more surface than an interface usually earns. It stays because it is the boundary that keeps `WorkerService` free of Postgres, which is the system's central design claim, and because a type checker verifies the match where `worker/main.py` passes the repository in. Writing it caught nine signature mismatches. `PostgresSupportRepository` deliberately does not inherit from it: a `Protocol` subclass silently inherits `...` bodies for anything it fails to implement, which would turn drift into a `None` return at runtime instead of a type error.

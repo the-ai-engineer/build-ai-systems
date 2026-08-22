@@ -1,4 +1,4 @@
-"""Load the approved policies into the Lesson 05 PostgreSQL document store."""
+"""Populate the Lesson 05 PostgreSQL document store with approved policies."""
 
 from __future__ import annotations
 
@@ -41,16 +41,9 @@ def load_documents() -> list[SupportDocument]:
     return documents
 
 
-def seed_database(database_url: str, documents: list[SupportDocument]) -> None:
+def populate_database(database_url: str, documents: list[SupportDocument]) -> None:
     with psycopg.connect(database_url) as connection:
-        document_ids = [document.id for document in documents]
-        connection.execute(
-            """
-            delete from lesson_05.support_documents
-            where not (id = any(%s))
-            """,
-            (document_ids,),
-        )
+        connection.execute("delete from lesson_05.support_documents")
 
         for document in documents:
             connection.execute(
@@ -58,12 +51,6 @@ def seed_database(database_url: str, documents: list[SupportDocument]) -> None:
                 insert into lesson_05.support_documents
                     (id, title, summary, body, content_hash)
                 values (%s, %s, %s, %s, %s)
-                on conflict (id) do update set
-                    title = excluded.title,
-                    summary = excluded.summary,
-                    body = excluded.body,
-                    content_hash = excluded.content_hash,
-                    updated_at = now()
                 """,
                 (
                     document.id,
@@ -93,7 +80,7 @@ def main() -> None:
     load_dotenv(Path(__file__).parents[1] / ".env")
     documents = load_documents()
     database_url = os.getenv("RAG_DATABASE_URL", DEFAULT_DATABASE_URL)
-    seed_database(database_url, documents)
+    populate_database(database_url, documents)
     print(f"Loaded {len(documents)} complete documents into Postgres.")
 
 

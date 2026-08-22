@@ -1,9 +1,9 @@
 # RAG implementation guides
 
-The course separates the production retrieval choice from two optional alternatives.
+The course separates the production retrieval choice from three optional alternatives.
 
 - Lesson 05 uses [agentic search](agentic-search.md) over complete documents in PostgreSQL.
-- Lesson 06 covers [vector search](vector-search.md) and [hybrid search](hybrid-search.md) as standalone alternatives.
+- Lesson 06 builds [vector search](vector-search.md), [keyword search](keyword-search.md), and [hybrid search](hybrid-search.md) as standalone alternatives.
 
 ## Choose a strategy
 
@@ -11,6 +11,7 @@ The course separates the production retrieval choice from two optional alternati
 |---|---|---|---|
 | [Agentic search](agentic-search.md) | A complete document chosen from titles and summaries | A small, curated policy set | More model decisions, but no chunk ranking |
 | [Vector search](vector-search.md) | Semantically similar chunks | Questions and documents use different words | Exact identifiers and rare terms can rank poorly |
+| [Keyword search](keyword-search.md) | Chunks containing matching words | Exact identifiers, names, and rare terms | Paraphrases can be missed |
 | [Hybrid search](hybrid-search.md) | Chunks found by both semantic and keyword search | General-purpose search over mixed content | More moving parts to tune and observe |
 
 Structured SQL retrieval is also a form of retrieval-augmented generation.
@@ -22,6 +23,7 @@ flowchart LR
     Q["Employee question"] --> C{"What shape is the knowledge?"}
     C -->|"Small set of complete policies"| A["Agentic search"]
     C -->|"Meaning matters"| V["Vector search"]
+    C -->|"Exact words matter"| K["Keyword search"]
     C -->|"Meaning and exact words matter"| H["Hybrid search"]
     C -->|"Typed facts"| S["Direct SQL query"]
 ```
@@ -42,7 +44,7 @@ erDiagram
     }
 ```
 
-Then run the [agentic search example](agentic-search.md) from the command line or in ADK Web.
+Then run the [agentic search example](agentic-search.md) from the command line.
 This is the approach used by the production Slack assistant.
 
 ## Run Lesson 06
@@ -70,6 +72,12 @@ erDiagram
     }
 ```
 
-Then run [vector search](vector-search.md) followed by [hybrid search](hybrid-search.md).
-The hybrid-search guide also shows how to inspect the final retrieval tool in ADK Web.
+The lesson follows five visible steps:
+
+1. Split Markdown with `chunk_text()`.
+2. Populate PostgreSQL with chunks and embeddings.
+3. Run `vector_search()`.
+4. Run `keyword_search()`.
+5. Combine both rankings with `hybrid_search()` and Reciprocal Rank Fusion.
+
 Later course lessons do not depend on Lesson 06.

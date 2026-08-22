@@ -25,7 +25,7 @@ The SQL creates `lesson_05.support_documents` with a stable ID, title, summary, 
 ## Load the policies
 
 ```bash
-uv run python examples/lesson-05/02_seed_documents.py
+uv run python examples/lesson-05/populate_database.py
 ```
 
 Expected result:
@@ -34,8 +34,8 @@ Expected result:
 Loaded 14 complete documents into Postgres.
 ```
 
-The seed command reads the canonical Markdown files in `policies/`.
-Running it again updates current documents and removes policies that are no longer approved.
+The population command reads the canonical Markdown files in `policies/`.
+Running it again replaces the lesson's document rows with the current approved policies.
 
 Inspect the document index:
 
@@ -67,7 +67,7 @@ Set up the Lesson 05 PostgreSQL example on my machine.
 First inspect my operating system, installed PostgreSQL tools, running server, and existing databases.
 Use my native local PostgreSQL installation, not Docker.
 Create the rag_lesson database only if it does not exist.
-Apply examples/lesson-05/01_setup.sql, run the seed script, and show me the document count.
+Apply examples/lesson-05/01_setup.sql, run the population script, and show me the document count.
 Do not delete or overwrite any existing database, role, schema, or configuration.
 If PostgreSQL is missing or needs a system-level change, explain the exact command and wait for my approval.
 Finish by giving me the commands I can use next time.

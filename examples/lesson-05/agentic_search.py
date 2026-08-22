@@ -1,7 +1,9 @@
-"""Google ADK agentic RAG over complete policy documents in PostgreSQL."""
+"""Agentic search over complete policy documents stored in PostgreSQL."""
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import os
 from pathlib import Path
 from typing import Any
@@ -9,6 +11,7 @@ from typing import Any
 import psycopg
 from dotenv import load_dotenv
 from google.adk.agents import Agent
+from google.adk.runners import InMemoryRunner
 
 
 DEFAULT_DATABASE_URL = "postgresql:///rag_lesson"
@@ -48,7 +51,7 @@ def create_document_tools(database_url: str) -> list[Any]:
 def build_agent(database_url: str) -> Agent:
     return Agent(
         name="policy_agent",
-        model=os.getenv("SUPPORT_AGENT_MODEL", "gemini-3.5-flash"),
+        model=os.getenv("SUPPORT_AGENT_MODEL", "gemini-3.7-flash"),
         description="Answers employee questions from approved company policies in PostgreSQL.",
         instruction=(
             "Answer employee questions from approved company policies. "
@@ -61,5 +64,35 @@ def build_agent(database_url: str) -> Agent:
     )
 
 
-load_dotenv(Path(__file__).parents[2] / ".env")
-root_agent = build_agent(os.getenv("RAG_DATABASE_URL", DEFAULT_DATABASE_URL))
+async def agentic_search(question: str, database_url: str) -> str:
+    runner = InMemoryRunner(agent=build_agent(database_url), app_name="policy_agent")
+    try:
+        events = await runner.run_debug(question, quiet=True)
+    finally:
+        await runner.close()
+
+    for event in reversed(events):
+        if event.is_final_response() and event.content is not None:
+            return "".join(part.text or "" for part in event.content.parts or [])
+    raise RuntimeError("ADK finished without a final response.")
+
+
+def main() -> None:
+    load_dotenv(Path(__file__).parents[1] / ".env")
+    parser = argparse.ArgumentParser(description="Let an agent choose and read a policy.")
+    parser.add_argument(
+        "question",
+        nargs="?",
+        default="How many days of annual leave can I carry into next year?",
+    )
+    args = parser.parse_args()
+
+    if not os.getenv("GOOGLE_CLOUD_PROJECT"):
+        raise RuntimeError("Set GOOGLE_CLOUD_PROJECT in examples/.env before running this command.")
+
+    database_url = os.getenv("RAG_DATABASE_URL", DEFAULT_DATABASE_URL)
+    print(asyncio.run(agentic_search(args.question, database_url)))
+
+
+if __name__ == "__main__":
+    main()

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import os
 import subprocess
 import sys
 import unittest
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 EXPECTED_POLICY_IDS = {
@@ -34,7 +35,11 @@ def load_example(filename: str) -> ModuleType:
         raise RuntimeError(f"Could not load {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    sys.path.insert(0, str(path.parent))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.pop(0)
     return module
 
 
@@ -49,6 +54,7 @@ class LessonExamplesTest(unittest.TestCase):
             Path("docs/rag/postgres-document-store.md"),
             Path("docs/rag/postgres-and-pgvector.md"),
             Path("docs/rag/vector-search.md"),
+            Path("docs/rag/keyword-search.md"),
             Path("docs/rag/hybrid-search.md"),
             Path("docs/rag/agentic-search.md"),
             Path("docs/resources/deploy-with-codex-prompt.md"),
@@ -76,33 +82,39 @@ class LessonExamplesTest(unittest.TestCase):
         self.assertIn("lesson_05.support_documents", sql)
         self.assertNotIn("support_document_chunks", sql)
         self.assertNotIn("vector", sql.lower())
-        source = Path("examples/lesson-05/policy_agent/agent.py").read_text(encoding="utf-8")
+        source = Path("examples/lesson-05/agentic_search.py").read_text(encoding="utf-8")
         self.assertIn("lesson_05.support_documents", source)
 
-    def test_lesson_five_exports_an_adk_web_agent(self) -> None:
-        package = Path("examples/lesson-05/policy_agent")
-        sys.path.insert(0, str(package.parent))
-        try:
-            policy_agent = importlib.import_module("policy_agent")
-        finally:
-            sys.path.pop(0)
-            sys.modules.pop("policy_agent.agent", None)
-            sys.modules.pop("policy_agent", None)
+    def test_lesson_five_has_one_visible_agentic_search_command(self) -> None:
+        example = load_example("lesson-05/agentic_search.py")
 
-        self.assertEqual(policy_agent.root_agent.name, "policy_agent")
+        with patch.dict(os.environ, {}, clear=True):
+            agent = example.build_agent("postgresql://unused")
+        self.assertEqual(agent.name, "policy_agent")
+        self.assertEqual(agent.model, "gemini-3.7-flash")
         self.assertEqual(
-            [tool.__name__ for tool in policy_agent.root_agent.tools],
+            [tool.__name__ for tool in agent.tools],
             ["list_support_documents", "read_support_document"],
         )
+        self.assertTrue(callable(example.agentic_search))
+        self.assertFalse(Path("examples/lesson-05/policy_agent/__init__.py").exists())
 
         command = subprocess.run(
-            [sys.executable, "examples/lesson-05/03_agentic_rag.py", "--help"],
+            [sys.executable, "examples/lesson-05/agentic_search.py", "--help"],
             capture_output=True,
             check=False,
             text=True,
         )
         self.assertEqual(command.returncode, 0, msg=command.stderr)
         self.assertIn("Let an agent choose and read a policy.", command.stdout)
+
+    def test_lesson_five_allows_a_model_override(self) -> None:
+        example = load_example("lesson-05/agentic_search.py")
+
+        with patch.dict(os.environ, {"SUPPORT_AGENT_MODEL": "review-override"}):
+            agent = example.build_agent("postgresql://unused")
+
+        self.assertEqual(agent.model, "review-override")
 
     def test_lesson_six_uses_pgvector_and_full_text_search(self) -> None:
         sql = Path("examples/lesson-06/01_setup.sql").read_text(encoding="utf-8")
@@ -112,43 +124,48 @@ class LessonExamplesTest(unittest.TestCase):
         self.assertIn("lesson_06.support_document_chunks", sql)
         self.assertIn("using gin", sql.lower())
         self.assertIn("using hnsw", sql.lower())
-        for filename in ["03_vector_search.py", "hybrid_policy_agent/search.py"]:
+        for filename in ["vector_search.py", "keyword_search.py"]:
             source = (Path("examples/lesson-06") / filename).read_text(encoding="utf-8")
             self.assertIn("lesson_06.support_document", source, msg=filename)
 
-    def test_lesson_six_exports_an_adk_web_agent(self) -> None:
-        package = Path("examples/lesson-06/hybrid_policy_agent")
-        sys.path.insert(0, str(package.parent))
-        try:
-            policy_agent = importlib.import_module("hybrid_policy_agent")
-        finally:
-            sys.path.pop(0)
-            sys.modules.pop("hybrid_policy_agent.search", None)
-            sys.modules.pop("hybrid_policy_agent.agent", None)
-            sys.modules.pop("hybrid_policy_agent", None)
+        hybrid_source = Path("examples/lesson-06/hybrid_search.py").read_text(encoding="utf-8")
+        self.assertIn("from keyword_search import keyword_search", hybrid_source)
+        self.assertIn("from vector_search import vector_search", hybrid_source)
 
-        self.assertEqual(policy_agent.root_agent.name, "hybrid_policy_agent")
-        self.assertEqual(
-            [tool.__name__ for tool in policy_agent.root_agent.tools],
-            ["search_support_documents"],
-        )
+    def test_lesson_six_exposes_the_teaching_steps_directly(self) -> None:
+        chunker = load_example("lesson-06/chunk_text.py")
+        vector = load_example("lesson-06/vector_search.py")
+        keyword = load_example("lesson-06/keyword_search.py")
+        hybrid = load_example("lesson-06/hybrid_search.py")
 
-        command = subprocess.run(
-            [sys.executable, "examples/lesson-06/04_hybrid_search.py", "--help"],
-            capture_output=True,
-            check=False,
-            text=True,
-        )
-        self.assertEqual(command.returncode, 0, msg=command.stderr)
-        self.assertIn("Combine exact words with semantic search.", command.stdout)
+        self.assertTrue(callable(chunker.chunk_text))
+        self.assertTrue(callable(vector.vector_search))
+        self.assertTrue(callable(keyword.keyword_search))
+        self.assertTrue(callable(hybrid.hybrid_search))
+        self.assertFalse(Path("examples/lesson-06/hybrid_policy_agent/__init__.py").exists())
+
+        for filename in [
+            "chunk_text.py",
+            "vector_search.py",
+            "keyword_search.py",
+            "hybrid_search.py",
+        ]:
+            command = subprocess.run(
+                [sys.executable, f"examples/lesson-06/{filename}", "--help"],
+                capture_output=True,
+                check=False,
+                text=True,
+            )
+            self.assertEqual(command.returncode, 0, msg=f"{filename}: {command.stderr}")
 
     def test_retrieval_examples_default_to_local_postgres_socket(self) -> None:
         for path in [
-            Path("examples/lesson-05/02_seed_documents.py"),
-            Path("examples/lesson-05/policy_agent/agent.py"),
-            Path("examples/lesson-06/02_seed_documents.py"),
-            Path("examples/lesson-06/03_vector_search.py"),
-            Path("examples/lesson-06/hybrid_policy_agent/search.py"),
+            Path("examples/lesson-05/populate_database.py"),
+            Path("examples/lesson-05/agentic_search.py"),
+            Path("examples/lesson-06/populate_database.py"),
+            Path("examples/lesson-06/vector_search.py"),
+            Path("examples/lesson-06/keyword_search.py"),
+            Path("examples/lesson-06/hybrid_search.py"),
         ]:
             source = path.read_text(encoding="utf-8")
 
@@ -160,8 +177,8 @@ class LessonExamplesTest(unittest.TestCase):
         environment_sample = Path("examples/.env.sample").read_text(encoding="utf-8")
         self.assertNotIn("\nRAG_DATABASE_URL=", environment_sample)
 
-    def test_lesson_five_seed_loads_the_canonical_policies(self) -> None:
-        example = load_example("lesson-05/02_seed_documents.py")
+    def test_lesson_five_population_loads_the_canonical_policies(self) -> None:
+        example = load_example("lesson-05/populate_database.py")
 
         documents = example.load_documents()
 
@@ -171,11 +188,11 @@ class LessonExamplesTest(unittest.TestCase):
         )
         self.assertTrue(any("five unused days" in document.body for document in documents))
 
-    def test_lesson_six_seed_chunks_the_canonical_policies(self) -> None:
-        example = load_example("lesson-06/02_seed_documents.py")
+    def test_lesson_six_population_chunks_the_canonical_policies(self) -> None:
+        example = load_example("lesson-06/populate_database.py")
 
         documents = example.load_documents()
-        chunks = [chunk for document in documents for chunk in example.split_document(document)]
+        chunks = example.create_chunks(documents)
 
         self.assertEqual({document.id for document in documents}, EXPECTED_POLICY_IDS)
         self.assertEqual(len({chunk.id for chunk in chunks}), len(chunks))
@@ -185,21 +202,27 @@ class LessonExamplesTest(unittest.TestCase):
         )
         self.assertTrue(any("five unused days" in chunk.content for chunk in chunks))
 
-    def test_seed_step_removes_documents_that_are_no_longer_approved(self) -> None:
-        example = load_example("lesson-05/02_seed_documents.py")
+    def test_chunk_text_is_a_pure_paragraph_split(self) -> None:
+        example = load_example("lesson-06/chunk_text.py")
+
+        chunks = example.chunk_text("# Policy\n\nFirst line.\nSecond line.\n\nFinal paragraph.")
+
+        self.assertEqual(chunks, ["First line. Second line.", "Final paragraph."])
+
+    def test_population_replaces_the_lesson_document_store(self) -> None:
+        example = load_example("lesson-05/populate_database.py")
         document = example.load_documents()[0]
         connection_context = MagicMock()
         connection = connection_context.__enter__.return_value
 
         with patch.object(example.psycopg, "connect", return_value=connection_context):
-            example.seed_database("postgresql://unused", [document])
+            example.populate_database("postgresql://unused", [document])
 
-        first_query, first_parameters = connection.execute.call_args_list[0].args
-        self.assertIn("delete from lesson_05.support_documents", first_query)
-        self.assertEqual(first_parameters, ([document.id],))
+        first_query = connection.execute.call_args_list[0].args[0]
+        self.assertEqual(first_query, "delete from lesson_05.support_documents")
 
     def test_vector_examples_require_the_schema_embedding_size(self) -> None:
-        vector = load_example("lesson-06/03_vector_search.py")
+        vector = load_example("lesson-06/vector_search.py")
 
         literal = vector.vector_literal([0.0] * 768)
 
@@ -208,8 +231,56 @@ class LessonExamplesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             vector.vector_literal([0.0])
 
+    def test_vector_search_embeds_the_question_and_returns_ranked_chunks(self) -> None:
+        example = load_example("lesson-06/vector_search.py")
+        connection_context = MagicMock()
+        connection = connection_context.__enter__.return_value
+        connection.execute.return_value.fetchall.return_value = [
+            (
+                "annual-leave-policy:003",
+                "annual-leave-policy",
+                "Annual Leave Policy",
+                "Employees may carry up to five unused days.",
+                0.91,
+            )
+        ]
+
+        with (
+            patch.object(example, "create_query_embedding", return_value=[0.0] * 768) as embed,
+            patch.object(example.psycopg, "connect", return_value=connection_context),
+        ):
+            results = example.vector_search("unused holiday", "postgresql://unused", limit=3)
+
+        embed.assert_called_once_with("unused holiday")
+        self.assertEqual(results[0].chunk_id, "annual-leave-policy:003")
+        self.assertEqual(results[0].similarity, 0.91)
+        self.assertEqual(connection.execute.call_args.args[1][2], 3)
+
+    def test_keyword_search_returns_postgres_ranked_chunks(self) -> None:
+        example = load_example("lesson-06/keyword_search.py")
+        connection_context = MagicMock()
+        connection = connection_context.__enter__.return_value
+        connection.execute.return_value.fetchall.return_value = [
+            (
+                "annual-leave-policy:003",
+                "annual-leave-policy",
+                "Annual Leave Policy",
+                "Employees may carry up to five unused days.",
+                0.42,
+            )
+        ]
+
+        with patch.object(example.psycopg, "connect", return_value=connection_context):
+            results = example.keyword_search("unused holiday", "postgresql://unused", limit=4)
+
+        self.assertEqual(results[0].chunk_id, "annual-leave-policy:003")
+        self.assertEqual(results[0].score, 0.42)
+        self.assertEqual(
+            connection.execute.call_args.args[1], ("unused holiday", "unused holiday", 4)
+        )
+
     def test_hybrid_rag_fuses_keyword_and_vector_rankings(self) -> None:
-        example = load_example("lesson-06/hybrid_policy_agent/search.py")
+        example = load_example("lesson-06/hybrid_search.py")
 
         scores = example.reciprocal_rank_fusion(
             [
@@ -220,6 +291,31 @@ class LessonExamplesTest(unittest.TestCase):
 
         self.assertGreater(scores["annual-leave-policy:001"], scores["expenses-policy:001"])
         self.assertGreater(scores["annual-leave-policy:001"], scores["remote-working-policy:001"])
+
+    def test_hybrid_search_composes_the_two_plain_search_functions(self) -> None:
+        example = load_example("lesson-06/hybrid_search.py")
+        shared = SimpleNamespace(
+            chunk_id="annual-leave-policy:001",
+            document_id="annual-leave-policy",
+            title="Annual Leave Policy",
+            content="Employees may carry unused leave forward.",
+        )
+        keyword_only = SimpleNamespace(
+            chunk_id="expenses-policy:001",
+            document_id="expenses-policy",
+            title="Expenses Policy",
+            content="Submit claims within 30 days.",
+        )
+
+        with (
+            patch.object(example, "keyword_search", return_value=[shared, keyword_only]) as keyword,
+            patch.object(example, "vector_search", return_value=[shared]) as vector,
+        ):
+            results = example.hybrid_search("unused holiday", "postgresql://unused", limit=2)
+
+        keyword.assert_called_once_with("unused holiday", "postgresql://unused", 2)
+        vector.assert_called_once_with("unused holiday", "postgresql://unused", 2)
+        self.assertEqual(results[0].chunk_id, shared.chunk_id)
 
     def test_lesson_four_keeps_hand_built_and_adk_agents(self) -> None:
         hand_built = Path("examples/lesson-04/01_agent_by_hand.py")
