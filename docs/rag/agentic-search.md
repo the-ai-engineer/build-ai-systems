@@ -40,7 +40,7 @@ That makes the behaviour easier to inspect and is why the production course appl
 Complete the [PostgreSQL document-store setup](postgres-document-store.md), then run:
 
 ```bash
-uv run python examples/lesson-05/agentic_search.py \
+uv run python examples/lesson-05/step_03_agentic_search.py \
   "How many days of annual leave can I carry into next year?"
 ```
 
@@ -49,7 +49,7 @@ The ADK agent should call `list_support_documents`, choose `annual-leave-policy`
 Try an unsupported question:
 
 ```bash
-uv run python examples/lesson-05/agentic_search.py \
+uv run python examples/lesson-05/step_03_agentic_search.py \
   "Does the company provide a bicycle repair allowance?"
 ```
 

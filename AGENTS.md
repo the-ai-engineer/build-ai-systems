@@ -127,18 +127,18 @@ Use Google Cloud ADC for the ADK agent:
 
 ```bash
 createdb rag_lesson
-psql rag_lesson < examples/lesson-05/01_setup.sql
-uv run python examples/lesson-05/populate_database.py
-uv run python examples/lesson-05/agentic_search.py
+psql rag_lesson < examples/lesson-05/step_01_setup.sql
+uv run python examples/lesson-05/step_02_populate_database.py
+uv run python examples/lesson-05/step_03_agentic_search.py
 ```
 
 Run the standalone Lesson 06 vector and hybrid examples against the shared local pgvector database:
 
 ```bash
-psql rag_lesson < examples/lesson-06/01_setup.sql
-uv run python examples/lesson-06/chunk_text.py
-uv run python examples/lesson-06/populate_database.py
-uv run python examples/lesson-06/vector_search.py
-uv run python examples/lesson-06/keyword_search.py
-uv run python examples/lesson-06/hybrid_search.py
+psql rag_lesson < examples/lesson-06/step_01_setup.sql
+uv run python examples/lesson-06/step_02_chunk_text.py
+uv run python examples/lesson-06/step_03_populate_database.py
+uv run python examples/lesson-06/step_04_vector_search.py
+uv run python examples/lesson-06/step_05_keyword_search.py
+uv run python examples/lesson-06/step_06_hybrid_search.py
 ```

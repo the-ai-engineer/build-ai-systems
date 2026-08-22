@@ -1,4 +1,4 @@
--- Lesson 05 owns a small document store for the agentic RAG example.
+-- Step 1: Create the Lesson 05 document store.
 create schema if not exists lesson_05;
 
 create table if not exists lesson_05.support_documents (

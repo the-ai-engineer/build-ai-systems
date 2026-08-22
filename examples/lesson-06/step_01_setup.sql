@@ -1,4 +1,4 @@
--- Lesson 06 uses its own schema so it cannot change the production application.
+-- Step 1: Create the Lesson 06 search schema and indexes.
 create extension if not exists vector;
 create schema if not exists lesson_06;
 

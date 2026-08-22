@@ -72,12 +72,13 @@ erDiagram
     }
 ```
 
-The lesson follows five visible steps:
+The lesson follows six visible steps that match its filenames:
 
-1. Split Markdown with `chunk_text()`.
-2. Populate PostgreSQL with chunks and embeddings.
-3. Run `vector_search()`.
-4. Run `keyword_search()`.
-5. Combine both rankings with `hybrid_search()` and Reciprocal Rank Fusion.
+1. Create the schema and indexes with `step_01_setup.sql`.
+2. Split Markdown with `step_02_chunk_text.py`.
+3. Populate PostgreSQL with `step_03_populate_database.py`.
+4. Run vector search with `step_04_vector_search.py`.
+5. Run keyword search with `step_05_keyword_search.py`.
+6. Combine both rankings with `step_06_hybrid_search.py` and Reciprocal Rank Fusion.
 
 Later course lessons do not depend on Lesson 06.

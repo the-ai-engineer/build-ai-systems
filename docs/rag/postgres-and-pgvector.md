@@ -5,7 +5,8 @@ Its `lesson_06` schema keeps this teaching data separate from the complete-docum
 
 ## What you will create
 
-The raw SQL in [`01_setup.sql`](../../examples/lesson-06/01_setup.sql) creates:
+The raw SQL in
+[`step_01_setup.sql`](../../examples/lesson-06/step_01_setup.sql) creates:
 
 - `lesson_06.support_documents` for complete approved policies
 - `lesson_06.support_document_chunks` for paragraph-sized chunks
@@ -63,7 +64,7 @@ If `rag_lesson` already exists, continue.
 ## 4. Apply the raw SQL
 
 ```bash
-psql rag_lesson < examples/lesson-06/01_setup.sql
+psql rag_lesson < examples/lesson-06/step_01_setup.sql
 ```
 
 This enables pgvector in `rag_lesson` and creates the Lesson 06 schema, tables, and indexes.
@@ -75,22 +76,25 @@ Inspect the schema:
 psql rag_lesson -c '\d lesson_06.support_document_chunks'
 ```
 
-## 5. Follow the teaching sequence
+## 5. Run the numbered examples
 
-### Step 1: Chunk text
+The setup SQL you applied above is Step 1.
+The remaining filenames continue in the order you run them.
+
+### Step 2: Chunk text
 
 Run the pure text transformation before introducing the database or embedding model:
 
 ```bash
-uv run python examples/lesson-06/chunk_text.py
+uv run python examples/lesson-06/step_02_chunk_text.py
 ```
 
 The `chunk_text()` function splits one policy on paragraph boundaries and omits its title heading.
 
-### Step 2: Populate PostgreSQL
+### Step 3: Populate PostgreSQL
 
 ```bash
-uv run python examples/lesson-06/populate_database.py
+uv run python examples/lesson-06/step_03_populate_database.py
 ```
 
 The population command reads the canonical Markdown files in `policies/`.
@@ -104,22 +108,22 @@ psql rag_lesson -c \
   'select document_id, count(*) from lesson_06.support_document_chunks group by document_id order by document_id;'
 ```
 
-### Step 3: Vector search
+### Step 4: Vector search
 
 ```bash
-uv run python examples/lesson-06/vector_search.py
+uv run python examples/lesson-06/step_04_vector_search.py
 ```
 
-### Step 4: Keyword search
+### Step 5: Keyword search
 
 ```bash
-uv run python examples/lesson-06/keyword_search.py
+uv run python examples/lesson-06/step_05_keyword_search.py
 ```
 
-### Step 5: Hybrid search with RRF
+### Step 6: Hybrid search with RRF
 
 ```bash
-uv run python examples/lesson-06/hybrid_search.py
+uv run python examples/lesson-06/step_06_hybrid_search.py
 ```
 
 ## How the ingestion path works
@@ -161,7 +165,7 @@ First inspect my operating system, PostgreSQL version, pg_config path, running s
 Use my native local PostgreSQL installation, not Docker, and reuse the rag_lesson database from Lesson 05.
 If pgvector is missing, identify the official install command for my PostgreSQL version and wait for my approval before installing it.
 Do not delete or overwrite any existing database, role, schema, or configuration.
-Apply examples/lesson-06/01_setup.sql, verify the vector extension and both indexes, then run the chunking, population, vector, keyword, and hybrid examples.
+Apply examples/lesson-06/step_01_setup.sql, verify the vector extension and both indexes, then run the chunking, population, vector, keyword, and hybrid examples.
 Use the Google Cloud settings in examples/.env without printing credentials.
 Finish with the verification results and the commands I can use next time.
 ```

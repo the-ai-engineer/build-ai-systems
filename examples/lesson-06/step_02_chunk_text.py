@@ -1,4 +1,4 @@
-"""Split policy Markdown into paragraph-sized chunks."""
+"""Step 2: Split policy Markdown into paragraph-sized chunks."""
 
 from __future__ import annotations
 

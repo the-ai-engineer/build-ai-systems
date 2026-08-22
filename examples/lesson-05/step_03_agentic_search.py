@@ -1,4 +1,4 @@
-"""Agentic search over complete policy documents stored in PostgreSQL."""
+"""Step 3: Run agentic search over complete PostgreSQL documents."""
 
 from __future__ import annotations
 
