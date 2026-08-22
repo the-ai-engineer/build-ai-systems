@@ -52,7 +52,7 @@ Do not add application structure or infrastructure before the relevant linked ta
 - Show provider boundaries without pretending provider capabilities are identical.
 - Keep structured outputs, tool calls, and agent loops tied to real product decisions.
 - Teach agentic RAG over complete PostgreSQL documents in Lesson 05.
-- Keep Lesson 06 as a standalone comparison of vector and hybrid search that later production lessons do not depend on.
+- Keep Lesson 06 as a standalone comparison of vector, keyword, and hybrid search that later production lessons do not depend on.
 - Use raw SQL to make the lesson schema and pgvector indexes visible.
 - Keep vector and hybrid retrieval optional in the production application.
 - Use Google Cloud as the deployment target.
@@ -128,15 +128,17 @@ Use Google Cloud ADC for the ADK agent:
 ```bash
 createdb rag_lesson
 psql rag_lesson < examples/lesson-05/01_setup.sql
-uv run python examples/lesson-05/02_seed_documents.py
-uv run python examples/lesson-05/03_agentic_rag.py
+uv run python examples/lesson-05/populate_database.py
+uv run python examples/lesson-05/agentic_search.py
 ```
 
 Run the standalone Lesson 06 vector and hybrid examples against the shared local pgvector database:
 
 ```bash
 psql rag_lesson < examples/lesson-06/01_setup.sql
-uv run python examples/lesson-06/02_seed_documents.py
-uv run python examples/lesson-06/03_vector_search.py
-uv run python examples/lesson-06/04_hybrid_search.py
+uv run python examples/lesson-06/chunk_text.py
+uv run python examples/lesson-06/populate_database.py
+uv run python examples/lesson-06/vector_search.py
+uv run python examples/lesson-06/keyword_search.py
+uv run python examples/lesson-06/hybrid_search.py
 ```

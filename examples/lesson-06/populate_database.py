@@ -1,4 +1,4 @@
-"""Load the Lesson 06 policies and create their chunk embeddings."""
+"""Populate PostgreSQL with policy chunks and their embeddings."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ import psycopg
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+
+from chunk_text import chunk_text
 
 
 POLICY_DIR = Path(__file__).parents[2] / "policies"
@@ -52,21 +54,16 @@ def load_documents() -> list[SupportDocument]:
     return documents
 
 
-def split_document(document: SupportDocument) -> list[DocumentChunk]:
-    """Split Markdown on paragraph boundaries and omit the title heading."""
-    paragraphs = [
-        paragraph.replace("\n", " ").strip()
-        for paragraph in document.body.split("\n\n")
-        if paragraph.strip() and not paragraph.lstrip().startswith("# ")
-    ]
+def create_chunks(documents: list[SupportDocument]) -> list[DocumentChunk]:
     return [
         DocumentChunk(
             id=f"{document.id}:{index:03d}",
             document_id=document.id,
             index=index,
-            content=paragraph,
+            content=content,
         )
-        for index, paragraph in enumerate(paragraphs)
+        for document in documents
+        for index, content in enumerate(chunk_text(document.body))
     ]
 
 
@@ -88,7 +85,7 @@ def create_embeddings(texts: list[str]) -> list[list[float]]:
     return embeddings
 
 
-def seed_database(
+def populate_database(
     database_url: str,
     documents: list[SupportDocument],
     chunks: list[DocumentChunk],
@@ -98,14 +95,7 @@ def seed_database(
         raise ValueError("Every chunk must have one embedding.")
 
     with psycopg.connect(database_url) as connection:
-        document_ids = [document.id for document in documents]
-        connection.execute(
-            """
-            delete from lesson_06.support_documents
-            where not (id = any(%s))
-            """,
-            (document_ids,),
-        )
+        connection.execute("delete from lesson_06.support_documents")
 
         for document in documents:
             connection.execute(
@@ -113,12 +103,6 @@ def seed_database(
                 insert into lesson_06.support_documents
                     (id, title, summary, body, content_hash)
                 values (%s, %s, %s, %s, %s)
-                on conflict (id) do update set
-                    title = excluded.title,
-                    summary = excluded.summary,
-                    body = excluded.body,
-                    content_hash = excluded.content_hash,
-                    updated_at = now()
                 """,
                 (
                     document.id,
@@ -128,11 +112,6 @@ def seed_database(
                     document.content_hash,
                 ),
             )
-            connection.execute(
-                "delete from lesson_06.support_document_chunks where document_id = %s",
-                (document.id,),
-            )
-
         for chunk, embedding in zip(chunks, embeddings, strict=True):
             connection.execute(
                 """
@@ -181,15 +160,16 @@ def required_environment(name: str) -> str:
 def main() -> None:
     load_dotenv(Path(__file__).parents[1] / ".env")
     documents = load_documents()
-    chunks = [chunk for document in documents for chunk in split_document(document)]
+    chunks = create_chunks(documents)
+    titles = {document.id: document.title for document in documents}
     embedding_texts = [
-        f"{next(doc.title for doc in documents if doc.id == chunk.document_id)}\n{chunk.content}"
+        f"{titles[chunk.document_id]}\n{chunk.content}"
         for chunk in chunks
     ]
     embeddings = create_embeddings(embedding_texts)
     database_url = os.getenv("RAG_DATABASE_URL", DEFAULT_DATABASE_URL)
-    seed_database(database_url, documents, chunks, embeddings)
-    print(f"Loaded {len(documents)} documents and {len(chunks)} chunks into Postgres.")
+    populate_database(database_url, documents, chunks, embeddings)
+    print(f"Populated Postgres with {len(documents)} documents and {len(chunks)} chunks.")
 
 
 if __name__ == "__main__":

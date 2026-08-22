@@ -44,44 +44,16 @@ fused result:   B, A, D, C
 Complete the [database setup](postgres-and-pgvector.md), then run:
 
 ```bash
-uv run python examples/lesson-06/04_hybrid_search.py \
+uv run python examples/lesson-06/hybrid_search.py \
   "Can I carry unused holiday into next year?"
 ```
 
 Each result shows its keyword rank and vector rank.
 `None` means that retrieval method did not include the chunk in its candidate list.
 
-The full-text side uses PostgreSQL's generated `tsvector` column and GIN index:
-
-```sql
-where search_vector @@ websearch_to_tsquery('english', :question)
-order by ts_rank_cd(
-    search_vector,
-    websearch_to_tsquery('english', :question)
-) desc
-```
-
-The vector side uses the same cosine query as the vector example.
-[`hybrid_policy_agent/search.py`](../../examples/lesson-06/hybrid_policy_agent/search.py) fuses the returned chunk IDs in ordinary Python so every step stays visible.
-The numbered [`04_hybrid_search.py`](../../examples/lesson-06/04_hybrid_search.py) command uses that same retrieval implementation.
-
-## Use hybrid search in ADK Web
-
-After comparing the standalone vector and hybrid results, start the local agent UI:
-
-```bash
-cd examples/lesson-06
-uv run adk web --port 8000
-```
-
-Open `http://localhost:8000`, select `hybrid_policy_agent`, and ask a policy question.
-The agent calls the same hybrid retrieval code as `04_hybrid_search.py`, then answers only from the returned policy chunks and cites their document titles.
-
-This adds a second Gemini call for the answer model after the embedding call.
-Use the standalone scripts when you want to inspect retrieval without answer generation.
-
-ADK Web is unauthenticated and intended only for local development.
-Keep it on the default `127.0.0.1` host and do not expose it to an untrusted network.
+The `hybrid_search()` function calls [`keyword_search()`](../../examples/lesson-06/keyword_search.py) and [`vector_search()`](../../examples/lesson-06/vector_search.py) directly.
+It converts their ordered results into ranks, then passes those two lists to `reciprocal_rank_fusion()`.
+Every part of the composition is ordinary Python and there is no answer agent in this lesson.
 
 ## Where reranking fits
 

@@ -75,21 +75,51 @@ Inspect the schema:
 psql rag_lesson -c '\d lesson_06.support_document_chunks'
 ```
 
-## 5. Seed documents and embeddings
+## 5. Follow the teaching sequence
+
+### Step 1: Chunk text
+
+Run the pure text transformation before introducing the database or embedding model:
 
 ```bash
-uv run python examples/lesson-06/02_seed_documents.py
+uv run python examples/lesson-06/chunk_text.py
 ```
 
-The seed command reads the canonical Markdown files in `policies/`.
+The `chunk_text()` function splits one policy on paragraph boundaries and omits its title heading.
+
+### Step 2: Populate PostgreSQL
+
+```bash
+uv run python examples/lesson-06/populate_database.py
+```
+
+The population command reads the canonical Markdown files in `policies/`.
 It stores each whole document, splits it on paragraph boundaries, and asks `gemini-embedding-001` for a 768-dimensional embedding for each chunk.
-Running it again updates current documents, replaces their chunks, and removes policies that are no longer approved.
+Running it again replaces the lesson's documents and chunks with the current approved policies.
 
 Inspect the data:
 
 ```bash
 psql rag_lesson -c \
   'select document_id, count(*) from lesson_06.support_document_chunks group by document_id order by document_id;'
+```
+
+### Step 3: Vector search
+
+```bash
+uv run python examples/lesson-06/vector_search.py
+```
+
+### Step 4: Keyword search
+
+```bash
+uv run python examples/lesson-06/keyword_search.py
+```
+
+### Step 5: Hybrid search with RRF
+
+```bash
+uv run python examples/lesson-06/hybrid_search.py
 ```
 
 ## How the ingestion path works
@@ -131,7 +161,7 @@ First inspect my operating system, PostgreSQL version, pg_config path, running s
 Use my native local PostgreSQL installation, not Docker, and reuse the rag_lesson database from Lesson 05.
 If pgvector is missing, identify the official install command for my PostgreSQL version and wait for my approval before installing it.
 Do not delete or overwrite any existing database, role, schema, or configuration.
-Apply examples/lesson-06/01_setup.sql, verify the vector extension and both indexes, then run the seed, vector search, and hybrid search examples.
+Apply examples/lesson-06/01_setup.sql, verify the vector extension and both indexes, then run the chunking, population, vector, keyword, and hybrid examples.
 Use the Google Cloud settings in examples/.env without printing credentials.
 Finish with the verification results and the commands I can use next time.
 ```

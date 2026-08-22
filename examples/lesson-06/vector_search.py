@@ -19,10 +19,10 @@ DEFAULT_DATABASE_URL = "postgresql:///rag_lesson"
 
 
 @dataclass(frozen=True)
-class SearchResult:
+class VectorResult:
+    chunk_id: str
     document_id: str
     title: str
-    chunk_id: str
     content: str
     similarity: float
 
@@ -31,6 +31,7 @@ def create_query_embedding(question: str) -> list[float]:
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
     if not project:
         raise RuntimeError("Set GOOGLE_CLOUD_PROJECT in examples/.env before running this command.")
+
     client = genai.Client(
         vertexai=True,
         project=project,
@@ -50,18 +51,18 @@ def create_query_embedding(question: str) -> list[float]:
 
 
 def vector_search(
+    question: str,
     database_url: str,
-    query_embedding: list[float],
     limit: int = 5,
-) -> list[SearchResult]:
-    embedding = vector_literal(query_embedding)
+) -> list[VectorResult]:
+    embedding = vector_literal(create_query_embedding(question))
     with psycopg.connect(database_url) as connection:
         rows = connection.execute(
             """
             select
+                c.id as chunk_id,
                 d.id as document_id,
                 d.title,
-                c.id as chunk_id,
                 c.content,
                 1 - (c.embedding <=> %s::vector) as similarity
             from lesson_06.support_document_chunks c
@@ -71,11 +72,12 @@ def vector_search(
             """,
             (embedding, embedding, limit),
         ).fetchall()
+
     return [
-        SearchResult(
-            document_id=row[0],
-            title=row[1],
-            chunk_id=row[2],
+        VectorResult(
+            chunk_id=row[0],
+            document_id=row[1],
+            title=row[2],
             content=row[3],
             similarity=float(row[4]),
         )
@@ -101,7 +103,7 @@ def main() -> None:
     args = parser.parse_args()
 
     database_url = os.getenv("RAG_DATABASE_URL", DEFAULT_DATABASE_URL)
-    results = vector_search(database_url, create_query_embedding(args.question), args.limit)
+    results = vector_search(args.question, database_url, args.limit)
 
     print(f"Question: {args.question}")
     for result in results:
