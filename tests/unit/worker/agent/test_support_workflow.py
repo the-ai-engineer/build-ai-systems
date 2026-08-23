@@ -49,7 +49,7 @@ from support_agent_app.worker.agent.agent import (
 )
 from support_agent_app.worker.agent.evidence import verify_decision
 from support_agent_app.worker.agent.pricing import estimate_run_cost, load_price_configuration
-from support_agent_app.worker.agent.prompts import INSTRUCTIONS, build_instructions
+from support_agent_app.worker.agent.prompt_loader import INSTRUCTIONS, build_instructions
 from support_agent_app.worker.agent.schemas import AgentDecision
 from support_agent_app.worker.agent.tools import (
     MAX_LOADED_DOCUMENTS,
@@ -480,15 +480,24 @@ class SupportWorkflowTests(unittest.TestCase):
         """A limit written as prose is a duplicate definition, and drifts."""
         self.assertIn(f"no more than {MAX_LOADED_DOCUMENTS} documents", INSTRUCTIONS)
         self.assertIn("no more than 7 documents", build_instructions(7))
+        self.assertNotIn("${max_documents}", INSTRUCTIONS)
 
     def test_the_prompt_states_the_human_review_output_boundary(self) -> None:
         self.assertIn(
             "For human_review, set answer to null, sources to an empty list, and reason_code.",
             INSTRUCTIONS,
         )
+        self.assertIn(
+            "First, use list_support_documents to see which policies are available.",
+            INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Use get_support_document to read each policy you need before answering.",
+            INSTRUCTIONS,
+        )
         self.assertIn("Answer every supported part of the question", INSTRUCTIONS)
         self.assertIn("Keep answer under 60 words and reason under 20 words", INSTRUCTIONS)
-        self.assertIn("without exploratory loads", INSTRUCTIONS)
+        self.assertIn("without loading documents to explore", INSTRUCTIONS)
 
     def test_workflow_timeout_bounds_the_complete_agent_run(self) -> None:
         class SlowModel(BaseLlm):
