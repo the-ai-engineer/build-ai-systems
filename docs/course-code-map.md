@@ -20,7 +20,7 @@ that link and this table have to agree.
 | 8 | Run and Understand the Local Policy Assistant | `migrations/`, `app/support_agent_app/worker/`, `app/support_agent_app/database/`, `app/support_agent_app/demos/run_workflow.py`, `app/support_agent_app/demos/seed_request.py` |
 | 9 | Deploy the Private Worker to Google Cloud | `Dockerfile`, `scripts/provision-dev.sh`, `scripts/build-and-push.sh`, `scripts/deploy-dev.sh`, `docs/worker-authentication.md`, `docs/resources/deploy-with-codex-prompt.md` |
 | 10 | Connect and Deploy the Slack Webhook | `app/support_agent_app/api/`, `app/support_agent_app/api/task_queue.py`, `slack/`, `docs/slack-setup.md`, `app/support_agent_app/demos/send_slack_event.py`, `docs/deploying-to-cloud-run.md` |
-| 11 | Test and Evaluate the Complete System | `tests/unit/`, `tests/functional/`, `tests/evals/`, `app/support_agent_app/testing/fixtures.py`, `app/support_agent_app/demos/run_state_machine.py`, `docs/resources/hr-policy-demo-questions.md` |
+| 11 | Test and Evaluate the Complete System | `tests/unit/`, `tests/functional/`, `tests/evals/cases.py`, `tests/evals/run_evals.py`, `tests/evals/test_*_eval.py`, `docs/resources/evals/`, `app/support_agent_app/testing/fixtures.py`, `app/support_agent_app/demos/run_state_machine.py`, `docs/resources/hr-policy-demo-questions.md` |
 | 12 | Operate and Improve the Cloud System | `ARCHITECTURE.md`, `docs/final-agent-spec.md`, `docs/deploying-to-cloud-run.md`. Planned: recovery and retention jobs, dashboards, alerts, load checks, and operational runbooks |
 
 ## Commands the lessons tell students to run
@@ -46,6 +46,9 @@ uv run python examples/lesson-06/keyword_search.py
 uv run python examples/lesson-06/hybrid_search.py
 
 uv run python -m unittest discover -s tests/unit -t .
+GOOGLE_CLOUD_PROJECT=your-project \
+GOOGLE_CLOUD_LOCATION=global \
+uv run python -m tests.evals.run_evals --case hotel_limit
 uv run demo-workflow --fixture documented
 uv run demo-workflow --fixture unsupported
 uv run demo-workflow --fixture invalid-evidence

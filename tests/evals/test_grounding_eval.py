@@ -16,14 +16,13 @@ import unittest
 
 from support_agent_app.testing.fixtures import POLICY_DIRECTORY
 
+from tests.evals.cases import GROUNDING
 from tests.evals.eval_case import EvalCase
-
-DOCUMENTED = "Can unused annual leave be carried into next year?"
 
 
 class GroundingEval(EvalCase):
     def test_a_supported_question_is_answered_with_a_verifiable_citation(self) -> None:
-        outcome = self.run_question(DOCUMENTED)
+        outcome = self.run_question(GROUNDING.question)
 
         self.assertEqual(
             outcome.result.decision,
@@ -34,7 +33,7 @@ class GroundingEval(EvalCase):
         self.assertTrue(outcome.result.sources)
 
     def test_every_cited_excerpt_really_appears_in_its_source_file(self) -> None:
-        outcome = self.run_question(DOCUMENTED)
+        outcome = self.run_question(GROUNDING.question)
         if outcome.result.decision != "answer":
             self.skipTest("the model did not produce an answer for this run")
 
@@ -47,7 +46,7 @@ class GroundingEval(EvalCase):
             )
 
     def test_the_answer_does_not_invent_a_source(self) -> None:
-        outcome = self.run_question(DOCUMENTED)
+        outcome = self.run_question(GROUNDING.question)
         if outcome.result.decision != "answer":
             self.skipTest("the model did not produce an answer for this run")
 

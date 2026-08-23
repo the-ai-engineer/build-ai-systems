@@ -34,7 +34,7 @@ app/support_agent_app/
   worker/         The private worker, whole
     main.py auth.py process_request.py deadlines.py failures.py
     messaging.py model_provider.py
-    agent/        prompts.py tools.py schemas.py evidence.py agent.py pricing.py
+    agent/        agent.py prompt_loader.py prompts/ tools.py schemas.py evidence.py pricing.py
   application/    The contract the two services share, and nothing else
     domain.py lifecycle.py protocols.py failures.py
   database/       Connections, migrations, repositories
@@ -58,6 +58,10 @@ and a runtime catches. Anything used by one service lives in that service.
 - `database/` owns SQL, transactions, and row mapping. Migrations live in root `migrations/`.
 - Provider detail stays inside its adapter. Slack error codes and httpx exceptions do not escape `worker/messaging.py`.
 - `testing/` owns the deterministic adapters, in-memory repositories, and fixtures.
+
+The production agent instructions live in `agent/prompts/support_agent.txt`.
+`prompt_loader.py` reads that packaged resource and substitutes the document limit from the same constant the tools enforce.
+The prompt is part of the immutable application wheel, not runtime configuration, so a prompt change follows the same review, eval, image build, and deployment path as a code change.
 
 ## Which way dependencies point
 
@@ -353,6 +357,9 @@ Three kinds, separated by what each is allowed to touch.
 - `tests/unit/` touches nothing external. Our own code only.
 - `tests/functional/` uses real Postgres and a stub agent runner. These are about claims, leases, retries, duplicate delivery, and the webhook-to-worker path, none of which involve a model.
 - `tests/evals/` calls the real model. Refusals, grounding, and budget adherence live here, because they are claims about a model and only a model can answer them.
+
+`tests/evals/cases.py` is the canonical live-model case set.
+The unittest files make focused regression claims, while `tests/evals/run_evals.py` runs each selected case once and reports the decision, sources, safe usage metadata, category results, and must-pass failures.
 
 Unit and functional tests never invoke a model. The rule that decides this:
 

@@ -46,7 +46,7 @@ def build_adk_tools(dependencies: WorkflowDependencies) -> list[Callable[..., ob
     """Bind the request-scoped repository to the two ADK function tools."""
 
     def list_support_documents_tool() -> list[dict[str, object]]:
-        """List the active policy index before choosing policy evidence."""
+        """List the active policies before deciding which ones to read."""
         return [item.model_dump(mode="json") for item in list_support_documents(dependencies)]
 
     def get_support_document_tool(document_id: str) -> dict[str, object]:

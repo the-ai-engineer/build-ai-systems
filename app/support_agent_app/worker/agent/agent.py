@@ -26,7 +26,7 @@ from ...application.domain import (
 from ...application.protocols import PolicyRepository
 from ..model_provider import ModelSelection
 from .evidence import verify_decision
-from .prompts import INSTRUCTIONS
+from .prompt_loader import INSTRUCTIONS
 from .schemas import AgentDecision
 from .tools import WorkflowDependencies, build_adk_tools
 
