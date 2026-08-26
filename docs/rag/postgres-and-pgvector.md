@@ -85,6 +85,13 @@ Run the pure text transformation before introducing the database or embedding mo
 uv run python examples/lesson-06/chunk_text.py
 ```
 
+In IPython, run the file and then call `show_chunks()` with any policy ID you want to inspect:
+
+```python
+%run examples/lesson-06/chunk_text.py
+show_chunks("expenses-policy")
+```
+
 The `chunk_text()` function splits one policy on paragraph boundaries and omits its title heading.
 
 ### Step 2: Populate PostgreSQL
