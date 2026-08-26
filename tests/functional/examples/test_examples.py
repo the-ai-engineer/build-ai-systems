@@ -253,6 +253,35 @@ class LessonExamplesTest(unittest.TestCase):
 
         self.assertEqual(chunks, ["First line. Second line.", "Final paragraph."])
 
+    def test_chunk_text_runs_from_terminal_and_ipykernel(self) -> None:
+        terminal = subprocess.run(
+            [sys.executable, "examples/lesson-06/chunk_text.py", "expenses-policy"],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(terminal.returncode, 0, msg=terminal.stderr)
+        self.assertIn("Every claim must include a receipt", terminal.stdout)
+
+        kernel = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; from pathlib import Path; "
+                    "sys.argv = ['ipykernel_launcher.py', '--f=/tmp/kernel.json']; "
+                    "path = Path('examples/lesson-06/chunk_text.py'); "
+                    "exec(compile(path.read_text(), str(path), 'exec'), "
+                    "{'__name__': '__main__', '__file__': str(path)})"
+                ),
+            ],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+        self.assertEqual(kernel.returncode, 0, msg=kernel.stderr)
+        self.assertIn("Chunk 1", kernel.stdout)
+
     def test_population_replaces_the_lesson_document_store(self) -> None:
         example = load_example("lesson-05/populate_database.py")
         document = example.load_documents()[0]
