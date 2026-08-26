@@ -130,6 +130,7 @@ createdb rag_lesson
 psql rag_lesson < examples/lesson-05/01_setup.sql
 uv run python examples/lesson-05/populate_database.py
 uv run python examples/lesson-05/agentic_search.py
+(cd examples/lesson-05 && uv run adk web --port 8000)
 ```
 
 Run the standalone Lesson 06 vector and hybrid examples against the shared local pgvector database:
