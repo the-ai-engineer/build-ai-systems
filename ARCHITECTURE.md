@@ -155,7 +155,8 @@ Migrations are never applied at application startup. An operator runs `apply-mig
 
 Lesson 05 has a separate, teaching-only `lesson_05` schema in the local `rag_lesson` database.
 It stores complete documents for the agentic RAG example.
-Its one `agentic_search.py` command keeps the narrow document tools, ADK agent, and command-line entry point together so students can read the complete pattern in one file.
+Its `policy_agent` package keeps the file-backed prompt, narrow document tools, and ADK `root_agent` together.
+The `agentic_search.py` command and ADK Web both run that same agent.
 Lesson 06 uses the same local database and owns a separate `lesson_06` schema with document chunks, Google embeddings, a pgvector HNSW index, and a PostgreSQL full-text index.
 Its standalone scripts expose chunking, population, vector search, keyword search, and hybrid search as direct functions.
 `hybrid_search` calls the vector and keyword functions, then combines their ordered results with Reciprocal Rank Fusion in ordinary Python.

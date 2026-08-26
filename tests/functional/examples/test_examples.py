@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import importlib
 import importlib.util
 import os
@@ -8,7 +9,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 EXPECTED_POLICY_IDS = {
     "annual-leave-policy",
@@ -82,14 +83,17 @@ class LessonExamplesTest(unittest.TestCase):
         self.assertIn("lesson_05.support_documents", sql)
         self.assertNotIn("support_document_chunks", sql)
         self.assertNotIn("vector", sql.lower())
-        source = Path("examples/lesson-05/agentic_search.py").read_text(encoding="utf-8")
+        source = Path("examples/lesson-05/policy_agent/agent.py").read_text(encoding="utf-8")
         self.assertIn("lesson_05.support_documents", source)
 
-    def test_lesson_five_has_one_visible_agentic_search_command(self) -> None:
+    def test_lesson_five_exposes_cli_and_adk_web(self) -> None:
         example = load_example("lesson-05/agentic_search.py")
+        agent_module = load_example("lesson-05/policy_agent/agent.py")
+        agent_package = Path("examples/lesson-05/policy_agent")
+        prompt = (agent_package / "prompt.txt").read_text(encoding="utf-8").strip()
 
         with patch.dict(os.environ, {}, clear=True):
-            agent = example.build_agent("postgresql://unused")
+            agent = agent_module.build_agent("postgresql://unused")
         self.assertEqual(agent.name, "policy_agent")
         self.assertEqual(agent.model, "gemini-3.7-flash")
         self.assertEqual(
@@ -97,7 +101,21 @@ class LessonExamplesTest(unittest.TestCase):
             ["list_support_documents", "read_support_document"],
         )
         self.assertTrue(callable(example.agentic_search))
-        self.assertFalse(Path("examples/lesson-05/policy_agent/__init__.py").exists())
+        self.assertTrue((agent_package / "__init__.py").is_file())
+        self.assertEqual(agent.instruction, prompt)
+
+        event = MagicMock()
+        event.is_final_response.return_value = True
+        event.content = SimpleNamespace(parts=[SimpleNamespace(text="answer")])
+        runner = MagicMock()
+        runner.run_debug = AsyncMock(return_value=[event])
+        runner.close = AsyncMock()
+
+        with patch.object(example, "InMemoryRunner", return_value=runner) as runner_class:
+            result = asyncio.run(example.agentic_search("question"))
+
+        self.assertEqual(result, "answer")
+        runner_class.assert_called_once_with(agent=example.root_agent, app_name="policy_agent")
 
         command = subprocess.run(
             [sys.executable, "examples/lesson-05/agentic_search.py", "--help"],
@@ -109,12 +127,38 @@ class LessonExamplesTest(unittest.TestCase):
         self.assertIn("Let an agent choose and read a policy.", command.stdout)
 
     def test_lesson_five_allows_a_model_override(self) -> None:
-        example = load_example("lesson-05/agentic_search.py")
+        example = load_example("lesson-05/policy_agent/agent.py")
 
         with patch.dict(os.environ, {"SUPPORT_AGENT_MODEL": "review-override"}):
             agent = example.build_agent("postgresql://unused")
 
         self.assertEqual(agent.model, "review-override")
+
+    def test_lesson_five_adk_web_uses_the_database_override(self) -> None:
+        database_url = "postgresql://lesson-web"
+
+        with patch.dict(os.environ, {"RAG_DATABASE_URL": database_url}):
+            example = load_example("lesson-05/policy_agent/agent.py")
+
+        connection_context = MagicMock()
+        connection_context.__enter__.return_value.execute.return_value.fetchall.return_value = []
+
+        with patch.object(example.psycopg, "connect", return_value=connection_context) as connect:
+            example.root_agent.tools[0]()
+
+        connect.assert_called_once_with(database_url)
+
+    def test_lesson_five_guide_keeps_cross_platform_setup_runnable(self) -> None:
+        guide = Path("docs/rag/postgres-document-store.md").read_text(encoding="utf-8")
+
+        self.assertIn("POSIX shell and PowerShell", guide)
+        self.assertNotIn("command -v psql", guide)
+        self.assertNotIn("< examples/lesson-05/01_setup.sql", guide)
+        self.assertIn("-f examples/lesson-05/01_setup.sql", guide)
+        self.assertLess(
+            guide.index("[Docling]"),
+            guide.index("uv run python examples/lesson-05/populate_database.py"),
+        )
 
     def test_lesson_six_uses_pgvector_and_full_text_search(self) -> None:
         sql = Path("examples/lesson-06/01_setup.sql").read_text(encoding="utf-8")
@@ -161,7 +205,7 @@ class LessonExamplesTest(unittest.TestCase):
     def test_retrieval_examples_default_to_local_postgres_socket(self) -> None:
         for path in [
             Path("examples/lesson-05/populate_database.py"),
-            Path("examples/lesson-05/agentic_search.py"),
+            Path("examples/lesson-05/policy_agent/agent.py"),
             Path("examples/lesson-06/populate_database.py"),
             Path("examples/lesson-06/vector_search.py"),
             Path("examples/lesson-06/keyword_search.py"),

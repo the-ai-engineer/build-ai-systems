@@ -528,7 +528,8 @@ Examples are grouped by the lesson that uses them.
 
 The model examples require the matching provider credentials.
 Lesson 05 uses Google ADK, Gemini, and PostgreSQL.
-Its agent, tools, and command-line entry point live together in `agentic_search.py`.
+Its agent, prompt, and PostgreSQL tools live in `policy_agent/`.
+You can run the same agent through `agentic_search.py` or ADK Web.
 Lesson 06 uses Gemini embeddings, PostgreSQL, and pgvector.
 Its scripts follow the teaching sequence directly: chunk text, populate PostgreSQL, run vector search, run keyword search, then combine both rankings with RRF.
 Start with the public [RAG implementation guides](docs/rag/README.md).
