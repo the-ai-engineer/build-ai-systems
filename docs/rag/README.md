@@ -14,6 +14,8 @@ The course separates the production retrieval choice from three optional alterna
 | [Keyword search](keyword-search.md) | Chunks containing matching words | Exact identifiers, names, and rare terms | Paraphrases can be missed |
 | [Hybrid search](hybrid-search.md) | Chunks found by both semantic and keyword search | General-purpose search over mixed content | More moving parts to tune and observe |
 
+For a simple conceptual introduction before the implementation details, read [Four Search Methods for Production AI Systems](https://learn.aiengineer.co/resources/four-search-methods-for-production-ai-systems).
+
 Structured SQL retrieval is also a form of retrieval-augmented generation.
 It is a good fit when the answer already lives in typed rows and columns, such as an order status or account balance.
 It is mentioned in the lesson, but it is not a fourth demo because the course problem is document retrieval.
